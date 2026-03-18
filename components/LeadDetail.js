@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { LEAD_STAGES, LEAD_STAGE_COLORS, LEAD_SUBSTEPS, LEAD_TIERS, PRIORITIES, fmt } from '../lib/constants';
+import { LEAD_STAGES, LEAD_STAGE_COLORS, LEAD_SUBSTEPS, LEAD_TIERS, PRIORITIES, catalystTagClass, fmt } from '../lib/constants';
 import { updateRow, convertLeadToDeal, convertLeadToProperty, insertRow } from '../lib/db';
 
 const MODEL = 'claude-sonnet-4-20250514';
@@ -255,7 +255,7 @@ export default function LeadDetail({ lead, activities, tasks, properties, onRefr
         <div className="card" style={{ marginBottom: '16px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Catalyst Tags</h3>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            {lead.catalyst_tags.map((tag) => <span key={tag} className="tag tag-amber" style={{ fontSize: '15px' }}>{tag}</span>)}
+            {lead.catalyst_tags.map((tag) => <span key={tag} className={`tag ${catalystTagClass(tag)}`} style={{ fontSize: '15px' }}>{tag}</span>)}
           </div>
         </div>
       )}

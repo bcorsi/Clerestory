@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { LEAD_STAGES, LEAD_STAGE_COLORS, LEAD_SUBSTEPS, LEAD_KILL_REASONS } from '../lib/constants';
+import { LEAD_STAGES, LEAD_STAGE_COLORS, LEAD_SUBSTEPS, LEAD_KILL_REASONS, catalystTagClass } from '../lib/constants';
 import { updateRow, convertLeadToDeal, insertRow } from '../lib/db';
 
 const MODEL = 'claude-sonnet-4-20250514';
@@ -144,7 +144,7 @@ export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
 
         {lead.catalyst_tags?.length > 0 && (
           <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
-            {lead.catalyst_tags.slice(0, 2).map((t) => <span key={t} className="tag tag-ghost" style={{ fontSize: '15px' }}>{t}</span>)}
+            {lead.catalyst_tags.slice(0, 2).map((t) => <span key={t} className={`tag ${catalystTagClass(t)}`} style={{ fontSize: '15px' }}>{t}</span>)}
           </div>
         )}
 

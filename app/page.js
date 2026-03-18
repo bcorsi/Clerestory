@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, isConfigured, getSession, onAuthStateChange, signOut } from '../lib/supabase';
-import { fetchProperties, fetchAll, globalSearch, getTodayBrief, saveDailyBrief } from '../lib/db';
+import { fetchProperties, fetchAll, globalSearch, getTodayBrief, saveDailyBrief, fetchNotes, fetchFollowUps } from '../lib/db';
 import { DEAL_STAGES, STAGE_COLORS, fmt } from '../lib/constants';
 import AuthGate from '../components/AuthGate';
 import Sidebar from '../components/Sidebar';
@@ -47,6 +47,8 @@ export default function App() {
   const [tasks, setTasks] = useState([]);
   const [leaseComps, setLeaseComps] = useState([]);
   const [saleComps, setSaleComps] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [followUps, setFollowUps] = useState([]);
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [selectedLead, setSelectedLead] = useState(null);
   const [selectedDeal, setSelectedDeal] = useState(null);
@@ -75,7 +77,7 @@ export default function App() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [props, lds, dls, cts, accts, acts, tks, lcs, scs] = await Promise.all([
+      const [props, lds, dls, cts, accts, acts, tks, lcs, scs, nts, fus] = await Promise.all([
         fetchProperties(),
         fetchAll('leads', { order: 'created_at' }),
         fetchAll('deals', { order: 'created_at' }),
@@ -85,10 +87,13 @@ export default function App() {
         fetchAll('tasks', { order: 'created_at' }),
         fetchAll('lease_comps', { order: 'created_at' }),
         fetchAll('sale_comps', { order: 'created_at' }),
+        fetchNotes(),
+        fetchFollowUps(),
       ]);
       setProperties(props); setLeads(lds); setDeals(dls); setContacts(cts);
       setAccounts(accts); setActivities(acts); setTasks(tks);
       setLeaseComps(lcs); setSaleComps(scs);
+      setNotes(nts); setFollowUps(fus);
       setSelectedProperty((prev) => prev ? props.find((p) => p.id === prev.id) || prev : prev);
       setSelectedLead((prev) => prev ? lds.find((l) => l.id === prev.id) || prev : prev);
       setSelectedDeal((prev) => prev ? dls.find((d) => d.id === prev.id) || prev : prev);
@@ -277,7 +282,7 @@ export default function App() {
           ) : (<>
             {page === 'dashboard' && <Dashboard properties={properties} deals={deals} leads={leads} contacts={contacts} leaseComps={leaseComps} saleComps={saleComps} tasks={tasks} activities={activities} onPropertyClick={openProperty} onDealClick={openDeal} onLeadClick={openLead} onContactClick={openContact} setPage={setPage} morningBrief={morningBrief} setMorningBrief={setMorningBrief} saveDailyBrief={saveDailyBrief} />}
             {page === 'properties' && <PropertiesList properties={properties} onPropertyClick={openProperty} />}
-            {page === 'property-detail' && selectedProperty && <PropertyDetail property={selectedProperty} deals={deals} leads={leads} contacts={contacts} leaseComps={leaseComps} saleComps={saleComps} activities={activities} tasks={tasks} onLeaseCompClick={openLeaseComp} onDealClick={openDeal} onLeadClick={openLead} onContactClick={openContact} onAddActivity={(propId) => setModal({ type: 'add-activity', defaultPropertyId: propId })} onAddTask={(propId) => setModal({ type: 'add-task', defaultPropertyId: propId })} accounts={accounts} showToast={showToast} onRefresh={loadData} />}
+            {page === 'property-detail' && selectedProperty && <PropertyDetail property={selectedProperty} deals={deals} leads={leads} contacts={contacts} leaseComps={leaseComps} saleComps={saleComps} activities={activities} tasks={tasks} notes={notes} followUps={followUps} onLeaseCompClick={openLeaseComp} onDealClick={openDeal} onLeadClick={openLead} onContactClick={openContact} onAddActivity={(propId) => setModal({ type: 'add-activity', defaultPropertyId: propId })} onAddTask={(propId) => setModal({ type: 'add-task', defaultPropertyId: propId })} accounts={accounts} showToast={showToast} onRefresh={loadData} />}
             {page === 'lead-gen' && <LeadGen leads={leads} onRefresh={loadData} showToast={showToast} onLeadClick={openLead} />}
             {page === 'lead-detail' && selectedLead && <LeadDetail lead={selectedLead} activities={activities} tasks={tasks} properties={properties} onRefresh={loadData} showToast={showToast} onPropertyClick={openProperty} onAddActivity={(leadId) => setModal({ type: 'add-activity', defaultLeadId: leadId })} onAddTask={(leadId) => setModal({ type: 'add-task', defaultLeadId: leadId })} onConverted={() => setPage('pipeline')} />}
             {page === 'pipeline' && <DealPipeline deals={deals} onRefresh={loadData} showToast={showToast} onDealClick={openDeal} />}

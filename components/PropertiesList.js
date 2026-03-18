@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { MARKETS, SUBMARKETS, RECORD_TYPES, VACANCY_STATUS, CATALYST_TAGS, fmt } from '../lib/constants';
+import { MARKETS, SUBMARKETS, RECORD_TYPES, VACANCY_STATUS, CATALYST_TAGS, catalystTagClass, fmt } from '../lib/constants';
 
 export default function PropertiesList({ properties, onPropertyClick }) {
   const [filterMarket, setFilterMarket] = useState('');
@@ -127,7 +127,7 @@ export default function PropertiesList({ properties, onPropertyClick }) {
                 <td>
                   <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                     {(p.catalyst_tags || []).slice(0, 3).map((tag) => (
-                      <span key={tag} className="tag tag-amber" style={{ fontSize: '15px' }}>{tag}</span>
+                      <span key={tag} className={`tag ${catalystTagClass(tag)}`} style={{ fontSize: '15px' }}>{tag}</span>
                     ))}
                     {(p.catalyst_tags || []).length > 3 && (
                       <span className="tag tag-ghost" style={{ fontSize: '15px' }}>+{p.catalyst_tags.length - 3}</span>

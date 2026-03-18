@@ -44,9 +44,9 @@ function DayOfWeek() {
 export default function Dashboard({
   properties, deals, leads, contacts, leaseComps, saleComps,
   tasks, activities,
-  onPropertyClick, onDealClick, onLeadClick, onContactClick, setPage
+  onPropertyClick, onDealClick, onLeadClick, onContactClick, setPage,
+  morningBrief, setMorningBrief, saveDailyBrief
 }) {
-  const [brief, setBrief] = useState(null);
   const [briefLoading, setBriefLoading] = useState(false);
   const [briefError, setBriefError] = useState(false);
 
@@ -56,7 +56,7 @@ export default function Dashboard({
   const totalCommission = useMemo(() => activeDeals.reduce((s, d) => s + (d.commission_est || 0), 0), [activeDeals]);
   const weightedComm = useMemo(() => activeDeals.reduce((s, d) => s + (d.commission_est || 0) * ((d.probability || 0) / 100), 0), [activeDeals]);
 
-  const activeLeads = useMemo(() => leads.filter(l => l.stage !== 'Converted'), [leads]);
+  const activeLeads = useMemo(() => leads.filter(l => !['Converted', 'Dead'].includes(l.stage)), [leads]);
   const hotLeads = useMemo(() => activeLeads.filter(l => ['A+', 'A'].includes(l.tier)).sort((a, b) => (b.score || 0) - (a.score || 0)), [activeLeads]);
   const untouchedLeads = useMemo(() => activeLeads.filter(l => l.stage === 'Lead' && !l.last_contact_date), [activeLeads]);
 
@@ -137,7 +137,15 @@ export default function Dashboard({
       topLead: topLead ? `${topLead.lead_name} (${topLead.tier}, score ${topLead.score})` : null,
       topDeal: topDeal ? `${topDeal.deal_name} (${topDeal.probability}% probability)` : null,
     });
-    if (result) setBrief(result);
+    if (result) {
+      setMorningBrief(result);
+      // Save to database so it persists across refreshes
+      saveDailyBrief(result, {
+        activeDeals: activeDeals.length,
+        pipelineValue: totalPipeline,
+        hotLeadCount: hotLeads.length,
+      }).catch(() => {});
+    }
     else setBriefError(true);
     setBriefLoading(false);
   };
@@ -176,7 +184,7 @@ export default function Dashboard({
           </button>
         </div>
 
-        {(brief || briefLoading || briefError) && (
+        {(morningBrief || briefLoading || briefError) && (
           <div style={{
             background: 'linear-gradient(135deg, rgba(217, 119, 6, 0.06), rgba(37, 99, 235, 0.04))',
             border: '1px solid rgba(217, 119, 6, 0.2)',
@@ -189,7 +197,7 @@ export default function Dashboard({
             ) : (
               <div style={{ fontSize: '15px', color: 'var(--text-primary)', lineHeight: '1.65', fontWeight: 450 }}>
                 <span style={{ color: 'var(--amber)', fontWeight: 600, marginRight: '6px' }}>✦</span>
-                {brief}
+                {morningBrief}
               </div>
             )}
           </div>

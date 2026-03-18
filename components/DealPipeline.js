@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { DEAL_STAGES, STAGE_COLORS, fmt } from '../lib/constants';
+import { DEAL_STAGES, STAGE_COLORS, MARKETING_TYPES, fmt } from '../lib/constants';
 import { updateRow } from '../lib/db';
 
 export default function DealPipeline({ deals, onRefresh, showToast, onDealClick }) {
@@ -116,8 +116,22 @@ export default function DealPipeline({ deals, onRefresh, showToast, onDealClick 
                       onDoubleClick={() => onDealClick?.(deal)}
                       style={{ borderLeft: `3px solid ${STAGE_COLORS[stage]}`, opacity: dragging?.id === deal.id ? 0.4 : 1, padding: '12px' }}>
 
-                      <div className="kanban-card-title" style={{ fontSize: '15px', marginBottom: '4px', lineHeight: '1.35' }}>{deal.deal_name}</div>
-                      {deal.address && <div className="kanban-card-sub" style={{ fontSize: '15px', marginBottom: '6px' }}>{deal.address}</div>}
+                      <div className="kanban-card-title" style={{ fontSize: '14px', marginBottom: '4px', lineHeight: '1.35' }}>{deal.deal_name}</div>
+                      {deal.address && <div className="kanban-card-sub" style={{ fontSize: '13px', marginBottom: '6px' }}>{deal.address}</div>}
+
+                      {stage === 'Marketing' && (
+                        <div style={{ marginBottom: '6px' }}>
+                          <div style={{ display: 'inline-flex', gap: '1px', background: 'var(--bg-input)', borderRadius: '4px', padding: '1px' }}>
+                            {MARKETING_TYPES.map(mt => (
+                              <button key={mt} onClick={async (e) => { e.stopPropagation(); await updateRow('deals', deal.id, { marketing_type: mt }); onRefresh(); }}
+                                style={{ padding: '2px 8px', borderRadius: '3px', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 600,
+                                  background: (deal.marketing_type || 'Off-Market') === mt ? (mt === 'On-Market' ? 'var(--green)' : 'var(--accent)') : 'transparent',
+                                  color: (deal.marketing_type || 'Off-Market') === mt ? 'white' : 'var(--text-muted)',
+                                  transition: 'all 0.15s' }}>{mt}</button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       <div className="kanban-card-meta" style={{ gap: '6px' }}>
                         {deal.deal_value && <span className="kanban-card-value" style={{ fontSize: '15px' }}>{fmt.price(deal.deal_value)}</span>}

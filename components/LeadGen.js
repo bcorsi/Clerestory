@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { LEAD_STAGES, LEAD_STAGE_COLORS, LEAD_SUBSTEPS } from '../lib/constants';
+import { LEAD_STAGES, LEAD_STAGE_COLORS, LEAD_SUBSTEPS, LEAD_KILL_REASONS } from '../lib/constants';
 import { updateRow, convertLeadToDeal, insertRow } from '../lib/db';
 
 const MODEL = 'claude-sonnet-4-20250514';
@@ -37,8 +37,11 @@ export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
   const [aiStep, setAiStep] = useState({});
   const [aiLoading, setAiLoading] = useState(null);
   const [substeps, setSubsteps] = useState({});
+  const [killing, setKilling] = useState(null); // lead id being killed
+  const [showDead, setShowDead] = useState(false);
 
-  const active = leads.filter((l) => l.stage !== 'Converted');
+  const active = leads.filter((l) => !['Converted', 'Dead'].includes(l.stage));
+  const deadLeads = leads.filter((l) => l.stage === 'Dead');
   const byStage = LEAD_STAGES.reduce((acc, s) => { acc[s] = active.filter((l) => l.stage === s); return acc; }, {});
   const tierColor = (t) => ({ 'A+': '#22c55e', A: '#3b82f6', B: '#f59e0b', C: '#6b7280' }[t] || '#6b7280');
 
@@ -55,6 +58,16 @@ export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
     e.stopPropagation();
     try { await updateRow('leads', lead.id, { stage }); onRefresh(); showToast(`Moved to ${stage}`); }
     catch (err) { console.error(err); }
+  };
+
+  const handleKill = async (lead, reason, e) => {
+    if (e) e.stopPropagation();
+    try {
+      await updateRow('leads', lead.id, { stage: 'Dead', kill_reason: reason, killed_at: new Date().toISOString() });
+      setKilling(null);
+      onRefresh();
+      showToast(`Lead killed: ${reason}`);
+    } catch (err) { console.error(err); }
   };
 
   const handleAI = async (lead, e) => {
@@ -157,17 +170,31 @@ export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
             {lead.notes && <div style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: 1.5, margin: '6px 0 10px' }}>{lead.notes.slice(0, 180)}{lead.notes.length > 180 ? '...' : ''}</div>}
 
             <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '6px' }}>
-              <button className="btn btn-ghost btn-sm" style={{ fontSize: '15px', color: 'var(--amber)', borderColor: 'var(--amber)' }} onClick={(e) => handleAI(lead, e)} disabled={aiLoading === lead.id}>
+              <button className="btn btn-ghost btn-sm" style={{ fontSize: '13px', color: 'var(--amber)', borderColor: 'var(--amber)' }} onClick={(e) => handleAI(lead, e)} disabled={aiLoading === lead.id}>
                 {aiLoading === lead.id ? '⟳ Thinking...' : '✦ AI Next Step'}
               </button>
               {LEAD_STAGES.filter((s) => s !== lead.stage).map((s) => (
-                <button key={s} className="btn btn-ghost btn-sm" style={{ fontSize: '15px' }} onClick={(e) => handleStage(lead, s, e)}>→ {s}</button>
+                <button key={s} className="btn btn-ghost btn-sm" style={{ fontSize: '13px' }} onClick={(e) => handleStage(lead, s, e)}>→ {s}</button>
               ))}
-              <button className="btn btn-primary btn-sm" style={{ fontSize: '15px', marginLeft: 'auto' }} disabled={converting === lead.id} onClick={(e) => handleConvert(lead, e)}>
+              <button className="btn btn-primary btn-sm" style={{ fontSize: '13px' }} disabled={converting === lead.id} onClick={(e) => handleConvert(lead, e)}>
                 {converting === lead.id ? '...' : '⚡ Convert'}
               </button>
             </div>
-            <button className="btn btn-ghost btn-sm" style={{ fontSize: '15px', width: '100%' }} onClick={() => onLeadClick?.(lead)}>Open Full Page →</button>
+            <div style={{ display: 'flex', gap: '5px', marginBottom: '6px' }}>
+              {killing === lead.id ? (
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', width: '100%' }}>
+                  {LEAD_KILL_REASONS.map(reason => (
+                    <button key={reason} className="btn btn-ghost btn-sm" style={{ fontSize: '11px', color: 'var(--red)', borderColor: 'var(--red)' }}
+                      onClick={(e) => handleKill(lead, reason, e)}>{reason}</button>
+                  ))}
+                  <button className="btn btn-ghost btn-sm" style={{ fontSize: '11px' }} onClick={(e) => { e.stopPropagation(); setKilling(null); }}>Cancel</button>
+                </div>
+              ) : (
+                <button className="btn btn-ghost btn-sm" style={{ fontSize: '13px', color: 'var(--red)', borderColor: 'var(--red)' }}
+                  onClick={(e) => { e.stopPropagation(); setKilling(lead.id); }}>✕ Kill Lead</button>
+              )}
+            </div>
+            <button className="btn btn-ghost btn-sm" style={{ fontSize: '13px', width: '100%' }} onClick={() => onLeadClick?.(lead)}>Open Full Page →</button>
           </div>
         )}
       </div>
@@ -177,14 +204,22 @@ export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
           {LEAD_STAGES.map((s) => (
-            <div key={s} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '15px', color: 'var(--text-muted)' }}>
+            <div key={s} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '14px', color: 'var(--text-muted)' }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: LEAD_STAGE_COLORS[s] }} />
               <span>{s}</span>
               <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', fontWeight: 600 }}>{byStage[s]?.length || 0}</span>
             </div>
           ))}
+          {deadLeads.length > 0 && (
+            <button onClick={() => setShowDead(!showDead)}
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '14px', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#374151' }} />
+              <span>Dead</span>
+              <span style={{ fontFamily: 'var(--font-mono)', color: showDead ? 'var(--red)' : 'var(--text-muted)', fontWeight: 600 }}>{deadLeads.length}</span>
+            </button>
+          )}
         </div>
         <ViewToggle />
       </div>
@@ -224,6 +259,36 @@ export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
               {!(byStage[stage]?.length) && <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '15px', border: '1px dashed var(--border)', borderRadius: 'var(--radius)' }}>Empty</div>}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Dead Leads Section */}
+      {showDead && deadLeads.length > 0 && (
+        <div style={{ marginTop: '24px' }}>
+          <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-card)', borderTop: '3px solid #374151', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)' }}>Dead Leads</span>
+            <span style={{ fontSize: '13px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{deadLeads.length}</span>
+          </div>
+          <div className="table-container" style={{ overflow: 'auto', maxHeight: '400px' }}>
+            <table>
+              <thead>
+                <tr><th>Lead</th><th>Reason</th><th>Killed</th><th>Decision Maker</th><th>Restore</th></tr>
+              </thead>
+              <tbody>
+                {deadLeads.map(lead => (
+                  <tr key={lead.id} onClick={() => onLeadClick?.(lead)} style={{ cursor: 'pointer', opacity: 0.7 }}>
+                    <td><div style={{ fontWeight: 500 }}>{lead.lead_name}</div>{lead.address && <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{lead.address}</div>}</td>
+                    <td><span style={{ fontSize: '13px', color: 'var(--red)' }}>{lead.kill_reason || '—'}</span></td>
+                    <td style={{ fontSize: '13px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{lead.killed_at ? new Date(lead.killed_at).toLocaleDateString() : '—'}</td>
+                    <td style={{ fontSize: '13px' }}>{lead.decision_maker || '—'}</td>
+                    <td>
+                      <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px' }} onClick={(e) => { e.stopPropagation(); handleStage(lead, 'Lead', e); }}>↩ Restore</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

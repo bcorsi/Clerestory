@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { DEAL_STAGES, DEAL_TYPES, STRATEGIES, PRIORITIES, MARKETS, SUBMARKETS } from '../lib/constants';
+import { DEAL_STAGES, DEAL_TYPES, STRATEGIES, PRIORITIES, MARKETING_TYPES, MARKETS, SUBMARKETS } from '../lib/constants';
 import { insertRow } from '../lib/db';
 
 export default function AddDealModal({ onClose, onSave }) {
   const [form, setForm] = useState({
-    deal_name: '', stage: 'Lead', deal_type: '', strategy: '',
+    deal_name: '', stage: 'Tracking', deal_type: '', strategy: '',
+    marketing_type: 'Off-Market',
     address: '', submarket: '', buyer: '', seller: '',
     deal_value: '', commission_rate: '', probability: '',
     close_date: '', priority: 'Medium', notes: '', onedrive_url: '',
@@ -36,6 +37,7 @@ export default function AddDealModal({ onClose, onSave }) {
           : null,
         probability: form.probability ? parseInt(form.probability) : null,
         priority: form.priority || 'Medium',
+        marketing_type: form.marketing_type || 'Off-Market',
         close_date: form.close_date || null,
         onedrive_url: form.onedrive_url || null,
         notes: form.notes || null,

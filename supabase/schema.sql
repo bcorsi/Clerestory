@@ -75,7 +75,9 @@ create table leads (
   est_value numeric(15,2),
   building_sf integer,
   notes text,
-  converted_deal_id uuid
+  converted_deal_id uuid,
+  kill_reason text,
+  killed_at timestamptz
 );
 
 -- ─── DEALS ──────────────────────────────────────────────────
@@ -84,9 +86,10 @@ create table deals (
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   deal_name text,
-  stage text default 'Lead',
+  stage text default 'Tracking',
   deal_type text,
   strategy text,
+  marketing_type text default 'Off-Market',
   property_id uuid references properties(id) on delete set null,
   lead_id uuid references leads(id) on delete set null,
   address text,
@@ -268,3 +271,13 @@ create trigger trg_accounts_updated before update on accounts for each row execu
 create or replace view properties_with_apns as
 select p.*, coalesce(json_agg(json_build_object('apn', a.apn, 'acres', a.acres)) filter (where a.id is not null), '[]'::json) as apns
 from properties p left join property_apns a on a.property_id = p.id group by p.id;
+
+-- ─── DAILY BRIEFS (AI morning brief persistence) ────────────
+create table daily_briefs (
+  id uuid default uuid_generate_v4() primary key,
+  created_at timestamptz default now(),
+  brief_date date default current_date,
+  content text not null,
+  context jsonb
+);
+create index idx_briefs_date on daily_briefs(brief_date);

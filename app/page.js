@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, isConfigured, getSession, onAuthStateChange, signOut } from '../lib/supabase';
-import { fetchProperties, fetchAll, globalSearch } from '../lib/db';
+import { fetchProperties, fetchAll, globalSearch, getTodayBrief, saveDailyBrief } from '../lib/db';
 import { DEAL_STAGES, STAGE_COLORS, fmt } from '../lib/constants';
 import AuthGate from '../components/AuthGate';
 import Sidebar from '../components/Sidebar';
@@ -59,6 +59,7 @@ export default function App() {
   const [modal, setModal] = useState(null);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [morningBrief, setMorningBrief] = useState(null);
 
   useEffect(() => {
     getSession().then((s) => { setSession(s); setAuthLoading(false); });
@@ -99,6 +100,13 @@ export default function App() {
   }, []);
 
   useEffect(() => { if (session || !isConfigured()) loadData(); }, [loadData, session]);
+
+  // Load today's AI brief on startup
+  useEffect(() => {
+    if (session || !isConfigured()) {
+      getTodayBrief().then(b => { if (b?.content) setMorningBrief(b.content); });
+    }
+  }, [session]);
 
   useEffect(() => {
     if (!searchQuery || searchQuery.length < 2) { setSearchResults(null); return; }
@@ -163,7 +171,7 @@ export default function App() {
 
   const counts = {
     properties: properties.length,
-    leads: leads.filter((l) => l.stage !== 'Converted').length,
+    leads: leads.filter((l) => !['Converted', 'Dead'].includes(l.stage)).length,
     deals: deals.length,
     contacts: contacts.length,
     accounts: accounts.length,
@@ -267,7 +275,7 @@ export default function App() {
           {loading ? (
             <div className="empty-state"><div className="empty-state-icon">◌</div><div className="empty-state-title">Loading...</div></div>
           ) : (<>
-            {page === 'dashboard' && <Dashboard properties={properties} deals={deals} leads={leads} contacts={contacts} leaseComps={leaseComps} saleComps={saleComps} tasks={tasks} activities={activities} onPropertyClick={openProperty} onDealClick={openDeal} onLeadClick={openLead} onContactClick={openContact} setPage={setPage} />}
+            {page === 'dashboard' && <Dashboard properties={properties} deals={deals} leads={leads} contacts={contacts} leaseComps={leaseComps} saleComps={saleComps} tasks={tasks} activities={activities} onPropertyClick={openProperty} onDealClick={openDeal} onLeadClick={openLead} onContactClick={openContact} setPage={setPage} morningBrief={morningBrief} setMorningBrief={setMorningBrief} saveDailyBrief={saveDailyBrief} />}
             {page === 'properties' && <PropertiesList properties={properties} onPropertyClick={openProperty} />}
             {page === 'property-detail' && selectedProperty && <PropertyDetail property={selectedProperty} deals={deals} leads={leads} contacts={contacts} leaseComps={leaseComps} saleComps={saleComps} activities={activities} tasks={tasks} onLeaseCompClick={openLeaseComp} onDealClick={openDeal} onLeadClick={openLead} onContactClick={openContact} onAddActivity={(propId) => setModal({ type: 'add-activity', defaultPropertyId: propId })} onAddTask={(propId) => setModal({ type: 'add-task', defaultPropertyId: propId })} accounts={accounts} showToast={showToast} onRefresh={loadData} />}
             {page === 'lead-gen' && <LeadGen leads={leads} onRefresh={loadData} showToast={showToast} onLeadClick={openLead} />}

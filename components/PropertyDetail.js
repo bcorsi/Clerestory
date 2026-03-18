@@ -96,8 +96,15 @@ export default function PropertyDetail({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
           <div>
             <h2 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '4px' }}>{p.address}</h2>
-            <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-              {[p.city, p.submarket, p.zip].filter(Boolean).join(' · ')}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                {[p.city, p.submarket, p.zip].filter(Boolean).join(' · ')}
+              </span>
+              {p.address && (
+                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((p.address || '') + ', ' + (p.city || '') + ', CA')}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: 'var(--accent)', textDecoration: 'none', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-input)' }}>
+                  Google Maps ↗
+                </a>
+              )}
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>

@@ -11,7 +11,7 @@ const LOG_TYPES = ['Call','Email','Meeting'];
 export default function PropertyDetail({
   property: p, deals, leads, contacts, leaseComps, saleComps, activities, tasks, accounts,
   notes: allNotes, followUps: allFollowUps,
-  onLeaseCompClick, onSaleCompClick, onDealClick, onLeadClick, onContactClick, onAccountClick,
+  onLeaseCompClick, onSaleCompClick, onDealClick, onLeadClick, onContactClick, onAccountClick, onCatalystClick,
   onAddActivity, onAddTask, showToast, onRefresh
 }) {
   const [editing, setEditing] = useState(false);
@@ -123,7 +123,7 @@ export default function PropertyDetail({
             <button className="btn btn-ghost btn-sm" onClick={()=>setEditing(true)}>Edit</button>
           </div>
         </div>
-        {p.catalyst_tags?.length>0&&(<div style={{display:'flex',gap:'5px',flexWrap:'wrap',marginTop:'10px'}}>{p.catalyst_tags.map(tag=><span key={tag} className={`tag ${urgBadge(tag)}`} style={{fontSize:'12px'}}>{tag}</span>)}</div>)}
+        {p.catalyst_tags?.length>0&&(<div style={{display:'flex',gap:'5px',flexWrap:'wrap',marginTop:'10px'}}>{p.catalyst_tags.map(tag=><span key={tag} className={`tag ${urgBadge(tag)}`} style={{fontSize:'12px',cursor:'pointer'}} onClick={()=>onCatalystClick?.(tag)}>{tag}</span>)}</div>)}
         {(p.ai_score!=null||p.probability!=null||avgLR||avgSP)&&(
           <div style={{display:'flex',gap:'20px',marginTop:'10px',paddingTop:'10px',borderTop:'1px solid var(--border-subtle)',flexWrap:'wrap'}}>
             {p.ai_score!=null&&<div style={{display:'flex',alignItems:'center',gap:'6px'}}><span style={{fontSize:'12px',color:'var(--text-muted)'}}>AI Score</span><span style={{fontSize:'15px',fontWeight:700,color:'var(--accent)',fontFamily:'var(--font-mono)'}}>{p.ai_score}</span></div>}
@@ -138,12 +138,14 @@ export default function PropertyDetail({
       <div className="card" style={{marginBottom:'16px'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
           <h3 style={{fontSize:'14px',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.05em'}}>Timeline</h3>
-          <div style={{display:'flex',gap:'6px'}}>
+          <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
+            <button className="btn btn-ghost btn-sm" style={{fontSize:'12px',color:'#8b5cf6',borderColor:'#8b5cf644'}} onClick={handleSynthesize} disabled={synthLoading}>{synthLoading?'✦ Synthesizing...':'✦ Synthesize'}</button>
             <button className="btn btn-ghost btn-sm" style={{fontSize:'12px'}} onClick={()=>{closeAll();setShowLogForm(!showLogForm);}}>{showLogForm?'Cancel':'+ Log Call/Email'}</button>
             <button className="btn btn-ghost btn-sm" style={{fontSize:'12px'}} onClick={()=>{closeAll();setShowNoteForm(!showNoteForm);}}>{showNoteForm?'Cancel':'+ Note'}</button>
             <button className="btn btn-ghost btn-sm" style={{fontSize:'12px'}} onClick={()=>{closeAll();setShowFuForm(!showFuForm);}}>{showFuForm?'Cancel':'+ Follow-Up'}</button>
           </div>
         </div>
+        {synth&&(<div style={{padding:'14px',background:'#8b5cf611',border:'1px solid #8b5cf633',borderRadius:'8px',marginBottom:'14px',fontSize:'14px',lineHeight:1.7,color:'var(--text-primary)',whiteSpace:'pre-wrap'}}><div style={{fontSize:'11px',fontWeight:600,color:'#8b5cf6',textTransform:'uppercase',marginBottom:'6px'}}>✦ AI Synthesis (Opus)</div>{synth}</div>)}
         {showLogForm&&(<div style={{padding:'12px',background:'var(--bg-input)',borderRadius:'6px',marginBottom:'12px',border:'1px solid var(--border)'}}>
           <div style={{display:'flex',gap:'6px',marginBottom:'8px'}}>{LOG_TYPES.map(t=><button key={t} onClick={()=>setLogType(t)} style={{padding:'3px 10px',borderRadius:'4px',border:'1px solid',fontSize:'12px',cursor:'pointer',borderColor:logType===t?'var(--accent)':'var(--border)',background:logType===t?'var(--accent-soft)':'transparent',color:logType===t?'var(--accent)':'var(--text-muted)'}}>{t==='Call'?'📞 Call':t==='Email'?'✉️ Email':'🤝 Meeting'}</button>)}</div>
           <input className="input" placeholder="Subject..." value={logSubject} onChange={e=>setLogSubject(e.target.value)} style={{marginBottom:'6px',fontSize:'14px'}} />

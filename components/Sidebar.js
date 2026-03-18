@@ -20,6 +20,7 @@ export default function Sidebar({ page, setPage, counts, user, onSignOut }) {
     ]},
     { section: 'Intelligence', items: [
       { id: 'warn-intel', label: 'WARN Intel', icon: '⚠', badge: counts.warnNew || null },
+      { id: 'map-view', label: 'Map View', icon: '◉', badge: null },
     ]},
   ];
 

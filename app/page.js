@@ -35,6 +35,8 @@ import AddTaskModal from '../components/AddTaskModal';
 import AddLeaseCompModal from '../components/AddLeaseCompModal';
 import AddSaleCompModal from '../components/AddSaleCompModal';
 import WarnIntel from '../components/WarnIntel';
+import CatalystView from '../components/CatalystView';
+import MapView from '../components/MapView';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -65,6 +67,7 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
   const [morningBrief, setMorningBrief] = useState(null);
+  const [catalystFilter, setCatalystFilter] = useState(null);
 
   useEffect(() => {
     getSession().then((s) => { setSession(s); setAuthLoading(false); });
@@ -141,6 +144,8 @@ export default function App() {
   const openAccount = (account) => { setSelectedAccount(account); setPage('account-detail'); };
   const openTask = (task) => { setSelectedTask(task); setPage('task-detail'); };
   const openLeaseComp = (comp) => { setSelectedLeaseComp(comp); setPage('lease-comp-detail'); };
+  const openCatalyst = (tag) => { setCatalystFilter(tag); setPage('catalyst-view'); };
+  const openMap = () => { setPage('map-view'); };
 
   const goBack = () => {
     const backMap = {
@@ -150,11 +155,13 @@ export default function App() {
       'contact-detail': 'contacts',
       'account-detail': 'accounts',
       'lease-comp-detail': 'lease-comps',
+      'catalyst-view': 'dashboard',
     };
     const back = backMap[page];
     if (back) setPage(back);
     setSelectedProperty(null); setSelectedLead(null); setSelectedDeal(null);
     setSelectedContact(null); setSelectedAccount(null); setSelectedLeaseComp(null);
+    setCatalystFilter(null);
   };
 
   const handleSearchClick = (type, item) => {
@@ -162,11 +169,13 @@ export default function App() {
     if (type === 'property') openProperty(item);
     else if (type === 'deal') openDeal(item);
     else if (type === 'contact') openContact(item);
+    else if (type === 'lead') openLead(item);
+    else if (type === 'account') openAccount(item);
   };
 
   const onRecordAdded = (label) => { setModal(null); loadData(); showToast(`${label} added`); };
 
-  const isDetailPage = ['property-detail', 'lead-detail', 'deal-detail', 'contact-detail', 'account-detail', 'lease-comp-detail'].includes(page);
+  const isDetailPage = ['property-detail', 'lead-detail', 'deal-detail', 'contact-detail', 'account-detail', 'lease-comp-detail', 'catalyst-view'].includes(page);
 
   if (authLoading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-root)' }}>
@@ -201,7 +210,10 @@ export default function App() {
     accounts: 'Accounts', 'account-detail': selectedAccount?.name || 'Account',
     activities: 'Activities', tasks: 'Tasks', 'task-detail': selectedTask?.title || 'Task',
     'lease-comps': 'Lease Comps', 'lease-comp-detail': selectedLeaseComp?.address || 'Lease Comp',
-    'sale-comps': 'Sale Comps', 'warn-intel': 'WARN Intel', settings: 'Settings',
+    'sale-comps': 'Sale Comps', 'warn-intel': 'WARN Intel',
+    'catalyst-view': catalystFilter ? `Catalyst: ${catalystFilter}` : 'Catalyst View',
+    'map-view': 'Map View',
+    settings: 'Settings',
   };
 
   const pageTitle = pageTitles[page] || 'Clerestory';
@@ -247,6 +259,15 @@ export default function App() {
                       </div>
                     ))}
                   </>)}
+                  {searchResults.leads?.length > 0 && (<>
+                    <div className="search-section-label">Leads</div>
+                    {searchResults.leads.map((l) => (
+                      <div key={l.id} className="search-result-item" onClick={() => handleSearchClick('lead', l)}>
+                        <div className="result-title">{l.lead_name}</div>
+                        <div className="result-sub">{l.stage} · {l.address || ''}</div>
+                      </div>
+                    ))}
+                  </>)}
                   {searchResults.deals?.length > 0 && (<>
                     <div className="search-section-label">Deals</div>
                     {searchResults.deals.map((d) => (
@@ -265,7 +286,16 @@ export default function App() {
                       </div>
                     ))}
                   </>)}
-                  {!searchResults.properties?.length && !searchResults.deals?.length && !searchResults.contacts?.length && (
+                  {searchResults.accounts?.length > 0 && (<>
+                    <div className="search-section-label">Accounts</div>
+                    {searchResults.accounts.map((a) => (
+                      <div key={a.id} className="search-result-item" onClick={() => handleSearchClick('account', a)}>
+                        <div className="result-title">{a.name}</div>
+                        <div className="result-sub">{a.account_type} · {a.city || ''}</div>
+                      </div>
+                    ))}
+                  </>)}
+                  {!searchResults.properties?.length && !searchResults.deals?.length && !searchResults.contacts?.length && !searchResults.leads?.length && !searchResults.accounts?.length && (
                     <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>No results for "{searchQuery}"</div>
                   )}
                 </div>
@@ -287,11 +317,11 @@ export default function App() {
           ) : (<>
             {page === 'dashboard' && <Dashboard properties={properties} deals={deals} leads={leads} contacts={contacts} leaseComps={leaseComps} saleComps={saleComps} tasks={tasks} activities={activities} onPropertyClick={openProperty} onDealClick={openDeal} onLeadClick={openLead} onContactClick={openContact} setPage={setPage} morningBrief={morningBrief} setMorningBrief={setMorningBrief} saveDailyBrief={saveDailyBrief} />}
             {page === 'properties' && <PropertiesList properties={properties} onPropertyClick={openProperty} />}
-            {page === 'property-detail' && selectedProperty && <PropertyDetail property={selectedProperty} deals={deals} leads={leads} contacts={contacts} leaseComps={leaseComps} saleComps={saleComps} activities={activities} tasks={tasks} notes={notes} followUps={followUps} onLeaseCompClick={openLeaseComp} onDealClick={openDeal} onLeadClick={openLead} onContactClick={openContact} onAccountClick={openAccount} onAddActivity={(propId) => setModal({ type: 'add-activity', defaultPropertyId: propId })} onAddTask={(propId) => setModal({ type: 'add-task', defaultPropertyId: propId })} accounts={accounts} showToast={showToast} onRefresh={loadData} />}
+            {page === 'property-detail' && selectedProperty && <PropertyDetail property={selectedProperty} deals={deals} leads={leads} contacts={contacts} leaseComps={leaseComps} saleComps={saleComps} activities={activities} tasks={tasks} notes={notes} followUps={followUps} onLeaseCompClick={openLeaseComp} onDealClick={openDeal} onLeadClick={openLead} onContactClick={openContact} onAccountClick={openAccount} onCatalystClick={openCatalyst} onAddActivity={(propId) => setModal({ type: 'add-activity', defaultPropertyId: propId })} onAddTask={(propId) => setModal({ type: 'add-task', defaultPropertyId: propId })} accounts={accounts} showToast={showToast} onRefresh={loadData} />}
             {page === 'lead-gen' && <LeadGen leads={leads} onRefresh={loadData} showToast={showToast} onLeadClick={openLead} />}
-            {page === 'lead-detail' && selectedLead && <LeadDetail lead={selectedLead} activities={activities} tasks={tasks} properties={properties} contacts={contacts} accounts={accounts} notes={notes} followUps={followUps} onRefresh={loadData} showToast={showToast} onPropertyClick={openProperty} onContactClick={openContact} onAccountClick={openAccount} onAddActivity={(leadId) => setModal({ type: 'add-activity', defaultLeadId: leadId })} onAddTask={(leadId) => setModal({ type: 'add-task', defaultLeadId: leadId })} onConverted={() => setPage('pipeline')} />}
+            {page === 'lead-detail' && selectedLead && <LeadDetail lead={selectedLead} activities={activities} tasks={tasks} properties={properties} contacts={contacts} accounts={accounts} notes={notes} followUps={followUps} onRefresh={loadData} showToast={showToast} onPropertyClick={openProperty} onContactClick={openContact} onAccountClick={openAccount} onCatalystClick={openCatalyst} onAddActivity={(leadId) => setModal({ type: 'add-activity', defaultLeadId: leadId })} onAddTask={(leadId) => setModal({ type: 'add-task', defaultLeadId: leadId })} onConverted={() => setPage('pipeline')} />}
             {page === 'pipeline' && <DealPipeline deals={deals} onRefresh={loadData} showToast={showToast} onDealClick={openDeal} />}
-            {page === 'deal-detail' && selectedDeal && <DealDetail deal={selectedDeal} activities={activities} tasks={tasks} properties={properties} contacts={contacts} accounts={accounts} notes={notes} followUps={followUps} onRefresh={loadData} showToast={showToast} onPropertyClick={openProperty} onContactClick={openContact} onAccountClick={openAccount} onAddActivity={(leadId, dealId) => setModal({ type: 'add-activity', defaultDealId: dealId })} onAddTask={(dealId) => setModal({ type: 'add-task', defaultDealId: dealId })} />}
+            {page === 'deal-detail' && selectedDeal && <DealDetail deal={selectedDeal} activities={activities} tasks={tasks} properties={properties} contacts={contacts} accounts={accounts} notes={notes} followUps={followUps} onRefresh={loadData} showToast={showToast} onPropertyClick={openProperty} onContactClick={openContact} onAccountClick={openAccount} onCatalystClick={openCatalyst} onAddActivity={(leadId, dealId) => setModal({ type: 'add-activity', defaultDealId: dealId })} onAddTask={(dealId) => setModal({ type: 'add-task', defaultDealId: dealId })} />}
             {page === 'contacts' && <ContactsList contacts={contacts} onContactClick={openContact} />}
             {page === 'contact-detail' && selectedContact && <ContactDetail contact={selectedContact} activities={activities} tasks={tasks} deals={deals} properties={properties} onRefresh={loadData} showToast={showToast} onDealClick={openDeal} onPropertyClick={openProperty} onAddActivity={(a, b, c, contactId) => setModal({ type: 'add-activity', defaultContactId: contactId })} onAddTask={(a, b, c, contactId) => setModal({ type: 'add-task', defaultContactId: contactId })} />}
             {page === 'accounts' && <AccountsList accounts={accounts} onAccountClick={openAccount} />}
@@ -303,6 +333,8 @@ export default function App() {
             {page === 'lease-comp-detail' && selectedLeaseComp && <LeaseCompDetail comp={selectedLeaseComp} properties={properties} />}
             {page === 'sale-comps' && <SaleComps comps={saleComps} />}
             {page === 'warn-intel' && <WarnIntel properties={properties} leads={leads} onRefresh={loadData} showToast={showToast} />}
+            {page === 'catalyst-view' && catalystFilter && <CatalystView tag={catalystFilter} properties={properties} leads={leads} deals={deals} onPropertyClick={openProperty} onLeadClick={openLead} onDealClick={openDeal} onClear={() => { setCatalystFilter(null); setPage('dashboard'); }} />}
+            {page === 'map-view' && <MapView properties={properties} leads={leads} deals={deals} onPropertyClick={openProperty} onLeadClick={openLead} onDealClick={openDeal} />}
             {page === 'settings' && <ProfileSettings user={session?.user} showToast={showToast} />}
           </>)}
         </div>

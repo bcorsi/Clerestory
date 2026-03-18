@@ -1,10 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { LEAD_STAGES, LEAD_STAGE_COLORS, LEAD_SUBSTEPS, LEAD_TIERS, PRIORITIES, PROP_TYPES, VACANCY_STATUS, LEASE_TYPES, OWNER_TYPES, MARKETS, SUBMARKETS, catalystTagClass, CATALYST_TAGS, fmt } from '../lib/constants';
+import { LEAD_STAGES, LEAD_STAGE_COLORS, LEAD_SUBSTEPS, LEAD_TIERS, PRIORITIES, PROP_TYPES, VACANCY_STATUS, LEASE_TYPES, OWNER_TYPES, MARKETS, SUBMARKETS, catalystTagClass, CATALYST_TAGS, AI_MODEL_OPUS, AI_MODEL_SONNET, fmt } from '../lib/constants';
 import { updateRow, convertLeadToDeal, convertLeadToProperty, insertRow } from '../lib/db';
 
-const MODEL = 'claude-sonnet-4-20250514';
 const NOTE_TYPES = ['Note', 'Intel', 'Call Log', 'Meeting Note', 'Status Update'];
 const LOG_TYPES = ['Call', 'Email', 'Meeting'];
 
@@ -20,7 +19,7 @@ async function getAINextStep(lead) {
 export default function LeadDetail({
   lead, activities, tasks, properties, contacts, accounts,
   notes: allNotes, followUps: allFollowUps,
-  onRefresh, showToast, onPropertyClick, onContactClick, onAccountClick,
+  onRefresh, showToast, onPropertyClick, onContactClick, onAccountClick, onCatalystClick,
   onAddActivity, onAddTask, onConverted
 }) {
   const [editing, setEditing] = useState(false);
@@ -177,7 +176,7 @@ export default function LeadDetail({
         </div>
         {lead.catalyst_tags?.length > 0 && (
           <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginTop: '10px' }}>
-            {lead.catalyst_tags.map(tag => <span key={tag} className={`tag ${catalystTagClass(tag)}`} style={{ fontSize: '12px' }}>{tag}</span>)}
+            {lead.catalyst_tags.map(tag => <span key={tag} className={`tag ${catalystTagClass(tag)}`} style={{ fontSize: '12px', cursor: 'pointer' }} onClick={() => onCatalystClick?.(tag)}>{tag}</span>)}
           </div>
         )}
         {lead.next_action && (

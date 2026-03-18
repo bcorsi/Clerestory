@@ -27,7 +27,7 @@ export default function LeadDetail({
   const [saving, setSaving] = useState(false);
   const [converting, setConverting] = useState(false);
   const [convertingProp, setConvertingProp] = useState(false);
-  const [substeps, setSubsteps] = useState({});
+  const [substeps, setSubsteps] = useState(lead.substeps || {});
   const [aiStep, setAiStep] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [showNoteForm, setShowNoteForm] = useState(false);
@@ -44,6 +44,8 @@ export default function LeadDetail({
   const [fuReason, setFuReason] = useState('');
   const [fuDate, setFuDate] = useState('');
   const [savingFu, setSavingFu] = useState(false);
+  const [synth, setSynth] = useState(null);
+  const [synthLoading, setSynthLoading] = useState(false);
 
   const set = (field, val) => setForm(f => ({ ...f, [field]: val }));
   const availSubs = form.market ? (SUBMARKETS[form.market] || []) : [];
@@ -98,7 +100,11 @@ export default function LeadDetail({
   const pendingTasks = linkedTasks.filter(t => !t.completed).length;
   const linkedProperty = (properties || []).find(p => p.address === lead.address || p.id === lead.property_id);
   const subs = LEAD_SUBSTEPS[lead.stage] || [];
-  const toggleSub = step => setSubsteps(p => ({ ...p, [step]: !p[step] }));
+  const toggleSub = step => {
+    const updated = { ...substeps, [step]: !substeps[step] };
+    setSubsteps(updated);
+    updateRow('leads', lead.id, { substeps: updated }).catch(console.error);
+  };
   const subsDone = subs.filter(s => substeps[s]).length;
 
   const timeline = [
@@ -134,6 +140,28 @@ export default function LeadDetail({
   };
   const handleCompleteFu = async fu => {
     try { await updateRow('follow_ups', fu.id, { completed: true, completed_at: new Date().toISOString() }); onRefresh?.(); } catch (e) { console.error(e); }
+  };
+
+  const handleSynthesize = async () => {
+    setSynthLoading(true); setSynth(null);
+    const allText = [
+      ...linkedNotes.map(n => `[${n.note_type || 'Note'} ${fmtAgo(n.created_at)}] ${n.content}`),
+      ...linkedActivities.map(a => `[${a.activity_type} ${fmtAgo(a.activity_date)}] ${a.subject}${a.notes ? ': ' + a.notes : ''}${a.outcome ? ' → ' + a.outcome : ''}`),
+    ].join('\n');
+    if (!allText.trim()) { setSynth('No notes or activities to synthesize yet.'); setSynthLoading(false); return; }
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: AI_MODEL_OPUS, max_tokens: 600,
+          system: 'You are a CRE brokerage intelligence assistant. Synthesize all notes and activities into a concise lead status summary. Include: current status, owner/contact info, catalyst signals, outstanding issues, and the single most important next step. Be specific and actionable.',
+          messages: [{ role: 'user', content: `Lead: ${lead.lead_name}\nStage: ${lead.stage}\nTier: ${lead.tier || 'N/A'} | Score: ${lead.score || 'N/A'}\nOwner: ${lead.owner || 'Unknown'}\nAddress: ${lead.address || 'N/A'}\nCatalysts: ${(lead.catalyst_tags || []).join(', ') || 'None'}\n\nTimeline:\n${allText}\n\nSynthesize into a brief status report with the single most important next step.` }],
+        }),
+      });
+      const data = await res.json();
+      setSynth(data.content?.[0]?.text || 'Could not generate synthesis.');
+    } catch { setSynth('Error connecting to AI.'); }
+    finally { setSynthLoading(false); }
   };
 
   const mapsUrl = lead.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lead.address + ', ' + (lead.submarket || '') + ', CA')}` : null;
@@ -192,12 +220,20 @@ export default function LeadDetail({
       <div className="card" style={{ marginBottom: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Timeline</h3>
-          <div style={{ display: 'flex', gap: '6px' }}>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px', color: '#8b5cf6', borderColor: '#8b5cf644' }} onClick={handleSynthesize} disabled={synthLoading}>{synthLoading ? '✦ Synthesizing...' : '✦ Synthesize'}</button>
             <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px' }} onClick={() => { closeAll(); setShowLogForm(!showLogForm); }}>{showLogForm ? 'Cancel' : '+ Log Call/Email'}</button>
             <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px' }} onClick={() => { closeAll(); setShowNoteForm(!showNoteForm); }}>{showNoteForm ? 'Cancel' : '+ Note'}</button>
             <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px' }} onClick={() => { closeAll(); setShowFuForm(!showFuForm); }}>{showFuForm ? 'Cancel' : '+ Follow-Up'}</button>
           </div>
         </div>
+
+        {synth && (
+          <div style={{ padding: '14px', background: '#8b5cf611', border: '1px solid #8b5cf633', borderRadius: '8px', marginBottom: '14px', fontSize: '14px', lineHeight: 1.7, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#8b5cf6', textTransform: 'uppercase', marginBottom: '6px' }}>✦ AI Synthesis (Opus)</div>
+            {synth}
+          </div>
+        )}
 
         {showLogForm && (
           <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: '6px', marginBottom: '12px', border: '1px solid var(--border)' }}>

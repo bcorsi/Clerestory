@@ -97,9 +97,14 @@ export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
     finally { setAiLoading(null); }
   };
 
-  const toggleSub = (leadId, step) => {
+  const toggleSub = async (leadId, step) => {
+    const lead = leads.find(l => l.id === leadId);
+    const current = lead?.substeps || {};
+    const updated = { ...current, [step]: !current[step] };
+    // Optimistic local update
     const k = `${leadId}::${step}`;
     setSubsteps((p) => ({ ...p, [k]: !p[k] }));
+    try { await updateRow('leads', leadId, { substeps: updated }); onRefresh?.(); } catch (e) { console.error(e); }
   };
 
   const ViewToggle = () => (
@@ -113,7 +118,7 @@ export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
   const Card = ({ lead }) => {
     const open = expanded === lead.id;
     const subs = LEAD_SUBSTEPS[lead.stage] || [];
-    const done = subs.filter((s) => substeps[`${lead.id}::${s}`]).length;
+    const done = subs.filter((s) => (lead.substeps || {})[s]).length;
 
     return (
       <div onClick={() => setExpanded(open ? null : lead.id)} onDoubleClick={() => onLeadClick?.(lead)}
@@ -154,7 +159,7 @@ export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
               <div style={{ marginBottom: '12px' }}>
                 <div style={{ fontSize: '15px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '6px' }}>Substeps</div>
                 {subs.map((step) => {
-                  const checked = substeps[`${lead.id}::${step}`] || false;
+                  const checked = (lead.substeps || {})[step] || false;
                   return (
                     <div key={step} onClick={() => toggleSub(lead.id, step)} style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '3px 0', cursor: 'pointer' }}>
                       <div style={{ width: '14px', height: '14px', borderRadius: '3px', flexShrink: 0, border: '2px solid', borderColor: checked ? 'var(--accent)' : 'var(--border)', background: checked ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '15px', fontWeight: 700 }}>{checked ? '✓' : ''}</div>

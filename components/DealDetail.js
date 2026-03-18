@@ -10,7 +10,7 @@ const LOG_TYPES = ['Call', 'Email', 'Meeting'];
 export default function DealDetail({
   deal, activities, tasks, properties, contacts, accounts,
   notes: allNotes, followUps: allFollowUps,
-  onRefresh, showToast, onPropertyClick, onContactClick, onAccountClick, onAddTask
+  onRefresh, showToast, onPropertyClick, onContactClick, onAccountClick, onCatalystClick, onAddTask
 }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ ...deal });

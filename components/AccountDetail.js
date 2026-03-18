@@ -4,6 +4,22 @@ import { useState } from 'react';
 import { ACCOUNT_TYPES, MARKETS, fmt } from '../lib/constants';
 import { updateRow } from '../lib/db';
 
+// Inline buyer match scoring for account rollup (simplified from BuyerMatching.js)
+function matchScore(property, account) {
+  let score = 0;
+  const pm = (property.market || property.submarket || '').toLowerCase();
+  const bm = (account.preferred_markets || []).map(m => m.toLowerCase());
+  if (bm.some(m => pm.includes(m.substring(0, 3)))) score += 20;
+  const sf = property.total_sf || property.building_sf;
+  if (sf && account.min_sf && sf >= account.min_sf && (!account.max_sf || sf <= account.max_sf)) score += 15;
+  if (account.deal_type_preference?.length) score += 15;
+  const tags = property.catalyst_tags || [];
+  if (tags.includes('SLB Potential') && account.deal_type_preference?.includes('SLB')) score += 10;
+  if (property.clear_height && account.min_clear_height && property.clear_height >= account.min_clear_height) score += 5;
+  if (['Active', 'Aggressive'].includes(account.acquisition_timing)) score += 10;
+  return score;
+}
+
 export default function AccountDetail({ account, contacts, deals, properties, activities, tasks, onRefresh, showToast, onContactClick, onDealClick, onPropertyClick, onAddActivity, onAddTask }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ ...account });
@@ -266,6 +282,48 @@ export default function AccountDetail({ account, contacts, deals, properties, ac
           </div>
         )}
       </div>
+      {/* Matched Properties (Buyer Match Rollup) */}
+      {['Institutional Buyer', 'Private Buyer', 'Investor', 'Developer'].includes(account.account_type) && (
+        <div className="card" style={{ marginTop: '16px' }}>
+          <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '14px' }}>
+            Buyer Match — Properties
+          </h3>
+          {(() => {
+            const matches = properties
+              .map(p => ({ ...p, matchScore: matchScore(p, account) }))
+              .filter(p => p.matchScore >= 25)
+              .sort((a, b) => b.matchScore - a.matchScore);
+            if (matches.length === 0) return <div style={{ fontSize: '15px', color: 'var(--text-muted)' }}>No properties match this buyer's criteria. Add buyer criteria above to enable matching.</div>;
+            return (
+              <div style={{ overflowX: 'auto' }}>
+                <table><thead><tr>
+                  <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Address</th>
+                  <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Submarket</th>
+                  <th style={{ textAlign: 'right', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>SF</th>
+                  <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Owner</th>
+                  <th style={{ textAlign: 'right', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Match</th>
+                </tr></thead><tbody>
+                  {matches.slice(0, 20).map(p => {
+                    const scoreColor = p.matchScore >= 70 ? '#22c55e' : p.matchScore >= 50 ? '#3b82f6' : '#f59e0b';
+                    return (
+                      <tr key={p.id} onClick={() => onPropertyClick?.(p)} style={{ cursor: 'pointer', borderBottom: '1px solid var(--border-subtle)' }}>
+                        <td style={{ padding: '8px 10px', fontSize: '14px', fontWeight: 500 }}>{p.address}</td>
+                        <td style={{ padding: '8px 10px', fontSize: '13px', color: 'var(--text-muted)' }}>{p.submarket || '—'}</td>
+                        <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', fontSize: '13px', textAlign: 'right' }}>{(p.total_sf || p.building_sf) ? Number(p.total_sf || p.building_sf).toLocaleString() : '—'}</td>
+                        <td style={{ padding: '8px 10px', fontSize: '13px' }}>{p.owner || '—'}</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right' }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: scoreColor }}>{p.matchScore}%</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody></table>
+                {matches.length > 20 && <div style={{ textAlign: 'center', padding: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>Showing 20 of {matches.length} matches</div>}
+              </div>
+            );
+          })()}
+        </div>
+      )}
     </div>
   );
 }

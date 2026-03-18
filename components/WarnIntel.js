@@ -107,6 +107,28 @@ export default function WarnIntel({ properties, leads, onRefresh, showToast }) {
   const newCount = useMemo(() => rawData.filter(r => isNew(r, 14) && isIndustrial(r) && isInMarket(r)).length, [rawData]);
 
   // Research company via AI + web search
+  // M&A signal detection keywords
+  const MA_SIGNALS = {
+    'M&A - Acquisition': ['acquired by', 'acquisition', 'purchased by', 'bought by', 'takeover'],
+    'M&A - Consolidation': ['consolidat', 'merged with', 'merger', 'combining operations'],
+    'Relocation Risk': ['relocat', 'moving to', 'moved operations', 'shifting production', 'out of state'],
+    'Expansion Potential': ['expand', 'new facility', 'growing', 'additional space'],
+    'Downsizing': ['downsiz', 'shrinking', 'reducing footprint', 'cutting operations'],
+    'Corporate Restructuring': ['restructur', 'reorganiz', 'chapter 11', 'spinoff', 'spin-off'],
+    'Bankruptcy': ['bankrupt', 'chapter 7', 'chapter 11', 'insolvency', 'liquidat'],
+  };
+
+  const detectMaSignals = (text) => {
+    const lc = text.toLowerCase();
+    const found = [];
+    for (const [tag, keywords] of Object.entries(MA_SIGNALS)) {
+      if (keywords.some(k => lc.includes(k))) found.push(tag);
+    }
+    return found;
+  };
+
+  const [enrichedTags, setEnrichedTags] = useState({});
+
   const handleResearch = async (row) => {
     setResearching(prev => ({ ...prev, [row.id]: true }));
     try {
@@ -114,14 +136,19 @@ export default function WarnIntel({ properties, leads, onRefresh, showToast }) {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: AI_MODEL_OPUS, max_tokens: 800,
-          system: 'You are a CRE brokerage research assistant specializing in SoCal industrial. Research this company and provide intel useful for a broker looking at potential vacancy. Include: what the company does, size/revenue if known, property usage (warehouse, manufacturing, etc.), likelihood of backfill, and any recent news. Be concise and actionable.',
+          system: 'You are a CRE brokerage research assistant specializing in SoCal industrial. Research this company and provide intel useful for a broker. Include: what the company does, size/revenue, property usage (warehouse, manufacturing, etc.), any M&A activity (acquisitions, mergers, consolidations), relocation plans, expansion or downsizing signals, and CRE opportunity. Flag any M&A, restructuring, relocation, or expansion explicitly. Be concise and actionable.',
           tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-          messages: [{ role: 'user', content: `Research "${row.company}" at ${row.address}. They filed a WARN notice on ${row.noticeDate} affecting ${row.employees} employees (${row.eventType}). County: ${row.county}. What do they do, what kind of space do they occupy, and what's the CRE opportunity here?` }],
+          messages: [{ role: 'user', content: `Research "${row.company}" at ${row.address}. They filed a WARN notice on ${row.noticeDate} affecting ${row.employees} employees (${row.eventType}). County: ${row.county}. What do they do, any M&A activity, relocation, expansion, downsizing, or restructuring? What's the CRE opportunity?` }],
         }),
       });
       const data = await res.json();
       const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
       setResearchResults(prev => ({ ...prev, [row.id]: text || 'No results found.' }));
+      // Detect M&A signals and store enriched tags
+      const maTags = detectMaSignals(text);
+      if (maTags.length > 0) {
+        setEnrichedTags(prev => ({ ...prev, [row.id]: maTags }));
+      }
     } catch (e) {
       setResearchResults(prev => ({ ...prev, [row.id]: 'Error: ' + e.message }));
     } finally {
@@ -136,17 +163,25 @@ export default function WarnIntel({ properties, leads, onRefresh, showToast }) {
       const existingLead = (leads || []).find(l => l.lead_name?.toLowerCase().includes(row.company.toLowerCase().split(/\s+/)[0]));
       if (existingLead) { showToast?.('Lead already exists for this company'); setConverting(prev => ({ ...prev, [row.id]: false })); return; }
 
+      const baseTags = ['WARN Notice'];
+      const maTags = enrichedTags[row.id] || [];
+      const allTags = [...new Set([...baseTags, ...maTags])];
+      // M&A stacking increases priority
+      const hasMa = maTags.length > 0;
+      const priority = hasMa ? 'High' : row.employees >= 100 ? 'High' : 'Medium';
+      const tier = hasMa ? 'A' : row.employees >= 200 ? 'A' : row.employees >= 50 ? 'B' : 'C';
+
       await insertRow('leads', {
         lead_name: `${row.company} — WARN ${row.noticeDate}`,
         address: row.address || null,
         submarket: null,
         company: row.company,
         owner: null,
-        catalyst_tags: ['WARN Notice'],
-        priority: row.employees >= 100 ? 'High' : 'Medium',
+        catalyst_tags: allTags,
+        priority,
         stage: 'Lead',
-        tier: row.employees >= 200 ? 'A' : row.employees >= 50 ? 'B' : 'C',
-        notes: `WARN Notice: ${row.eventType} affecting ${row.employees} employees.\nFiled: ${row.noticeDate}\nEffective: ${row.effectiveDate}\nCounty: ${row.county}\nAddress: ${row.address}\n\n${researchResults[row.id] ? '--- AI Research ---\n' + researchResults[row.id] : ''}`,
+        tier,
+        notes: `WARN Notice: ${row.eventType} affecting ${row.employees} employees.\nFiled: ${row.noticeDate}\nEffective: ${row.effectiveDate}\nCounty: ${row.county}\nAddress: ${row.address}${maTags.length ? '\n\nM&A Signals Detected: ' + maTags.join(', ') : ''}\n\n${researchResults[row.id] ? '--- AI Research ---\n' + researchResults[row.id] : ''}`,
       });
       onRefresh?.();
       showToast?.(`Lead created: ${row.company}`);
@@ -274,11 +309,15 @@ export default function WarnIntel({ properties, leads, onRefresh, showToast }) {
               <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '10px' }}>Research Results</h3>
               {Object.entries(researchResults).map(([id, text]) => {
                 const row = rawData.find(r => r.id === id);
+                const maTags = enrichedTags[id] || [];
                 return (
                   <div key={id} style={{ padding: '14px', background: '#8b5cf611', border: '1px solid #8b5cf633', borderRadius: '8px', marginBottom: '10px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <div style={{ fontSize: '14px', fontWeight: 600 }}>{row?.company || id}</div>
-                      <button className="btn btn-primary btn-sm" style={{ fontSize: '11px' }} onClick={() => row && handleConvertToLead(row)} disabled={!row || converting[id]}>→ Convert to Lead</button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '14px', fontWeight: 600 }}>{row?.company || id}</span>
+                        {maTags.map(t => <span key={t} className="tag tag-red" style={{ fontSize: '11px' }}>{t}</span>)}
+                      </div>
+                      <button className="btn btn-primary btn-sm" style={{ fontSize: '11px' }} onClick={() => row && handleConvertToLead(row)} disabled={!row || converting[id]}>→ Convert to Lead{maTags.length > 0 ? ' (+ M&A)' : ''}</button>
                     </div>
                     <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{text}</div>
                   </div>

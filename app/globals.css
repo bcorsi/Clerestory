@@ -534,3 +534,30 @@ tr.urgent td { background: #FFF8F6; }
 .font-serif { font-family: var(--font-serif); }
 .font-display { font-family: var(--font-display); }
 .font-mono { font-family: var(--font-mono); }
+
+/* Layout aliases (used by page.js) */
+.app-layout { display: flex; min-height: 100vh; }
+.main-area { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+/* Legacy stat classes (used by older components) */
+.stats-grid { display: grid; gap: 12px; margin-bottom: 18px; }
+.stat-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 16px 18px; }
+.stat-label { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink3); margin-bottom: 6px; }
+.stat-value { font-family: var(--font-display); font-size: 28px; font-weight: 700; color: var(--ink); line-height: 1; letter-spacing: -0.01em; }
+.stat-sub { font-size: 13px; font-weight: 500; color: var(--ink3); margin-top: 5px; }
+
+/* Legacy nav classes (used by old Sidebar) */
+.sidebar-header { padding: 22px 18px 18px; border-bottom: 1px solid var(--sb-line2); }
+.sidebar-logo { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 600; color: var(--sb-text); }
+.sidebar-logo-icon { width: 28px; height: 28px; border-radius: 6px; background: var(--blue2); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; }
+.sidebar-nav { flex: 1; overflow-y: auto; padding: 8px 0; }
+.nav-section { margin-bottom: 4px; }
+.nav-section-label { font-family: var(--font-serif); font-size: 12px; font-style: italic; color: var(--sb-label); padding: 12px 18px 6px; }
+.nav-item-icon { width: 14px; text-align: center; font-size: 13px; opacity: 0.5; }
+.nav-item.active .nav-item-icon { opacity: 0.9; }
+.nav-item-badge { font-family: var(--font-mono); font-size: 11px; color: var(--sb-label); }
+.nav-item.active .nav-item-badge { color: var(--blue3); }
+
+/* SoCal News Feed styling */
+.news-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 16px 18px; margin-bottom: 10px; cursor: pointer; transition: box-shadow 0.12s; }
+.news-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.06); }

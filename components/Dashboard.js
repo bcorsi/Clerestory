@@ -33,13 +33,12 @@ Reply with ONLY the brief — no preamble, no bullet points.` }],
 
 function TimeGreeting() {
   const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
+  const tod = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+  return <>Good <em>{tod},</em> Briana.</>;
 }
 
 function DayOfWeek() {
-  return new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  return new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) + ' · ' + new Date().getFullYear();
 }
 
 export default function Dashboard({
@@ -197,128 +196,96 @@ export default function Dashboard({
 
   return (
     <div>
-      {/* ─── MORNING HEADER ───────────────────────────────────── */}
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-          <div>
-            <h2 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: '4px' }}>
-              <TimeGreeting />
-            </h2>
-            <div style={{ fontSize: '15px', color: 'var(--text-muted)' }}><DayOfWeek /></div>
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button className="btn btn-ghost" onClick={generateBrief} disabled={briefLoading}
-              style={{ fontSize: '15px', gap: '6px', color: 'var(--amber)', borderColor: 'var(--amber)' }}>
-              {briefLoading ? '⟳ Generating...' : '✦ Morning Brief'}
-            </button>
-            <button className="btn btn-ghost" onClick={generateEveningBrief} disabled={eveningLoading}
-              style={{ fontSize: '15px', gap: '6px', color: '#8b5cf6', borderColor: '#8b5cf644' }}>
-              {eveningLoading ? '⟳ Generating...' : '✦ Evening Brief'}
-            </button>
-          </div>
+      {/* ─── GREETING ───────────────────────────────────── */}
+      <div className="greeting">
+        <h1><TimeGreeting /></h1>
+        <div className="greeting-date"><DayOfWeek /></div>
+        <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+          <button className="ai-btn" onClick={generateBrief} disabled={briefLoading}>
+            <svg viewBox="0 0 12 12" fill="currentColor" style={{ width: 12, height: 12 }}><path d="M6 1l1.2 2.6L10 4.8l-2.8 1.4L6 9 4.8 6.2 2 4.8l2.8-1.2z"/></svg>
+            {briefLoading ? 'Generating...' : 'Morning Brief'}
+          </button>
+          <button className="btn btn-blue" onClick={generateEveningBrief} disabled={eveningLoading}>
+            {eveningLoading ? 'Generating...' : '✦ Evening Brief'}
+          </button>
         </div>
-
-        {(morningBrief || briefLoading || briefError) && (
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(217, 119, 6, 0.06), rgba(37, 99, 235, 0.04))',
-            border: '1px solid rgba(217, 119, 6, 0.2)',
-            borderRadius: 'var(--radius-md)', padding: '16px 20px', marginBottom: '8px',
-          }}>
-            {briefLoading ? (
-              <div style={{ fontSize: '15px', color: 'var(--text-muted)', fontStyle: 'italic' }}>Analyzing your pipeline, leads, and tasks...</div>
-            ) : briefError ? (
-              <div style={{ fontSize: '15px', color: 'var(--text-muted)' }}>Could not generate brief. Click to retry.</div>
-            ) : (
-              <div style={{ fontSize: '15px', color: 'var(--text-primary)', lineHeight: '1.65', fontWeight: 450 }}>
-                <span style={{ color: 'var(--amber)', fontWeight: 600, marginRight: '6px' }}>✦</span>
-                {morningBrief}
-              </div>
-            )}
-          </div>
-        )}
-
-        {(eveningBrief || eveningLoading) && (
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.06), rgba(37, 99, 235, 0.04))',
-            border: '1px solid rgba(139, 92, 246, 0.2)',
-            borderRadius: 'var(--radius-md)', padding: '16px 20px', marginBottom: '8px',
-          }}>
-            {eveningLoading ? (
-              <div style={{ fontSize: '15px', color: 'var(--text-muted)', fontStyle: 'italic' }}>Reviewing today's activities and progress...</div>
-            ) : (
-              <div style={{ fontSize: '15px', color: 'var(--text-primary)', lineHeight: '1.65', fontWeight: 450 }}>
-                <span style={{ color: '#8b5cf6', fontWeight: 600, marginRight: '6px' }}>✦ Evening Recap</span>
-                {eveningBrief}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
-      {/* ─── STAT CARDS ───────────────────────────────────────── */}
-      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
-        <div className="stat-card" onClick={() => setPage('pipeline')} style={{ cursor: 'pointer', transition: 'border-color 0.15s' }} onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'} onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
-          <div className="stat-label">Pipeline</div>
-          <div className="stat-value">{activeDeals.length}</div>
-          <div className="stat-sub">{totalPipeline > 0 ? `${(totalPipeline / 1000000).toFixed(1)}M value` : 'No active deals'}</div>
+      {/* ─── AI STRIP ───────────────────────────────────── */}
+      {(morningBrief || briefLoading || briefError) && (
+        <div className="ai-strip">
+          <div className="ai-pulse"></div>
+          <div className="ai-tag">Intelligence</div>
+          <div className="ai-text">
+            {briefLoading ? <em style={{ color: 'var(--ink4)' }}>Analyzing your pipeline, leads, and tasks...</em>
+              : briefError ? <span style={{ color: 'var(--ink4)' }}>Could not generate brief. Click to retry.</span>
+              : <span dangerouslySetInnerHTML={{ __html: morningBrief?.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') || '' }} />}
+          </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Commission</div>
-          <div className="stat-value" style={{ color: 'var(--green)', fontSize: '24px' }}>{fmt.price(Math.round(totalCommission))}</div>
-          <div className="stat-sub">{fmt.price(Math.round(weightedComm))} weighted</div>
+      )}
+
+      {(eveningBrief || eveningLoading) && (
+        <div className="ai-strip" style={{ borderBottomColor: 'var(--purple-bdr)' }}>
+          <div className="ai-pulse" style={{ background: 'var(--purple)' }}></div>
+          <div className="ai-tag" style={{ color: 'var(--purple)' }}>Evening Recap</div>
+          <div className="ai-text">
+            {eveningLoading ? <em style={{ color: 'var(--ink4)' }}>Reviewing today's activities...</em>
+              : <span dangerouslySetInnerHTML={{ __html: eveningBrief?.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') || '' }} />}
+          </div>
         </div>
-        <div className="stat-card" onClick={() => setPage('lead-gen')} style={{ cursor: 'pointer', transition: 'border-color 0.15s' }} onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--amber)'} onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
-          <div className="stat-label">Active Leads</div>
-          <div className="stat-value">{activeLeads.length}</div>
-          <div className="stat-sub">{hotLeads.length} hot (A+/A)</div>
+      )}
+
+      {/* ─── METRICS ───────────────────────────────────── */}
+      <div className="metrics-bar">
+        <div className="metric-cell" onClick={() => setPage('pipeline')} style={{ cursor: 'pointer' }}>
+          <div className="metric-label">Pipeline</div>
+          <div className="metric-val">{activeDeals.length}</div>
+          <div className="metric-sub">{totalPipeline > 0 ? `$${(totalPipeline / 1000000).toFixed(1)}M value` : 'No active deals'}</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Properties</div>
-          <div className="stat-value">{properties.length}</div>
-          <div className="stat-sub">{fmt.sf(properties.reduce((s, p) => s + (p.building_sf || 0), 0))}</div>
+        <div className="metric-cell">
+          <div className="metric-label">Commission</div>
+          <div className="metric-val accent">{fmt.price(Math.round(totalCommission))}</div>
+          <div className="metric-sub">{fmt.price(Math.round(weightedComm))} weighted</div>
         </div>
-        <div className="stat-card" onClick={() => setPage('tasks')} style={{ cursor: 'pointer', transition: 'border-color 0.15s' }} onMouseEnter={e => e.currentTarget.style.borderColor = overdueTasks.length > 0 ? 'var(--red)' : 'var(--border)'} onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
-          <div className="stat-label">Tasks Due</div>
-          <div className="stat-value" style={overdueTasks.length > 0 ? { color: 'var(--red)' } : {}}>{todayTasks.length + overdueTasks.length}</div>
-          <div className="stat-sub">{overdueTasks.length > 0 ? <span style={{ color: 'var(--red)' }}>{overdueTasks.length} overdue</span> : 'All on track'}</div>
+        <div className="metric-cell" onClick={() => setPage('lead-gen')} style={{ cursor: 'pointer' }}>
+          <div className="metric-label">Active Leads</div>
+          <div className="metric-val">{activeLeads.length}</div>
+          <div className="metric-sub">{hotLeads.length} hot (A+/A)</div>
+        </div>
+        <div className="metric-cell">
+          <div className="metric-label">Properties</div>
+          <div className="metric-val">{properties.length}</div>
+          <div className="metric-sub">{fmt.sf(properties.reduce((s, p) => s + (p.building_sf || 0), 0))}</div>
+        </div>
+        <div className="metric-cell" onClick={() => setPage('tasks')} style={{ cursor: 'pointer' }}>
+          <div className="metric-label">Tasks Due</div>
+          <div className={`metric-val ${overdueTasks.length > 0 ? 'danger' : ''}`}>{todayTasks.length + overdueTasks.length}</div>
+          <div className={`metric-sub ${overdueTasks.length > 0 ? 'danger' : ''}`}>{overdueTasks.length > 0 ? `${overdueTasks.length} overdue` : 'All on track'}</div>
         </div>
       </div>
 
       {/* ─── MAIN GRID: 3-column layout ─────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '18px' }}>
+      <div className="three-col">
 
         {/* ── COLUMN 1: Today's Actions ─────────────────────── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-
-          {/* Overdue + Today Tasks */}
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: 600 }}>
-                {overdueTasks.length > 0 ? '🔴 ' : ''}Today's Actions
-              </h3>
-              <button className="btn btn-ghost btn-sm" style={{ fontSize: '15px' }} onClick={() => setPage('tasks')}>All tasks →</button>
-            </div>
+        <div className="col-card">
+          <div className="col-head">
+            <div className="col-title"><div className="live-dot"></div>Today's Actions</div>
+            <span className="col-link" onClick={() => setPage('tasks')}>View all →</span>
+          </div>
 
             {[...overdueTasks, ...todayTasks].length === 0 ? (
-              <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '15px' }}>No tasks due today</div>
+              <div style={{ padding: '20px 22px', textAlign: 'center', color: 'var(--ink4)', fontSize: '13px' }}>No tasks due today</div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div>
                 {[...overdueTasks.map(t => ({...t, _overdue: true})), ...todayTasks].slice(0, 8).map(task => (
-                  <div key={task.id} style={{
-                    display: 'flex', alignItems: 'center', gap: '10px',
-                    padding: '8px 10px', borderRadius: '6px',
-                    background: task._overdue ? 'var(--red-soft)' : 'transparent',
-                    border: task._overdue ? '1px solid rgba(220,38,38,0.15)' : '1px solid transparent',
-                  }}>
-                    <div style={{
-                      width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0,
-                      background: task._overdue ? 'var(--red)' : priorityColor(task.priority),
-                    }} />
+                  <div key={task.id} className={`task-item ${task._overdue ? 'overdue' : ''}`}>
+                    <div className="t-dot" style={{ background: task._overdue ? 'var(--rust)' : priorityColor(task.priority) }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</div>
-                      {task._overdue && <div style={{ fontSize: '15px', color: 'var(--red)', fontWeight: 600 }}>OVERDUE — {task.due_date}</div>}
+                      <div className="t-name">{task.title}</div>
+                      {task._overdue && <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--rust)', letterSpacing: '0.1em', marginTop: '3px' }}>Overdue · {task.due_date}</div>}
                     </div>
-                    <span style={{ fontSize: '15px', color: priorityColor(task.priority), fontWeight: 600, flexShrink: 0 }}>{task.priority}</span>
+                    <span className={`t-pri ${task.priority === 'High' ? 'h' : 'm'}`}>{task.priority}</span>
                   </div>
                 ))}
               </div>
@@ -362,182 +329,58 @@ export default function Dashboard({
           )}
         </div>
 
-        {/* ── COLUMN 2: Pipeline + Lead Funnel ──────────────── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-
-          {/* Pipeline Momentum */}
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Pipeline Momentum</h3>
-              <button className="btn btn-ghost btn-sm" style={{ fontSize: '15px' }} onClick={() => setPage('pipeline')}>View pipeline →</button>
-            </div>
-
-            <div style={{ display: 'flex', gap: '2px', height: '24px', borderRadius: '5px', overflow: 'hidden', marginBottom: '14px' }}>
-              {DEAL_STAGES.filter(s => (dealsByStage[s]?.length || 0) > 0).map(stage => {
-                const pct = ((dealsByStage[stage]?.length || 0) / Math.max(deals.length, 1)) * 100;
-                return (
-                  <div key={stage} title={`${stage}: ${dealsByStage[stage]?.length || 0}`}
-                    style={{ width: `${Math.max(pct, 3)}%`, background: STAGE_COLORS[stage], borderRadius: '2px', minWidth: '8px', opacity: 0.85, transition: 'opacity 0.15s', cursor: 'pointer' }}
-                    onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                    onMouseLeave={e => e.currentTarget.style.opacity = '0.85'} />
-                );
-              })}
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              {DEAL_STAGES.filter(s => s !== 'Dead').map(stage => {
-                const count = dealsByStage[stage]?.length || 0;
-                const value = (dealsByStage[stage] || []).reduce((s, d) => s + (d.deal_value || 0), 0);
-                return (
-                  <div key={stage} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '3px 0' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: STAGE_COLORS[stage], flexShrink: 0 }} />
-                    <span style={{ fontSize: '15px', color: count > 0 ? 'var(--text-primary)' : 'var(--text-muted)', flex: 1 }}>{stage}</span>
-                    <span style={{ fontSize: '15px', fontFamily: 'var(--font-mono)', color: count > 0 ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: count > 0 ? 600 : 400 }}>{count}</span>
-                    {value > 0 && <span style={{ fontSize: '15px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', minWidth: '52px', textAlign: 'right' }}>{(value / 1000000).toFixed(1)}M</span>}
-                  </div>
-                );
-              })}
-            </div>
-
-            {closingThisMonth.length > 0 && (
-              <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
-                <div style={{ fontSize: '15px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--green)', marginBottom: '8px' }}>
-                  Closing This Month ({closingThisMonth.length})
-                </div>
-                {closingThisMonth.map(deal => (
-                  <div key={deal.id} onClick={() => onDealClick?.(deal)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 8px', borderRadius: '5px', cursor: 'pointer', transition: 'background 0.1s' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card-hover)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--text-primary)' }}>{deal.deal_name}</div>
-                    </div>
-                    {deal.commission_est && <span style={{ fontSize: '15px', fontFamily: 'var(--font-mono)', color: 'var(--green)', fontWeight: 500 }}>{fmt.price(deal.commission_est)}</span>}
-                  </div>
-                ))}
-              </div>
-            )}
+        {/* ── COLUMN 2: Pipeline ──────────────── */}
+        <div className="col-card">
+          <div className="col-head">
+            <div className="col-title">Pipeline</div>
+            <span className="col-link" onClick={() => setPage('pipeline')}>View →</span>
           </div>
 
-          {/* Lead Gen Funnel */}
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Lead Funnel</h3>
-              <button className="btn btn-ghost btn-sm" style={{ fontSize: '15px' }} onClick={() => setPage('lead-gen')}>View leads →</button>
-            </div>
-
-            {LEAD_STAGES.map(stage => {
-              const stageLeads = leadsByStage[stage] || [];
-              const hotCount = stageLeads.filter(l => ['A+', 'A'].includes(l.tier)).length;
-              return (
-                <div key={stage} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: '1px solid var(--border-subtle)' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: LEAD_STAGE_COLORS[stage], flexShrink: 0 }} />
-                  <span style={{ fontSize: '15px', color: 'var(--text-secondary)', flex: 1 }}>{stage}</span>
-                  <span style={{ fontSize: '15px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-primary)' }}>{stageLeads.length}</span>
-                  {hotCount > 0 && <span style={{ fontSize: '15px', fontWeight: 600, color: '#22c55e', background: 'rgba(34,197,94,0.1)', padding: '1px 5px', borderRadius: '3px' }}>{hotCount} hot</span>}
-                </div>
-              );
+          <div style={{ display: 'flex', gap: '0', height: '4px', margin: '14px 20px 16px', borderRadius: '2px', overflow: 'hidden', background: 'var(--bg2)' }}>
+            {DEAL_STAGES.filter(s => (dealsByStage[s]?.length || 0) > 0 && s !== 'Dead').map(stage => {
+              const pct = ((dealsByStage[stage]?.length || 0) / Math.max(activeDeals.length, 1)) * 100;
+              return <div key={stage} style={{ width: `${Math.max(pct, 3)}%`, background: STAGE_COLORS[stage] }} />;
             })}
-
-            {untouchedLeads.length > 0 && (
-              <div style={{ marginTop: '10px', padding: '8px 10px', borderRadius: '6px', background: 'var(--amber-soft)', border: '1px solid rgba(217,119,6,0.15)' }}>
-                <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--amber)' }}>
-                  {untouchedLeads.length} lead{untouchedLeads.length !== 1 ? 's' : ''} awaiting first contact
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── COLUMN 3: Hot Leads + Activity Feed ───────────── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-
-          {/* Hot Leads */}
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: 600 }}>🔥 Hot Leads</h3>
-              <span style={{ fontSize: '15px', color: 'var(--text-muted)' }}>A+ and A tier</span>
-            </div>
-
-            {hotLeads.length === 0 ? (
-              <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '15px' }}>No A+/A tier leads yet</div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                {hotLeads.slice(0, 7).map(lead => (
-                  <div key={lead.id} onClick={() => onLeadClick?.(lead)} style={{
-                    display: 'flex', alignItems: 'center', gap: '10px',
-                    padding: '8px 10px', borderRadius: '6px', cursor: 'pointer',
-                    borderLeft: `3px solid ${tierColor(lead.tier)}`, transition: 'background 0.1s',
-                  }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card-hover)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lead.lead_name}</div>
-                      <div style={{ fontSize: '15px', color: 'var(--text-muted)' }}>{lead.submarket || lead.address || ''}</div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexShrink: 0 }}>
-                      <span style={{ fontSize: '15px', fontWeight: 700, color: tierColor(lead.tier), background: tierColor(lead.tier) + '18', padding: '1px 5px', borderRadius: '3px' }}>{lead.tier}</span>
-                      <span style={{ fontSize: '15px', fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>{lead.score}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
-          {/* Activity Feed */}
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Recent Activity</h3>
-              <button className="btn btn-ghost btn-sm" style={{ fontSize: '15px' }} onClick={() => setPage('activities')}>View all →</button>
-            </div>
-
-            {recentActivities.length === 0 ? (
-              <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '15px' }}>No recent activity</div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                {recentActivities.map(act => {
-                  const linked = findLinkedName(act);
-                  return (
-                    <div key={act.id} style={{ display: 'flex', gap: '10px', padding: '6px 4px', borderBottom: '1px solid var(--border-subtle)' }}>
-                      <span style={{ fontSize: '15px', lineHeight: '18px', flexShrink: 0 }}>{activityIcon(act.activity_type)}</span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '15px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {act.subject || act.activity_type}
-                        </div>
-                        <div style={{ fontSize: '15px', color: 'var(--text-muted)' }}>
-                          {linked && <span>{linked} · </span>}
-                          {act.outcome && <span style={{ color: act.outcome === 'Spoke' || act.outcome === 'Meeting Set' ? 'var(--green)' : 'var(--text-muted)' }}>{act.outcome} · </span>}
-                          {act.activity_date}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Market Summary */}
-          <div className="card">
-            <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>By Market</h3>
-            {['SGV', 'IE', 'LA', 'OC'].map(mkt => {
-              const propCount = properties.filter(p => p.market === mkt).length;
-              const dealCount = deals.filter(d => {
-                const prop = properties.find(p => p.address === d.address);
-                return prop?.market === mkt;
-              }).length;
-              if (propCount === 0 && dealCount === 0) return null;
+          <div>
+            {DEAL_STAGES.filter(s => s !== 'Dead').map(stage => {
+              const count = dealsByStage[stage]?.length || 0;
+              const value = (dealsByStage[stage] || []).reduce((s, d) => s + (d.deal_value || 0), 0);
               return (
-                <div key={mkt} style={{ display: 'flex', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid var(--border-subtle)' }}>
-                  <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', minWidth: '36px' }}>{mkt}</span>
-                  <div style={{ display: 'flex', gap: '12px', fontSize: '15px', color: 'var(--text-muted)' }}>
-                    <span>{propCount} prop</span>
-                    <span>{dealCount} deal</span>
+                <div key={stage} className="pipe-row" onClick={() => setPage('pipeline')}>
+                  <div className="pipe-stage">
+                    <span className="s-dot" style={{ background: STAGE_COLORS[stage] }} />
+                    {stage}
                   </div>
+                  <div className="pipe-num">{count}</div>
+                  <div className="pipe-val">{value > 0 ? `$${(value/1e6).toFixed(1)}M` : '—'}</div>
                 </div>
               );
             })}
           </div>
+
+        {/* ── COLUMN 3: Hot Leads ───────────── */}
+        <div className="col-card">
+          <div className="col-head">
+            <div className="col-title" style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--rust)', fontFamily: 'var(--font-body)' }}>▲ Hot Leads</div>
+          </div>
+
+          {hotLeads.length === 0 ? (
+            <div style={{ padding: '20px 16px', textAlign: 'center', color: 'var(--ink4)', fontSize: '13px' }}>No A+/A tier leads yet</div>
+          ) : (
+            <div>
+              {hotLeads.slice(0, 7).map((lead, i) => (
+                <div key={lead.id} onClick={() => onLeadClick?.(lead)} className={`hot-lead ${i === 0 ? 'top' : ''}`}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="hl-name">{lead.lead_name}{lead.address ? ` — ${lead.address}` : ''}</div>
+                    <div className="hl-sub">{lead.submarket || lead.market || ''}{lead.building_sf ? ` · ${Number(lead.building_sf).toLocaleString()} SF` : ''}</div>
+                  </div>
+                  {lead.score && <div className="hl-score">{lead.score}</div>}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

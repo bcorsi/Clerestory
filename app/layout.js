@@ -4,7 +4,7 @@ export const metadata = {
   title: 'Clerestory',
   description: 'CRE Brokerage Intelligence Platform',
   manifest: '/manifest.json',
-  themeColor: '#eef3f9',
+  themeColor: '#141820',
   viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no',
   appleWebApp: {
     capable: true,

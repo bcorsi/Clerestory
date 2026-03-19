@@ -1,64 +1,85 @@
 -- ══════════════════════════════════════════════════════════════
--- CLERESTORY — Accounts Schema Upgrade
--- Adds buyer criteria fields for the Buyer Matching Engine
--- Run in Supabase SQL Editor FIRST (before seed data)
+-- CLERESTORY v17 — Cadences, WARN Notices, AI Two-Tier
+-- Run in Supabase SQL Editor AFTER v16 migrations
 -- ══════════════════════════════════════════════════════════════
 
--- ── Buyer Criteria (Powers Matching Engine) ──
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS entity_type text;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS buyer_type text;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS hq_state text;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS preferred_markets text[];
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS deal_type_preference text[];
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS product_preference text[];
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS min_sf integer;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS max_sf integer;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS min_price numeric(15,2);
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS max_price numeric(15,2);
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS min_price_psf numeric(10,2);
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS max_price_psf numeric(10,2);
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS yield_target numeric(5,2);
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS irr_target numeric(5,2);
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS risk_profile text;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS acquisition_timing text;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS min_clear_height integer;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS power_requirement text;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS geographic_focus text;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS last_criteria_update date;
+-- ─── FOLLOW-UP CADENCE FIELDS ────────────────────────────────
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS follow_up_cadence text;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS follow_up_cadence text;
+ALTER TABLE deals ADD COLUMN IF NOT EXISTS follow_up_cadence text;
 
--- ── Activity & Intelligence ──
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS buyer_activity_score integer DEFAULT 0;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS buyer_velocity_score integer DEFAULT 0;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS total_deals_closed integer DEFAULT 0;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS total_deal_value numeric(15,2) DEFAULT 0;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS last_deal_close_date date;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS known_acquisitions text;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS ai_account_summary text;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS est_capital_deployed text;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS deal_count text;
+-- ─── WARN NOTICES (optional — stores uploaded WARN data in DB) ─
+CREATE TABLE IF NOT EXISTS warn_notices (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  created_at timestamptz DEFAULT now(),
+  county text,
+  notice_date date,
+  effective_date date,
+  company text NOT NULL,
+  employees integer DEFAULT 0,
+  address text,
+  event_type text,
+  sic_code text,
+  is_industrial boolean DEFAULT false,
+  is_in_market boolean DEFAULT false,
+  tenant_match boolean DEFAULT false,
+  matched_property_id uuid REFERENCES properties(id) ON DELETE SET NULL,
+  research_notes text,
+  converted_lead_id uuid REFERENCES leads(id) ON DELETE SET NULL,
+  UNIQUE(county, company, notice_date, employees)
+);
+CREATE INDEX IF NOT EXISTS idx_warn_company ON warn_notices(company);
+CREATE INDEX IF NOT EXISTS idx_warn_date ON warn_notices(notice_date);
+CREATE INDEX IF NOT EXISTS idx_warn_match ON warn_notices(tenant_match) WHERE tenant_match = true;
 
--- ── Owner-Side Fields ──
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS slb_candidate boolean DEFAULT false;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS portfolio_size integer;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS source text;
+-- ─── ENSURE deal_contacts and buyer_outreach exist ──────────
+-- (These should already exist from v16 migration 07, but just in case)
+CREATE TABLE IF NOT EXISTS deal_contacts (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  created_at timestamptz DEFAULT now(),
+  deal_id uuid NOT NULL REFERENCES deals(id) ON DELETE CASCADE,
+  contact_id uuid NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+  role text DEFAULT 'Participant',
+  UNIQUE(deal_id, contact_id)
+);
 
--- ── Indexes ──
-CREATE INDEX IF NOT EXISTS idx_accounts_buyer_type ON accounts(buyer_type);
-CREATE INDEX IF NOT EXISTS idx_accounts_timing ON accounts(acquisition_timing);
-CREATE INDEX IF NOT EXISTS idx_accounts_name ON accounts(name);
+CREATE TABLE IF NOT EXISTS buyer_outreach (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  created_at timestamptz DEFAULT now(),
+  deal_id uuid NOT NULL REFERENCES deals(id) ON DELETE CASCADE,
+  account_id uuid REFERENCES accounts(id) ON DELETE SET NULL,
+  contact_id uuid REFERENCES contacts(id) ON DELETE SET NULL,
+  direction text DEFAULT 'Outbound',
+  method text DEFAULT 'Email',
+  outcome text,
+  notes text,
+  outreach_date date DEFAULT current_date,
+  follow_up_date date
+);
 
--- ── Link contacts to accounts ──
-ALTER TABLE contacts ADD COLUMN IF NOT EXISTS account_id uuid REFERENCES accounts(id) ON DELETE SET NULL;
-CREATE INDEX IF NOT EXISTS idx_contacts_account ON contacts(account_id);
+CREATE TABLE IF NOT EXISTS notes (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  created_at timestamptz DEFAULT now(),
+  content text NOT NULL,
+  note_type text DEFAULT 'Note',
+  deal_id uuid REFERENCES deals(id) ON DELETE CASCADE,
+  lead_id uuid REFERENCES leads(id) ON DELETE CASCADE,
+  property_id uuid REFERENCES properties(id) ON DELETE CASCADE,
+  account_id uuid REFERENCES accounts(id) ON DELETE CASCADE,
+  contact_id uuid REFERENCES contacts(id) ON DELETE CASCADE,
+  pinned boolean DEFAULT false
+);
 
--- ── Link properties to owner accounts ──
-ALTER TABLE properties ADD COLUMN IF NOT EXISTS owner_account_id uuid REFERENCES accounts(id) ON DELETE SET NULL;
-CREATE INDEX IF NOT EXISTS idx_props_owner_account ON properties(owner_account_id);
-
--- ── Link deals to buyer/seller accounts ──
-ALTER TABLE deals ADD COLUMN IF NOT EXISTS buyer_account_id uuid REFERENCES accounts(id) ON DELETE SET NULL;
-ALTER TABLE deals ADD COLUMN IF NOT EXISTS seller_account_id uuid REFERENCES accounts(id) ON DELETE SET NULL;
-CREATE INDEX IF NOT EXISTS idx_deals_buyer_account ON deals(buyer_account_id);
-CREATE INDEX IF NOT EXISTS idx_deals_seller_account ON deals(seller_account_id);
-
-SELECT 'Accounts schema upgraded — buyer criteria fields added' as result;
+CREATE TABLE IF NOT EXISTS follow_ups (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  created_at timestamptz DEFAULT now(),
+  due_date date NOT NULL,
+  reason text NOT NULL,
+  completed boolean DEFAULT false,
+  completed_at timestamptz,
+  deal_id uuid REFERENCES deals(id) ON DELETE CASCADE,
+  lead_id uuid REFERENCES leads(id) ON DELETE CASCADE,
+  property_id uuid REFERENCES properties(id) ON DELETE CASCADE,
+  contact_id uuid REFERENCES contacts(id) ON DELETE CASCADE,
+  account_id uuid REFERENCES accounts(id) ON DELETE CASCADE
+);

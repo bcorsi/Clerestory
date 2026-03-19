@@ -1,69 +1,64 @@
-import { createClient } from '@supabase/supabase-js';
+-- ══════════════════════════════════════════════════════════════
+-- CLERESTORY — Accounts Schema Upgrade
+-- Adds buyer criteria fields for the Buyer Matching Engine
+-- Run in Supabase SQL Editor FIRST (before seed data)
+-- ══════════════════════════════════════════════════════════════
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+-- ── Buyer Criteria (Powers Matching Engine) ──
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS entity_type text;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS buyer_type text;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS hq_state text;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS preferred_markets text[];
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS deal_type_preference text[];
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS product_preference text[];
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS min_sf integer;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS max_sf integer;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS min_price numeric(15,2);
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS max_price numeric(15,2);
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS min_price_psf numeric(10,2);
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS max_price_psf numeric(10,2);
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS yield_target numeric(5,2);
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS irr_target numeric(5,2);
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS risk_profile text;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS acquisition_timing text;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS min_clear_height integer;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS power_requirement text;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS geographic_focus text;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS last_criteria_update date;
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+-- ── Activity & Intelligence ──
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS buyer_activity_score integer DEFAULT 0;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS buyer_velocity_score integer DEFAULT 0;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS total_deals_closed integer DEFAULT 0;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS total_deal_value numeric(15,2) DEFAULT 0;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS last_deal_close_date date;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS known_acquisitions text;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS ai_account_summary text;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS est_capital_deployed text;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS deal_count text;
 
-// Check if Supabase is configured
-export const isConfigured = () => {
-  return supabaseUrl.length > 0 && supabaseKey.length > 0;
-};
+-- ── Owner-Side Fields ──
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS slb_candidate boolean DEFAULT false;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS portfolio_size integer;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS source text;
 
-// ─── AUTH HELPERS ────────────────────────────────────────────
+-- ── Indexes ──
+CREATE INDEX IF NOT EXISTS idx_accounts_buyer_type ON accounts(buyer_type);
+CREATE INDEX IF NOT EXISTS idx_accounts_timing ON accounts(acquisition_timing);
+CREATE INDEX IF NOT EXISTS idx_accounts_name ON accounts(name);
 
-export async function signUp(email, password, fullName) {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { full_name: fullName } },
-  });
-  if (error) throw error;
-  return data;
-}
+-- ── Link contacts to accounts ──
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS account_id uuid REFERENCES accounts(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_contacts_account ON contacts(account_id);
 
-export async function signIn(email, password) {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-  if (error) throw error;
-  return data;
-}
+-- ── Link properties to owner accounts ──
+ALTER TABLE properties ADD COLUMN IF NOT EXISTS owner_account_id uuid REFERENCES accounts(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_props_owner_account ON properties(owner_account_id);
 
-export async function signOut() {
-  const { error } = await supabase.auth.signOut();
-  if (error) throw error;
-}
+-- ── Link deals to buyer/seller accounts ──
+ALTER TABLE deals ADD COLUMN IF NOT EXISTS buyer_account_id uuid REFERENCES accounts(id) ON DELETE SET NULL;
+ALTER TABLE deals ADD COLUMN IF NOT EXISTS seller_account_id uuid REFERENCES accounts(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_deals_buyer_account ON deals(buyer_account_id);
+CREATE INDEX IF NOT EXISTS idx_deals_seller_account ON deals(seller_account_id);
 
-export async function getSession() {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session;
-}
-
-export async function getUser() {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
-}
-
-export function onAuthStateChange(callback) {
-  return supabase.auth.onAuthStateChange((_event, session) => {
-    callback(session);
-  });
-}
-
-export async function updateProfile(updates) {
-  const { data, error } = await supabase.auth.updateUser({
-    data: updates,
-  });
-  if (error) throw error;
-  return data;
-}
-
-export async function updatePassword(newPassword) {
-  const { data, error } = await supabase.auth.updateUser({
-    password: newPassword,
-  });
-  if (error) throw error;
-  return data;
-}
+SELECT 'Accounts schema upgraded — buyer criteria fields added' as result;

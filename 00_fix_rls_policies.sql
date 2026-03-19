@@ -1,173 +1,63 @@
-import { supabase, isConfigured } from './supabase';
+-- ══════════════════════════════════════════════════════════════
+-- CLERESTORY — RLS Policies (permissive for single-user)
+-- Run this in Supabase SQL Editor to fix blocked queries
+-- ══════════════════════════════════════════════════════════════
 
-// ══════════════════════════════════════════════════════════════
-// CLERESTORY — File & Photo Storage
-// ══════════════════════════════════════════════════════════════
+-- Option A: Just disable RLS on all tables (simplest for single user)
+-- Uncomment these if you just want RLS off:
 
-const PHOTO_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'];
+-- ALTER TABLE properties DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE property_apns DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE property_buildings DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE leads DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE deals DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE contacts DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE accounts DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE tasks DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE activities DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE lease_comps DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE sale_comps DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE daily_briefs DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE notes DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE follow_ups DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE deal_contacts DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE buyer_outreach DISABLE ROW LEVEL SECURITY;
+-- ALTER TABLE warn_notices DISABLE ROW LEVEL SECURITY;
 
-function getFileType(fileName) {
-  const ext = fileName.split('.').pop().toLowerCase();
-  return PHOTO_EXTENSIONS.includes(ext) ? 'photo' : 'document';
-}
+-- Option B: Keep RLS enabled but allow all authenticated users full access
+-- This is the right approach — run these:
 
-function generatePath(bucket, recordType, recordId, fileName) {
-  const timestamp = Date.now();
-  const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
-  return `${recordType}/${recordId}/${timestamp}_${safeName}`;
-}
-
-// ─── UPLOAD ──────────────────────────────────────────────────
-
-export async function uploadFile(file, { propertyId, dealId }) {
-  if (!isConfigured()) {
-    // Demo mode — return fake attachment
-    return {
-      id: `demo-${Date.now()}`,
-      file_name: file.name,
-      file_type: getFileType(file.name),
-      mime_type: file.type,
-      file_size: file.size,
-      url: URL.createObjectURL(file),
-      storage_path: `demo/${file.name}`,
-      property_id: propertyId || null,
-      deal_id: dealId || null,
-      created_at: new Date().toISOString(),
-    };
-  }
-
-  const fileType = getFileType(file.name);
-  const bucket = fileType === 'photo' ? 'photos' : 'files';
-  const recordType = propertyId ? 'properties' : 'deals';
-  const recordId = propertyId || dealId;
-  const path = generatePath(bucket, recordType, recordId, file.name);
-
-  // Upload to Supabase Storage
-  const { data: uploadData, error: uploadError } = await supabase.storage
-    .from(bucket)
-    .upload(path, file, {
-      cacheControl: '3600',
-      upsert: false,
-    });
-
-  if (uploadError) throw uploadError;
-
-  // Get public URL for photos
-  let url;
-  if (bucket === 'photos') {
-    const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path);
-    url = publicUrl;
-  } else {
-    // For private files, generate a signed URL
-    const { data: signedData } = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60 * 24); // 24hr
-    url = signedData?.signedUrl;
-  }
-
-  // Save metadata to attachments table
-  const { data: attachment, error: dbError } = await supabase
-    .from('attachments')
-    .insert({
-      property_id: propertyId || null,
-      deal_id: dealId || null,
-      file_name: file.name,
-      file_type: fileType,
-      mime_type: file.type,
-      file_size: file.size,
-      storage_path: path,
-      url: url,
-    })
-    .select()
-    .single();
-
-  if (dbError) throw dbError;
-
-  return attachment;
-}
-
-// ─── FETCH ───────────────────────────────────────────────────
-
-export async function fetchAttachments({ propertyId, dealId }) {
-  if (!isConfigured()) return [];
-
-  let query = supabase.from('attachments').select('*').order('created_at', { ascending: false });
-
-  if (propertyId) query = query.eq('property_id', propertyId);
-  if (dealId) query = query.eq('deal_id', dealId);
-
-  const { data, error } = await query;
-  if (error) throw error;
-
-  // Refresh signed URLs for private files
-  const results = await Promise.all((data || []).map(async (att) => {
-    if (att.file_type !== 'photo' && att.storage_path) {
-      const { data: signedData } = await supabase.storage.from('files').createSignedUrl(att.storage_path, 60 * 60 * 24);
-      return { ...att, url: signedData?.signedUrl || att.url };
-    }
-    return att;
-  }));
-
-  return results;
-}
-
-// ─── DELETE ──────────────────────────────────────────────────
-
-export async function deleteAttachment(attachment) {
-  if (!isConfigured()) return true;
-
-  const bucket = attachment.file_type === 'photo' ? 'photos' : 'files';
-
-  // Delete from storage
-  const { error: storageError } = await supabase.storage
-    .from(bucket)
-    .remove([attachment.storage_path]);
-
-  if (storageError) console.error('Storage delete error:', storageError);
-
-  // Delete metadata
-  const { error: dbError } = await supabase
-    .from('attachments')
-    .delete()
-    .eq('id', attachment.id);
-
-  if (dbError) throw dbError;
-  return true;
-}
-
-// ─── DOWNLOAD ────────────────────────────────────────────────
-
-export async function downloadFile(attachment) {
-  if (attachment.file_type === 'photo') {
-    // Photos are public, just open the URL
-    window.open(attachment.url, '_blank');
-    return;
-  }
-
-  // For private files, get a fresh signed URL
-  const { data } = await supabase.storage
-    .from('files')
-    .createSignedUrl(attachment.storage_path, 60 * 5); // 5 min
-
-  if (data?.signedUrl) {
-    window.open(data.signedUrl, '_blank');
-  }
-}
-
-// ─── HELPERS ─────────────────────────────────────────────────
-
-export function formatFileSize(bytes) {
-  if (!bytes) return '';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-export function getFileIcon(fileName) {
-  const ext = fileName?.split('.').pop()?.toLowerCase() || '';
-  const icons = {
-    pdf: '📄', doc: '📝', docx: '📝', xls: '📊', xlsx: '📊',
-    ppt: '📑', pptx: '📑', csv: '📊', txt: '📃',
-    jpg: '🖼', jpeg: '🖼', png: '🖼', gif: '🖼', webp: '🖼',
-    zip: '📦', rar: '📦',
-  };
-  return icons[ext] || '📎';
-}
+DO $$
+DECLARE
+  tbl TEXT;
+BEGIN
+  FOR tbl IN
+    SELECT unnest(ARRAY[
+      'properties', 'property_apns', 'property_buildings',
+      'leads', 'deals', 'contacts', 'accounts',
+      'tasks', 'activities', 'lease_comps', 'sale_comps',
+      'daily_briefs', 'notes', 'follow_ups',
+      'deal_contacts', 'buyer_outreach', 'warn_notices'
+    ])
+  LOOP
+    -- Enable RLS
+    EXECUTE format('ALTER TABLE IF EXISTS %I ENABLE ROW LEVEL SECURITY', tbl);
+    
+    -- Drop existing policies if any
+    EXECUTE format('DROP POLICY IF EXISTS "Allow all for authenticated" ON %I', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "Allow anon read" ON %I', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "Allow all access" ON %I', tbl);
+    
+    -- Create permissive policy for authenticated users (full CRUD)
+    EXECUTE format(
+      'CREATE POLICY "Allow all for authenticated" ON %I FOR ALL TO authenticated USING (true) WITH CHECK (true)',
+      tbl
+    );
+    
+    -- Also allow anon access (for when Supabase anon key is used without login)
+    EXECUTE format(
+      'CREATE POLICY "Allow anon read" ON %I FOR ALL TO anon USING (true) WITH CHECK (true)',
+      tbl
+    );
+  END LOOP;
+END $$;

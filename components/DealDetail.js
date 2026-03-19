@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { DEAL_STAGES, STAGE_COLORS, DEAL_TYPES, STRATEGIES, MARKETING_TYPES, OUTREACH_METHODS, OUTREACH_OUTCOMES, DEAL_CONTACT_ROLES, CADENCE_OPTIONS, AI_MODEL_OPUS, AI_MODEL_SONNET, catalystTagClass, fmt } from '../lib/constants';
 import { updateRow, insertRow, fetchDealContacts, addDealContact, removeDealContact, fetchBuyerOutreach, insertOutreach, setCadence } from '../lib/db';
 import Underwriting from './Underwriting';
+import FilesLinks from './FilesLinks';
 
 const NOTE_TYPES = ['Note', 'Intel', 'Call Log', 'Meeting Note', 'Status Update'];
 const LOG_TYPES = ['Call', 'Email', 'Meeting'];
@@ -194,6 +195,7 @@ export default function DealDetail({
     { id: 'underwriting', label: 'Underwriting' },
     { id: 'contacts', label: `Contacts (${dealContacts.length})` },
     { id: 'outreach', label: `Outreach (${outreachLog.length})` },
+    { id: 'files', label: `Files${(deal.file_links||[]).length ? ` (${(deal.file_links||[]).length})` : ''}` },
     { id: 'tasks', label: `Tasks${pendingTasks ? ` (${pendingTasks})` : ''}` },
   ];
 
@@ -504,6 +506,13 @@ export default function DealDetail({
               </tbody></table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* FILES TAB */}
+      {activeTab === 'files' && (
+        <div className="card" style={{ marginBottom: '16px' }}>
+          <FilesLinks record={deal} table="deals" onRefresh={onRefresh} showToast={showToast} />
         </div>
       )}
 

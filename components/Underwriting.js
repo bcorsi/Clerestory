@@ -4,8 +4,8 @@ import { useState, useMemo } from 'react';
 import { AI_MODEL_OPUS, fmt } from '../lib/constants';
 import { updateRow } from '../lib/db';
 
-export default function Underwriting({ deal, property, leaseComps, saleComps, onRefresh, showToast }) {
-  const [inputs, setInputs] = useState({
+export default function Underwriting({ deal, property, leaseComps, saleComps, onRefresh, showToast, onLeaseCompClick, onSaleCompClick }) {
+  const defaults = {
     purchase_price: deal.deal_value || '',
     going_in_cap: '',
     noi: '',
@@ -19,12 +19,16 @@ export default function Underwriting({ deal, property, leaseComps, saleComps, on
     rate: 6.5,
     amort: 30,
     ...((deal.underwriting_inputs) || {}),
-  });
+  };
+  const [draft, setDraft] = useState(defaults);
+  const [inputs, setInputs] = useState(defaults);
   const [saving, setSaving] = useState(false);
   const [memoText, setMemoText] = useState(deal.underwriting_memo || '');
   const [memoLoading, setMemoLoading] = useState(false);
 
-  const set = (k, v) => setInputs(prev => ({ ...prev, [k]: v }));
+  const setDraftField = (k, v) => setDraft(prev => ({ ...prev, [k]: v }));
+  const commitField = (k) => setInputs(prev => ({ ...prev, [k]: draft[k] }));
+  const commitAll = () => setInputs({ ...draft });
 
   // Computed metrics
   const computed = useMemo(() => {
@@ -113,53 +117,31 @@ export default function Underwriting({ deal, property, leaseComps, saleComps, on
 
   const handleSave = async () => {
     setSaving(true);
+    setInputs({ ...draft }); // commit draft to inputs for metrics
     try {
-      await updateRow('deals', deal.id, { underwriting_inputs: inputs, underwriting_memo: memoText || null });
+      await updateRow('deals', deal.id, { underwriting_inputs: draft, underwriting_memo: memoText || null });
       onRefresh?.(); showToast?.('Underwriting saved');
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); showToast?.('Error saving — check that migration has been run'); }
     finally { setSaving(false); }
   };
 
   const handleGenerateMemo = async () => {
     setMemoLoading(true);
     try {
-      const promptContent = `Deal: ${deal.deal_name}\nAddress: ${deal.address}\nSubmarket: ${submarket}\nProperty: ${computed.sf?.toLocaleString()} SF\n\nPurchase Price: $${computed.pp?.toLocaleString()}\nPrice/SF: $${computed.pricePsf}\nGoing-In Cap: ${computed.goingInCap?.toFixed(2)}%\nNOI: $${Math.round(computed.noi)?.toLocaleString()}\nExit Cap: ${computed.exitCap?.toFixed(2)}%\nDSCR: ${computed.dscr?.toFixed(2)}x\nUnlevered IRR: ${computed.unleveredIRR?.toFixed(1)}%\nLevered IRR: ${computed.leveredIRR?.toFixed(1)}%\nEquity Multiple: ${computed.equityMultiple?.toFixed(2)}x\nCash-on-Cash: ${computed.cashOnCash?.toFixed(1)}%\nHold: ${computed.holdYrs} years\n\nLease Comps: ${relevantLeaseComps.map(c => `${c.address} $${c.rate}/SF ${c.lease_type || ''}`).join(', ') || 'None'}\nSale Comps: ${relevantSaleComps.map(c => `${c.address} $${c.price_psf}/SF ${c.cap_rate ? c.cap_rate + '% cap' : ''}`).join(', ') || 'None'}\n\nDeal Notes: ${deal.notes || 'None'}\n\nGenerate the investment memo.`;
-      
-      // Try Opus first, fall back to Sonnet
-      let res = await fetch('/api/ai', {
+      const res = await fetch('/api/ai', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: AI_MODEL_OPUS, max_tokens: 800,
           system: 'You are a CRE investment analyst. Generate a concise 1-page investment memo for this deal. Include: deal summary, financial highlights (cap rate, IRR, DSCR, equity multiple), market context, comparable transactions, key risks, and investment recommendation. Professional tone, specific numbers. No fluff.',
-          messages: [{ role: 'user', content: promptContent }],
+          messages: [{ role: 'user', content: `Deal: ${deal.deal_name}\nAddress: ${deal.address}\nSubmarket: ${submarket}\nProperty: ${computed.sf?.toLocaleString()} SF\n\nPurchase Price: $${computed.pp?.toLocaleString()}\nPrice/SF: $${computed.pricePsf}\nGoing-In Cap: ${computed.goingInCap?.toFixed(2)}%\nNOI: $${Math.round(computed.noi)?.toLocaleString()}\nExit Cap: ${computed.exitCap?.toFixed(2)}%\nDSCR: ${computed.dscr?.toFixed(2)}x\nUnlevered IRR: ${computed.unleveredIRR?.toFixed(1)}%\nLevered IRR: ${computed.leveredIRR?.toFixed(1)}%\nEquity Multiple: ${computed.equityMultiple?.toFixed(2)}x\nCash-on-Cash: ${computed.cashOnCash?.toFixed(1)}%\nHold: ${computed.holdYrs} years\n\nLease Comps: ${relevantLeaseComps.map(c => `${c.address} $${c.rate}/SF ${c.lease_type || ''}`).join(', ') || 'None'}\nSale Comps: ${relevantSaleComps.map(c => `${c.address} $${c.price_psf}/SF ${c.cap_rate ? c.cap_rate + '% cap' : ''}`).join(', ') || 'None'}\n\nDeal Notes: ${deal.notes || 'None'}\n\nGenerate the investment memo.` }],
         }),
       });
-      
-      let data = await res.json();
-      
-      // If Opus fails, try Sonnet
-      if (data.error) {
-        console.warn('Opus failed, trying Sonnet:', data.error);
-        res = await fetch('/api/ai', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514', max_tokens: 800,
-            system: 'You are a CRE investment analyst. Generate a concise 1-page investment memo for this deal. Include: deal summary, financial highlights (cap rate, IRR, DSCR, equity multiple), market context, comparable transactions, key risks, and investment recommendation. Professional tone, specific numbers. No fluff.',
-            messages: [{ role: 'user', content: promptContent }],
-          }),
-        });
-        data = await res.json();
-      }
-      
-      if (data.error) {
-        setMemoText(`Error: ${data.error}. Check that your Anthropic API key is valid and has credits.`);
-      } else {
-        const text = data.content?.[0]?.text || 'Could not generate memo.';
-        setMemoText(text);
-        await updateRow('deals', deal.id, { underwriting_memo: text, underwriting_inputs: inputs });
-        onRefresh?.();
-      }
-    } catch (e) { setMemoText(`Error: ${e.message || 'Network error. Check your connection and API key.'}`); }
+      const data = await res.json();
+      const text = data.content?.[0]?.text || 'Could not generate memo.';
+      setMemoText(text);
+      await updateRow('deals', deal.id, { underwriting_memo: text, underwriting_inputs: inputs });
+      onRefresh?.();
+    } catch { setMemoText('Error generating memo.'); }
     finally { setMemoLoading(false); }
   };
 
@@ -176,7 +158,7 @@ export default function Underwriting({ deal, property, leaseComps, saleComps, on
       <label className="form-label">{label}</label>
       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
         {prefix && <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{prefix}</span>}
-        <input className="input" type={type || 'number'} step={step || 'any'} value={inputs[field] || ''} onChange={e => set(field, e.target.value)} style={{ fontSize: '14px' }} />
+        <input className="input" type={type || 'number'} step={step || 'any'} value={draft[field] ?? ''} onChange={e => setDraftField(field, e.target.value)} onBlur={() => setInputs({ ...draft })} style={{ fontSize: '14px' }} />
         {suffix && <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{suffix}</span>}
       </div>
     </div>
@@ -247,7 +229,7 @@ export default function Underwriting({ deal, property, leaseComps, saleComps, on
                   <th style={{ fontSize: '11px', padding: '6px 8px', color: 'var(--text-muted)' }}>Type</th>
                 </tr></thead>
                 <tbody>{relevantLeaseComps.map(c => (
-                  <tr key={c.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <tr key={c.id} onClick={() => onLeaseCompClick?.(c)} style={{ borderBottom: '1px solid var(--border-subtle)', cursor: onLeaseCompClick ? 'pointer' : 'default' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-input)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                     <td style={{ padding: '6px 8px', fontSize: '13px', fontWeight: 500 }}>{c.address}</td>
                     <td style={{ padding: '6px 8px', fontSize: '12px', fontFamily: 'var(--font-mono)', textAlign: 'right' }}>{c.rsf ? c.rsf.toLocaleString() : '—'}</td>
                     <td style={{ padding: '6px 8px', fontSize: '12px', fontFamily: 'var(--font-mono)', textAlign: 'right', color: 'var(--accent)', fontWeight: 600 }}>${c.rate}</td>
@@ -270,7 +252,7 @@ export default function Underwriting({ deal, property, leaseComps, saleComps, on
                   <th style={{ fontSize: '11px', padding: '6px 8px', color: 'var(--text-muted)' }}>Buyer</th>
                 </tr></thead>
                 <tbody>{relevantSaleComps.map(c => (
-                  <tr key={c.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <tr key={c.id} onClick={() => onSaleCompClick?.(c)} style={{ borderBottom: '1px solid var(--border-subtle)', cursor: onSaleCompClick ? 'pointer' : 'default' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-input)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                     <td style={{ padding: '6px 8px', fontSize: '13px', fontWeight: 500 }}>{c.address}</td>
                     <td style={{ padding: '6px 8px', fontSize: '12px', fontFamily: 'var(--font-mono)', textAlign: 'right', color: 'var(--accent)', fontWeight: 600 }}>{c.price_psf ? '$' + Math.round(c.price_psf) : '—'}</td>
                     <td style={{ padding: '6px 8px', fontSize: '12px', fontFamily: 'var(--font-mono)', textAlign: 'right' }}>{c.cap_rate ? parseFloat(c.cap_rate).toFixed(2) + '%' : '—'}</td>

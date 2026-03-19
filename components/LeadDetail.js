@@ -102,12 +102,7 @@ export default function LeadDetail({
   const pendingTasks = linkedTasks.filter(t => !t.completed).length;
   const linkedProperty = (properties || []).find(p => p.address === lead.address || p.id === lead.property_id);
   const subs = LEAD_SUBSTEPS[lead.stage] || [];
-  const toggleSub = step => {
-    const updated = { ...substeps, [step]: !substeps[step] };
-    setSubsteps(updated);
-    updateRow('leads', lead.id, { substeps: updated }).catch(console.error);
-  };
-  const subsDone = subs.filter(s => substeps[s]).length;
+  const subsDone = subs.filter(s => substeps[s]?.done).length;
 
   const timeline = [
     ...linkedActivities.map(a => ({ kind: 'activity', id: a.id, date: a.activity_date || a.created_at, icon: a.activity_type === 'Call' ? '📞' : a.activity_type === 'Email' ? '✉️' : '🤝', label: a.activity_type, subject: a.subject, detail: a.notes, outcome: a.outcome })),
@@ -447,14 +442,29 @@ export default function LeadDetail({
             </div>
           </div>
 
-          {/* Substeps + AI */}
+          {/* OWNER OUTREACH LOG + AI */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
             <div className="card">
-              <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Substeps — {lead.stage} ({subsDone}/{subs.length})</h3>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Owner Outreach — {lead.stage} ({subsDone}/{subs.length})</h3>
               {subs.length > 0 ? (<>
                 <div style={{ height: '4px', background: 'var(--border)', borderRadius: '2px', overflow: 'hidden', marginBottom: '10px' }}><div style={{ width: `${subs.length > 0 ? Math.round(subsDone / subs.length * 100) : 0}%`, height: '100%', background: 'var(--accent)', transition: 'width 0.3s' }} /></div>
-                {subs.map(step => { const ch = substeps[step] || false; return (<div key={step} onClick={() => toggleSub(step)} style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '4px 0', cursor: 'pointer' }}><div style={{ width: '14px', height: '14px', borderRadius: '3px', flexShrink: 0, border: '2px solid', borderColor: ch ? 'var(--accent)' : 'var(--border)', background: ch ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px' }}>{ch ? '✓' : ''}</div><span style={{ fontSize: '14px', color: ch ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: ch ? 'line-through' : 'none' }}>{step}</span></div>); })}
-              </>) : <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No substeps for this stage</div>}
+                {subs.map(step => {
+                  const entry = substeps[step];
+                  const logged = entry && entry.done;
+                  return (
+                    <div key={step} style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                      <div onClick={() => {
+                        if (logged) { const updated = { ...substeps }; delete updated[step]; setSubsteps(updated); updateRow('leads', lead.id, { substeps: updated }).catch(console.error); }
+                        else { const updated = { ...substeps, [step]: { done: true, at: new Date().toISOString() } }; setSubsteps(updated); updateRow('leads', lead.id, { substeps: updated }).catch(console.error); }
+                      }} style={{ width: '16px', height: '16px', borderRadius: '3px', flexShrink: 0, border: '2px solid', borderColor: logged ? 'var(--accent)' : 'var(--border)', background: logged ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px', cursor: 'pointer' }}>{logged ? '✓' : ''}</div>
+                      <div style={{ flex: 1 }}>
+                        <span style={{ fontSize: '13px', color: logged ? 'var(--text-muted)' : 'var(--text-primary)', fontWeight: logged ? 400 : 500 }}>{step}</span>
+                        {logged && entry.at && <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '8px', fontFamily: 'var(--font-mono)' }}>{new Date(entry.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {new Date(entry.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </>) : <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No outreach steps for this stage</div>}
             </div>
             <div className="card">
               <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>AI Next Step</h3>

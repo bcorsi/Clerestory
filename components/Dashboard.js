@@ -50,6 +50,8 @@ export default function Dashboard({
 }) {
   const [briefLoading, setBriefLoading] = useState(false);
   const [briefError, setBriefError] = useState(false);
+  const [eveningBrief, setEveningBrief] = useState(null);
+  const [eveningLoading, setEveningLoading] = useState(false);
 
   // ─── COMPUTED DATA ────────────────────────────────────────
   const activeDeals = useMemo(() => deals.filter(d => !['Closed', 'Dead'].includes(d.stage)), [deals]);
@@ -151,6 +153,35 @@ export default function Dashboard({
     setBriefLoading(false);
   };
 
+  // Evening Brief
+  const generateEveningBrief = async () => {
+    setEveningLoading(true);
+    const today = new Date().toISOString().split('T')[0];
+    const todayActs = (activities || []).filter(a => a.activity_date && a.activity_date.startsWith(today));
+    const todayNotes = (tasks || []).filter(t => t.completed_at && t.completed_at.startsWith(today));
+    const recentDeals = deals.filter(d => d.updated_at && d.updated_at.startsWith(today));
+    
+    const actSummary = todayActs.map(a => `${a.activity_type}: ${a.subject}${a.outcome ? ' → ' + a.outcome : ''}`).join('\n') || 'No activities logged today';
+    const tasksDone = todayNotes.length;
+    const context = `Activities today:\n${actSummary}\n\nTasks completed: ${tasksDone}\nDeals touched: ${recentDeals.length}\nActive deals: ${activeDeals.length}\nPipeline: ${fmt.price(totalPipeline)}\nHot leads: ${hotLeads.length}\nOverdue tasks: ${overdueTasks.length}`;
+    
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514', max_tokens: 400,
+          system: 'You are a CRE brokerage assistant. Write a concise evening recap of what was accomplished today. Mention specific activities, deals progressed, and any wins. End with 1-2 priorities for tomorrow. No fluff, no greeting. 3-4 sentences max.',
+          messages: [{ role: 'user', content: `Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}.\n\n${context}\n\nWrite the evening recap.` }],
+        }),
+      });
+      const data = await res.json();
+      const text = data.content?.[0]?.text || data.error || 'Could not generate evening brief.';
+      setEveningBrief(text);
+      saveDailyBrief(text, { type: 'evening', activitiesLogged: todayActs.length, tasksCompleted: tasksDone }).catch(() => {});
+    } catch (e) { setEveningBrief('Error generating brief.'); }
+    finally { setEveningLoading(false); }
+  };
+
   // ─── HELPERS ──────────────────────────────────────────────
   const priorityColor = (p) => ({ Urgent: 'var(--red)', High: 'var(--amber)', Medium: 'var(--accent)', Low: 'var(--text-muted)' }[p] || 'var(--text-muted)');
   const tierColor = (t) => ({ 'A+': '#22c55e', A: '#3b82f6', B: '#f59e0b', C: '#6b7280' }[t] || '#6b7280');
@@ -175,14 +206,16 @@ export default function Dashboard({
             </h2>
             <div style={{ fontSize: '15px', color: 'var(--text-muted)' }}><DayOfWeek /></div>
           </div>
-          <button
-            className="btn btn-ghost"
-            onClick={generateBrief}
-            disabled={briefLoading}
-            style={{ fontSize: '15px', gap: '6px', color: 'var(--amber)', borderColor: 'var(--amber)' }}
-          >
-            {briefLoading ? '⟳ Generating...' : '✦ AI Morning Brief'}
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button className="btn btn-ghost" onClick={generateBrief} disabled={briefLoading}
+              style={{ fontSize: '15px', gap: '6px', color: 'var(--amber)', borderColor: 'var(--amber)' }}>
+              {briefLoading ? '⟳ Generating...' : '✦ Morning Brief'}
+            </button>
+            <button className="btn btn-ghost" onClick={generateEveningBrief} disabled={eveningLoading}
+              style={{ fontSize: '15px', gap: '6px', color: '#8b5cf6', borderColor: '#8b5cf644' }}>
+              {eveningLoading ? '⟳ Generating...' : '✦ Evening Brief'}
+            </button>
+          </div>
         </div>
 
         {(morningBrief || briefLoading || briefError) && (
@@ -199,6 +232,23 @@ export default function Dashboard({
               <div style={{ fontSize: '15px', color: 'var(--text-primary)', lineHeight: '1.65', fontWeight: 450 }}>
                 <span style={{ color: 'var(--amber)', fontWeight: 600, marginRight: '6px' }}>✦</span>
                 {morningBrief}
+              </div>
+            )}
+          </div>
+        )}
+
+        {(eveningBrief || eveningLoading) && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.06), rgba(37, 99, 235, 0.04))',
+            border: '1px solid rgba(139, 92, 246, 0.2)',
+            borderRadius: 'var(--radius-md)', padding: '16px 20px', marginBottom: '8px',
+          }}>
+            {eveningLoading ? (
+              <div style={{ fontSize: '15px', color: 'var(--text-muted)', fontStyle: 'italic' }}>Reviewing today's activities and progress...</div>
+            ) : (
+              <div style={{ fontSize: '15px', color: 'var(--text-primary)', lineHeight: '1.65', fontWeight: 450 }}>
+                <span style={{ color: '#8b5cf6', fontWeight: 600, marginRight: '6px' }}>✦ Evening Recap</span>
+                {eveningBrief}
               </div>
             )}
           </div>
@@ -490,6 +540,65 @@ export default function Dashboard({
           </div>
         </div>
       </div>
+
+      {/* ─── NEWS FEED ─────────────────────────────────────────── */}
+      <NewsFeed />
+    </div>
+  );
+}
+
+function NewsFeed() {
+  const [articles, setArticles] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [fetched, setFetched] = useState(false);
+
+  const fetchNews = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514', max_tokens: 800,
+          system: 'You are a CRE market research assistant. Search for the latest Southern California industrial real estate news. Return ONLY a JSON array of 5-8 articles, each with: title, source, date, summary (1 sentence), and url. Focus on: IE/SGV/LA industrial deals, tenant moves, construction starts, vacancy rates, rent trends, cap rate changes. Return valid JSON only, no markdown.',
+          tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+          messages: [{ role: 'user', content: 'Find the latest Southern California industrial real estate news from the past 7 days. Include deals, tenant moves, market reports, and construction activity. Return as JSON array.' }],
+        }),
+      });
+      const data = await res.json();
+      const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+      try {
+        const clean = text.replace(/```json|```/g, '').trim();
+        const parsed = JSON.parse(clean);
+        setArticles(Array.isArray(parsed) ? parsed : []);
+      } catch {
+        setArticles([{ title: 'News loaded', summary: text.slice(0, 200), source: 'AI Search', date: new Date().toLocaleDateString() }]);
+      }
+      setFetched(true);
+    } catch { setArticles([{ title: 'Error loading news', summary: 'Check API key and try again', source: '', date: '' }]); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="card" style={{ marginTop: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+        <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>SoCal Industrial News</h3>
+        <button className="btn btn-ghost btn-sm" onClick={fetchNews} disabled={loading} style={{ fontSize: '12px' }}>{loading ? '⟳ Searching...' : fetched ? '⟳ Refresh' : '🔍 Load News'}</button>
+      </div>
+      {!fetched && !loading && <div style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '20px' }}>Click "Load News" to fetch latest SoCal industrial articles</div>}
+      {articles.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {articles.map((a, i) => (
+            <div key={i} style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: '6px', borderLeft: '3px solid var(--accent)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                <div style={{ fontSize: '14px', fontWeight: 500 }}>{a.url ? <a href={a.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-primary)', textDecoration: 'none', borderBottom: '1px dashed var(--accent)' }}>{a.title}</a> : a.title}</div>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{a.date}</span>
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>{a.summary}</div>
+              {a.source && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>{a.source}</div>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

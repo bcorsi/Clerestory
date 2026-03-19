@@ -11,7 +11,7 @@ const LOG_TYPES = ['Call', 'Email', 'Meeting'];
 export default function DealDetail({
   deal, activities, tasks, properties, contacts, accounts, leaseComps, saleComps,
   notes: allNotes, followUps: allFollowUps,
-  onRefresh, showToast, onPropertyClick, onContactClick, onAccountClick, onCatalystClick, onAddTask
+  onRefresh, showToast, onPropertyClick, onContactClick, onAccountClick, onCatalystClick, onAddTask, onLeaseCompClick, onSaleCompClick
 }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ ...deal });
@@ -376,7 +376,7 @@ export default function DealDetail({
 
       {/* UNDERWRITING TAB */}
       {activeTab === 'underwriting' && (
-        <Underwriting deal={deal} property={linkedProperty} leaseComps={leaseComps} saleComps={saleComps} onRefresh={onRefresh} showToast={showToast} />
+        <Underwriting deal={deal} property={linkedProperty} leaseComps={leaseComps} saleComps={saleComps} onRefresh={onRefresh} showToast={showToast} onLeaseCompClick={onLeaseCompClick} onSaleCompClick={onSaleCompClick} />
       )}
 
       {/* CONTACTS TAB — Deal Contacts with Roles */}

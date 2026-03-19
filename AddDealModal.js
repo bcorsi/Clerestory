@@ -1,183 +1,151 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { ACTIVITY_TYPES, ACTIVITY_OUTCOMES } from '../lib/constants';
-import { updateRow, deleteRow } from '../lib/db';
+import { useState } from 'react';
+import { DEAL_STAGES, DEAL_TYPES, STRATEGIES, PRIORITIES, MARKETING_TYPES, MARKETS, SUBMARKETS } from '../lib/constants';
+import { insertRow } from '../lib/db';
 
-export default function Activities({ activities, onRefresh, showToast, onAdd }) {
-  const [filter, setFilter] = useState('all'); // all | pending | completed
-  const [filterType, setFilterType] = useState('');
+export default function AddDealModal({ onClose, onSave }) {
+  const [form, setForm] = useState({
+    deal_name: '', stage: 'Tracking', deal_type: '', strategy: '',
+    marketing_type: 'Off-Market',
+    address: '', submarket: '', buyer: '', seller: '',
+    deal_value: '', commission_rate: '', probability: '',
+    close_date: '', priority: 'Medium', notes: '', onedrive_url: '',
+  });
+  const [saving, setSaving] = useState(false);
 
-  const filtered = useMemo(() => {
-    let list = [...activities].sort((a, b) => {
-      // Pending to-dos first, then by date
-      if (!a.completed && b.completed) return -1;
-      if (a.completed && !b.completed) return 1;
-      return new Date(b.created_at) - new Date(a.created_at);
-    });
-    if (filter === 'pending') list = list.filter((a) => !a.completed);
-    if (filter === 'completed') list = list.filter((a) => a.completed);
-    if (filterType) list = list.filter((a) => a.activity_type === filterType);
-    return list;
-  }, [activities, filter, filterType]);
+  const set = (field, val) => setForm((f) => ({ ...f, [field]: val }));
 
-  const handleToggle = async (activity) => {
+  const handleSave = async () => {
+    if (!form.deal_name) return;
+    setSaving(true);
     try {
-      await updateRow('activities', activity.id, { completed: !activity.completed });
-      onRefresh();
-    } catch (err) { console.error(err); }
-  };
-
-  const handleDelete = async (activity) => {
-    if (!confirm('Delete this activity?')) return;
-    try {
-      await deleteRow('activities', activity.id);
-      onRefresh();
-      showToast('Activity deleted');
-    } catch (err) { console.error(err); }
-  };
-
-  const typeIcon = (type) => {
-    const map = { Call: '📞', Email: '✉️', Meeting: '🤝', 'To-Do': '✓' };
-    return map[type] || '•';
-  };
-
-  const typeColor = (type) => {
-    const map = { Call: 'tag-green', Email: 'tag-blue', Meeting: 'tag-purple', 'To-Do': 'tag-amber' };
-    return map[type] || 'tag-ghost';
-  };
-
-  const counts = {
-    all: activities.length,
-    pending: activities.filter((a) => !a.completed).length,
-    completed: activities.filter((a) => a.completed).length,
+      const data = {
+        deal_name: form.deal_name,
+        stage: form.stage,
+        deal_type: form.deal_type,
+        strategy: form.strategy,
+        address: form.address,
+        submarket: form.submarket,
+        buyer: form.buyer || null,
+        seller: form.seller || null,
+        tenant_name: form.tenant_name || null,
+        deal_value: form.deal_value ? parseFloat(form.deal_value) : null,
+        commission_rate: form.commission_rate ? parseFloat(form.commission_rate) : null,
+        commission_est: form.deal_value && form.commission_rate
+          ? parseFloat(form.deal_value) * parseFloat(form.commission_rate) / 100
+          : null,
+        probability: form.probability ? parseInt(form.probability) : null,
+        priority: form.priority || 'Medium',
+        marketing_type: form.marketing_type || 'Off-Market',
+        close_date: form.close_date || null,
+        onedrive_url: form.onedrive_url || null,
+        notes: form.notes || null,
+      };
+      await insertRow('deals', data);
+      onSave();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <div>
-      {/* Filters + add */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: '4px' }}>
-          {['all', 'pending', 'completed'].map((f) => (
-            <button
-              key={f}
-              className={`btn btn-sm ${filter === f ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={() => setFilter(f)}
-              style={{ fontSize: '15px', textTransform: 'capitalize' }}
-            >
-              {f} ({counts[f]})
-            </button>
-          ))}
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Add Deal</h2>
+          <button className="modal-close" onClick={onClose}>×</button>
         </div>
-        <select className="select" value={filterType} onChange={(e) => setFilterType(e.target.value)} style={{ maxWidth: '130px' }}>
-          <option value="">All Types</option>
-          {ACTIVITY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <button className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }} onClick={onAdd}>
-          + Activity
-        </button>
-      </div>
-
-      {/* Activity list */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {filtered.map((activity) => (
-          <div
-            key={activity.id}
-            style={{
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius)',
-              padding: '12px 14px',
-              display: 'flex',
-              gap: '12px',
-              alignItems: 'flex-start',
-              opacity: activity.completed ? 0.6 : 1,
-              transition: 'opacity 0.15s',
-            }}
-          >
-            {/* Checkbox */}
-            <button
-              onClick={() => handleToggle(activity)}
-              style={{
-                width: '18px', height: '18px', borderRadius: '4px', flexShrink: 0, marginTop: '2px',
-                border: '2px solid', borderColor: activity.completed ? 'var(--accent)' : 'var(--border)',
-                background: activity.completed ? 'var(--accent)' : 'transparent',
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'white', fontSize: '15px', fontWeight: 700,
-              }}
-            >
-              {activity.completed ? '✓' : ''}
-            </button>
-
-            {/* Content */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '4px' }}>
-                <span style={{ fontSize: '15px' }}>{typeIcon(activity.activity_type)}</span>
-                <span className={`tag ${typeColor(activity.activity_type)}`} style={{ fontSize: '15px' }}>
-                  {activity.activity_type}
-                </span>
-                {activity.subject && (
-                  <span style={{
-                    fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)',
-                    textDecoration: activity.completed ? 'line-through' : 'none',
-                  }}>
-                    {activity.subject}
-                  </span>
-                )}
-              </div>
-
-              {/* Linked record */}
-              {(activity.address || activity.lead_name) && (
-                <div style={{ fontSize: '15px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                  {activity.address || ''}
-                </div>
-              )}
-
-              {/* Notes */}
-              {activity.notes && (
-                <div style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '4px' }}>
-                  {activity.notes}
-                </div>
-              )}
-
-              {/* Meta row */}
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-                {activity.activity_date && (
-                  <span style={{ fontSize: '15px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                    {activity.activity_date}
-                  </span>
-                )}
-                {activity.due_date && !activity.completed && (
-                  <span style={{ fontSize: '15px', color: 'var(--amber)', fontFamily: 'var(--font-mono)' }}>
-                    Due: {activity.due_date}
-                  </span>
-                )}
-                {activity.outcome && (
-                  <span className="tag tag-ghost" style={{ fontSize: '15px' }}>{activity.outcome}</span>
-                )}
-              </div>
-            </div>
-
-            {/* Delete */}
-            <button
-              onClick={() => handleDelete(activity)}
-              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '15px', padding: '2px 4px', flexShrink: 0 }}
-              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--red)'}
-              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-            >
-              ×
-            </button>
+        <div className="modal-body">
+          <div className="form-group">
+            <label className="form-label">Deal Name *</label>
+            <input className="input" placeholder="918 Radecki Ct — SLB — Bridge" value={form.deal_name} onChange={(e) => set('deal_name', e.target.value)} />
           </div>
-        ))}
-
-        {filtered.length === 0 && (
-          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '15px', border: '1px dashed var(--border)', borderRadius: 'var(--radius)' }}>
-            {filter === 'pending' ? 'No pending activities' : filter === 'completed' ? 'No completed activities' : 'No activities yet'}
-            <div style={{ marginTop: '8px' }}>
-              <button className="btn btn-ghost btn-sm" onClick={onAdd}>+ Add your first activity</button>
+          <div className="form-row-3">
+            <div className="form-group">
+              <label className="form-label">Stage</label>
+              <select className="select" value={form.stage} onChange={(e) => set('stage', e.target.value)}>
+                {DEAL_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Deal Type</label>
+              <select className="select" value={form.deal_type} onChange={(e) => set('deal_type', e.target.value)}>
+                <option value="">Select</option>
+                {DEAL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Strategy</label>
+              <select className="select" value={form.strategy} onChange={(e) => set('strategy', e.target.value)}>
+                <option value="">Select</option>
+                {STRATEGIES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
           </div>
-        )}
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Address</label>
+              <input className="input" placeholder="918 Radecki Ct" value={form.address} onChange={(e) => set('address', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Submarket</label>
+              <input className="input" placeholder="City of Industry" value={form.submarket} onChange={(e) => set('submarket', e.target.value)} />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Buyer</label>
+              <input className="input" value={form.buyer} onChange={(e) => set('buyer', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Seller</label>
+              <input className="input" value={form.seller} onChange={(e) => set('seller', e.target.value)} />
+            </div>
+          </div>
+          <div className="form-row-3">
+            <div className="form-group">
+              <label className="form-label">Deal Value ($)</label>
+              <input className="input" type="number" placeholder="31400000" value={form.deal_value} onChange={(e) => set('deal_value', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Commission Rate (%)</label>
+              <input className="input" type="number" step="0.1" placeholder="2.0" value={form.commission_rate} onChange={(e) => set('commission_rate', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Probability %</label>
+              <input className="input" type="number" min="0" max="100" placeholder="72" value={form.probability} onChange={(e) => set('probability', e.target.value)} />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Close Date</label>
+              <input className="input" type="date" value={form.close_date} onChange={(e) => set('close_date', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Priority</label>
+              <select className="select" value={form.priority} onChange={(e) => set('priority', e.target.value)}>
+                {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Notes</label>
+            <textarea className="textarea" value={form.notes} onChange={(e) => set('notes', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">OneDrive Folder Link</label>
+            <input className="input" placeholder="https://collaborateicg-my.sharepoint.com/..." value={form.onedrive_url} onChange={(e) => set('onedrive_url', e.target.value)} />
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving || !form.deal_name}>
+            {saving ? 'Saving...' : 'Add Deal'}
+          </button>
+        </div>
       </div>
     </div>
   );

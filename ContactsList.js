@@ -1,171 +1,116 @@
 'use client';
 
-import { useState } from 'react';
-import { signIn, signUp } from '../lib/supabase';
+import React, { useState, useMemo } from 'react';
+import { CONTACT_TYPES } from '../lib/constants';
 
-export default function AuthGate({ onAuth }) {
-  const [mode, setMode] = useState('login'); // 'login' | 'signup'
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [showPw, setShowPw] = useState(false);
+export default function ContactsList({ contacts, onContactClick }) {
+  const [filterType, setFilterType] = useState('');
+  const [search, setSearch] = useState('');
+  const [expanded, setExpanded] = useState(null);
+  const [sortKey, setSortKey] = useState(null);
+  const [sortDir, setSortDir] = useState('asc');
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
+  const toggleSort = (key) => { if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortKey(key); setSortDir('asc'); } };
+  const sortInd = (key) => sortKey === key ? (sortDir === 'asc' ? ' ↑' : ' ↓') : '';
 
-    try {
-      if (mode === 'signup') {
-        if (!fullName.trim()) { setError('Name is required'); setLoading(false); return; }
-        await signUp(email, password, fullName.trim());
-      } else {
-        await signIn(email, password);
-      }
-      onAuth();
-    } catch (err) {
-      setError(err.message === 'Invalid login credentials'
-        ? 'Invalid email or password'
-        : err.message
+  const filtered = useMemo(() => {
+    let list = [...contacts];
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter((c) =>
+        [c.name, c.company, c.email, c.phone].some((f) => f && f.toLowerCase().includes(q))
       );
-    } finally {
-      setLoading(false);
     }
+    if (filterType) list = list.filter((c) => c.contact_type === filterType);
+    if (sortKey) {
+      list.sort((a, b) => {
+        let va = a[sortKey], vb = b[sortKey];
+        if (va == null) return 1; if (vb == null) return -1;
+        va = String(va).toLowerCase(); vb = String(vb).toLowerCase();
+        return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+      });
+    }
+    return list;
+  }, [contacts, filterType, search, sortKey, sortDir]);
+
+  const typeColor = (type) => {
+    const map = { Owner: 'tag-amber', Buyer: 'tag-green', Tenant: 'tag-blue', Broker: 'tag-purple', Investor: 'tag-green', Lender: 'tag-ghost' };
+    return map[type] || 'tag-ghost';
   };
 
-  return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'var(--bg-root)', padding: '24px',
-    }}>
-      <div style={{ width: '100%', maxWidth: '400px' }}>
-        {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <div style={{
-            width: '48px', height: '48px', background: 'var(--accent)', borderRadius: '12px',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '22px', fontWeight: 700, color: 'white', marginBottom: '16px',
-          }}>C</div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--text-primary)' }}>Clerestory</h1>
-          <p style={{ fontSize: '15px', color: 'var(--text-muted)', marginTop: '6px' }}>CRE Brokerage Intelligence</p>
-        </div>
-
-        {/* Card */}
-        <div style={{
-          background: 'var(--bg-card)', border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-lg)', padding: '32px',
-        }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '24px', color: 'var(--text-primary)' }}>
-            {mode === 'login' ? 'Sign in' : 'Create your account'}
-          </h2>
-
-          <form onSubmit={handleSubmit}>
-            {mode === 'signup' && (
-              <div className="form-group">
-                <label className="form-label">Full Name</label>
-                <input
-                  className="input"
-                  type="text"
-                  placeholder="Briana"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  autoComplete="name"
-                />
+  const DetailPanel = ({ c }) => (
+    <tr>
+      <td colSpan={6} style={{ padding: 0, background: 'var(--bg-card-hover)' }}>
+        <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border-subtle)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: c.notes ? '12px' : 0 }}>
+            {[
+              ['Name', c.name], ['Company', c.company], ['Title', c.title],
+              ['Phone', c.phone, true], ['Email', c.email], ['Type', null, false, c.contact_type],
+            ].map(([label, val, mono, tagVal]) => (
+              <div key={label}>
+                <div style={{ fontSize: '15px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '4px' }}>{label}</div>
+                {tagVal ? (
+                  <span className={`tag ${typeColor(tagVal)}`}>{tagVal}</span>
+                ) : (
+                  <div style={{ fontSize: '15px', color: 'var(--text-primary)', fontFamily: mono ? 'var(--font-mono)' : 'inherit' }}>{val || '—'}</div>
+                )}
               </div>
-            )}
-
-            <div className="form-group">
-              <label className="form-label">Email</label>
-              <input
-                className="input"
-                type="email"
-                placeholder="you@colliers.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Password</label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  className="input"
-                  type={showPw ? 'text' : 'password'}
-                  placeholder={mode === 'signup' ? 'Min 6 characters' : '••••••••'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                  required
-                  minLength={6}
-                  style={{ paddingRight: '40px' }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPw(!showPw)}
-                  style={{
-                    position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
-                    background: 'none', border: 'none', color: 'var(--text-muted)',
-                    cursor: 'pointer', fontSize: '15px', fontFamily: 'var(--font-sans)',
-                    padding: '2px 4px', borderRadius: '4px',
-                  }}
-                >
-                  {showPw ? 'Hide' : 'Show'}
-                </button>
-              </div>
-            </div>
-
-            {error && (
-              <div style={{
-                padding: '10px 14px', borderRadius: 'var(--radius-sm)',
-                background: 'var(--red-soft)', color: 'var(--red)',
-                fontSize: '15px', marginBottom: '16px',
-              }}>
-                {error}
-              </div>
-            )}
-
-            <button
-              className="btn btn-primary"
-              type="submit"
-              disabled={loading}
-              style={{ width: '100%', justifyContent: 'center', padding: '10px', fontSize: '15px', marginTop: '8px' }}
-            >
-              {loading ? (mode === 'login' ? 'Signing in...' : 'Creating account...') : (mode === 'login' ? 'Sign in' : 'Create account')}
-            </button>
-          </form>
-
-          <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '15px', color: 'var(--text-muted)' }}>
-            {mode === 'login' ? (
-              <>
-                No account yet?{' '}
-                <button
-                  onClick={() => { setMode('signup'); setError(null); }}
-                  style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontFamily: 'var(--font-sans)', fontSize: '15px', fontWeight: 500 }}
-                >
-                  Create one
-                </button>
-              </>
-            ) : (
-              <>
-                Already have an account?{' '}
-                <button
-                  onClick={() => { setMode('login'); setError(null); }}
-                  style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontFamily: 'var(--font-sans)', fontSize: '15px', fontWeight: 500 }}
-                >
-                  Sign in
-                </button>
-              </>
-            )}
+            ))}
           </div>
+          {c.notes && (
+            <div>
+              <div style={{ fontSize: '15px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '4px' }}>Notes</div>
+              <div style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>{c.notes}</div>
+            </div>
+          )}
         </div>
+      </td>
+    </tr>
+  );
 
-        <p style={{ textAlign: 'center', fontSize: '15px', color: 'var(--text-muted)', marginTop: '24px' }}>
-          Colliers · SGV / IE Industrial
-        </p>
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', alignItems: 'center' }}>
+        <input className="input" placeholder="Search contacts..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: '260px' }} />
+        <select className="select" value={filterType} onChange={(e) => setFilterType(e.target.value)} style={{ maxWidth: '160px' }}>
+          <option value="">All Types</option>
+          {CONTACT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <span style={{ marginLeft: 'auto', fontSize: '15px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+          {filtered.length} contacts
+        </span>
+      </div>
+
+      <div className="table-container" style={{ overflow: 'auto', maxHeight: 'calc(100vh - 220px)' }}>
+        <table>
+          <thead>
+            <tr>
+              <th onClick={() => toggleSort('name')} style={{ cursor: 'pointer' }}>Name{sortInd('name')}</th><th onClick={() => toggleSort('company')} style={{ cursor: 'pointer' }}>Company{sortInd('company')}</th><th onClick={() => toggleSort('contact_type')} style={{ cursor: 'pointer' }}>Type{sortInd('contact_type')}</th><th onClick={() => toggleSort('phone')} style={{ cursor: 'pointer' }}>Phone{sortInd('phone')}</th><th onClick={() => toggleSort('email')} style={{ cursor: 'pointer' }}>Email{sortInd('email')}</th><th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((c) => (
+              <React.Fragment key={c.id}>
+                <tr
+                  onClick={() => setExpanded(expanded === c.id ? null : c.id)}
+                  onDoubleClick={() => onContactClick && onContactClick(c)}
+                  style={{ background: expanded === c.id ? 'var(--bg-card-hover)' : undefined, cursor: 'pointer' }}
+                >
+                  <td className="text-primary">{c.name}</td>
+                  <td>{c.company || '—'}</td>
+                  <td><span className={`tag ${typeColor(c.contact_type)}`}>{c.contact_type}</span></td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '15px' }}>{c.phone || '—'}</td>
+                  <td style={{ fontSize: '15px' }}>{c.email || '—'}</td>
+                  <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.notes || '—'}</td>
+                </tr>
+                {expanded === c.id && <DetailPanel c={c} />}
+              </React.Fragment>
+            ))}
+            {filtered.length === 0 && (
+              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No contacts found</td></tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

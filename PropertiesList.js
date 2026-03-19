@@ -1,202 +1,160 @@
 'use client';
 
-import { fmt } from '../lib/constants';
+import { useState, useMemo } from 'react';
+import { MARKETS, SUBMARKETS, RECORD_TYPES, VACANCY_STATUS, CATALYST_TAGS, catalystTagClass, fmt } from '../lib/constants';
 
-export default function LeaseCompDetail({ comp: c, properties }) {
-  // Calculate net effective
-  const netEffective = c.rate && c.term_months && c.free_rent_months
-    ? c.rate * (1 - c.free_rent_months / c.term_months)
-    : null;
+export default function PropertiesList({ properties, onPropertyClick }) {
+  const [filterMarket, setFilterMarket] = useState('');
+  const [filterSubmarket, setFilterSubmarket] = useState('');
+  const [filterCatalyst, setFilterCatalyst] = useState('');
+  const [filterVacancy, setFilterVacancy] = useState('');
+  const [sortBy, setSortBy] = useState('probability');
+  const [sortAsc, setSortAsc] = useState(false);
+  const [localSearch, setLocalSearch] = useState('');
 
-  // Calculate total annual rent
-  const totalAnnualRent = c.rate && c.rsf ? c.rate * c.rsf * 12 : null;
+  const availableSubmarkets = filterMarket ? (SUBMARKETS[filterMarket] || []) : [];
 
-  // Calculate gross equivalent if not stored
-  const grossEquiv = c.gross_equivalent
-    || (c.rate && c.total_expenses_psf ? c.rate + c.total_expenses_psf : null);
+  const filtered = useMemo(() => {
+    let list = [...properties];
 
-  // Find linked property
-  const linkedProperty = properties?.find((p) => p.id === c.property_id) || null;
+    if (localSearch) {
+      const q = localSearch.toLowerCase();
+      list = list.filter((p) =>
+        [p.address, p.city, p.owner, p.tenant, p.submarket].some((f) => f && f.toLowerCase().includes(q))
+      );
+    }
+    if (filterMarket) list = list.filter((p) => p.market === filterMarket);
+    if (filterSubmarket) list = list.filter((p) => p.submarket === filterSubmarket);
+    if (filterCatalyst) list = list.filter((p) => (p.catalyst_tags || []).includes(filterCatalyst));
+    if (filterVacancy) list = list.filter((p) => p.vacancy_status === filterVacancy);
 
-  // Lease type badge color
-  const leaseTypeColor = (type) => {
-    const map = { 'NNN': 'tag-blue', 'Gross': 'tag-green', 'Modified Gross': 'tag-amber', 'Industrial Gross': 'tag-purple' };
-    return map[type] || 'tag-ghost';
+    list.sort((a, b) => {
+      let va = a[sortBy], vb = b[sortBy];
+      if (va == null) va = sortAsc ? Infinity : -Infinity;
+      if (vb == null) vb = sortAsc ? Infinity : -Infinity;
+      if (typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+      return sortAsc ? va - vb : vb - va;
+    });
+
+    return list;
+  }, [properties, filterMarket, filterSubmarket, filterCatalyst, filterVacancy, sortBy, sortAsc, localSearch]);
+
+  const toggleSort = (col) => {
+    if (sortBy === col) setSortAsc(!sortAsc);
+    else { setSortBy(col); setSortAsc(false); }
+  };
+
+  const sortIndicator = (col) => {
+    if (sortBy !== col) return '';
+    return sortAsc ? ' ↑' : ' ↓';
+  };
+
+  const urgencyColor = (prob) => {
+    if (prob >= 80) return 'var(--red)';
+    if (prob >= 60) return 'var(--amber)';
+    if (prob >= 40) return 'var(--accent)';
+    return 'var(--text-muted)';
   };
 
   return (
     <div>
-      {/* Header Card */}
-      <div className="card mb-6" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h2 style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: '4px' }}>{c.address}</h2>
-          <div style={{ fontSize: '15px', color: 'var(--text-secondary)' }}>
-            {c.city}{c.submarket ? ` · ${c.submarket}` : ''}
-          </div>
-          <div style={{ display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }}>
-            {c.lease_type && <span className={`tag ${leaseTypeColor(c.lease_type)}`}>{c.lease_type}</span>}
-            {c.tenant && <span className="tag tag-ghost">{c.tenant}</span>}
-            {c.rsf && <span className="tag tag-ghost">{fmt.sf(c.rsf)}</span>}
-          </div>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          {c.rate && (
-            <div style={{ marginBottom: '8px' }}>
-              <div style={{ fontSize: '15px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>Rate</div>
-              <div style={{ fontSize: '32px', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--green)', letterSpacing: '-0.02em' }}>
-                ${Number(c.rate).toFixed(2)}
-              </div>
-              <div style={{ fontSize: '15px', color: 'var(--text-muted)' }}>/ SF / Mo {c.lease_type || ''}</div>
-            </div>
-          )}
-          {grossEquiv && c.lease_type === 'NNN' && (
-            <div style={{ fontSize: '15px', color: 'var(--text-secondary)' }}>
-              Gross equiv: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--amber)' }}>${Number(grossEquiv).toFixed(2)}</span>
-            </div>
-          )}
-        </div>
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <input
+          className="input"
+          placeholder="Filter by address, owner, tenant..."
+          value={localSearch}
+          onChange={(e) => setLocalSearch(e.target.value)}
+          style={{ maxWidth: '260px' }}
+        />
+        <select className="select" value={filterMarket} onChange={(e) => { setFilterMarket(e.target.value); setFilterSubmarket(''); }} style={{ maxWidth: '120px' }}>
+          <option value="">All Markets</option>
+          {MARKETS.map((m) => <option key={m} value={m}>{m}</option>)}
+        </select>
+        {availableSubmarkets.length > 0 && (
+          <select className="select" value={filterSubmarket} onChange={(e) => setFilterSubmarket(e.target.value)} style={{ maxWidth: '200px' }}>
+            <option value="">All Submarkets</option>
+            {availableSubmarkets.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        )}
+        <select className="select" value={filterVacancy} onChange={(e) => setFilterVacancy(e.target.value)} style={{ maxWidth: '140px' }}>
+          <option value="">All Vacancy</option>
+          {VACANCY_STATUS.map((v) => <option key={v} value={v}>{v}</option>)}
+        </select>
+        <select className="select" value={filterCatalyst} onChange={(e) => setFilterCatalyst(e.target.value)} style={{ maxWidth: '200px' }}>
+          <option value="">All Catalysts</option>
+          {CATALYST_TAGS.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+
+        <span style={{ marginLeft: 'auto', fontSize: '15px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+          {filtered.length} results
+        </span>
       </div>
 
-      <div className="detail-grid">
-        {/* Left Column */}
-        <div>
-          {/* Deal Terms */}
-          <div className="detail-section">
-            <div className="detail-section-title">Deal Terms</div>
-            {c.rate && <div className="detail-row"><span className="detail-label">Base Rate</span><span className="detail-value" style={{ fontFamily: 'var(--font-mono)' }}>${Number(c.rate).toFixed(2)} / SF / Mo {c.lease_type || ''}</span></div>}
-            {grossEquiv && <div className="detail-row"><span className="detail-label">Gross Equivalent</span><span className="detail-value" style={{ fontFamily: 'var(--font-mono)', color: 'var(--amber)' }}>${Number(grossEquiv).toFixed(2)} / SF / Mo</span></div>}
-            {netEffective && <div className="detail-row"><span className="detail-label">Net Effective</span><span className="detail-value" style={{ fontFamily: 'var(--font-mono)' }}>${netEffective.toFixed(2)} / SF / Mo</span></div>}
-            {c.rsf && <div className="detail-row"><span className="detail-label">RSF</span><span className="detail-value" style={{ fontFamily: 'var(--font-mono)' }}>{fmt.sf(c.rsf)}</span></div>}
-            {c.term_months && <div className="detail-row"><span className="detail-label">Term</span><span className="detail-value">{c.term_months} months ({(c.term_months / 12).toFixed(1)} years)</span></div>}
-            {c.start_date && <div className="detail-row"><span className="detail-label">Start Date</span><span className="detail-value">{fmt.date(c.start_date)}</span></div>}
-            {c.deal_date && <div className="detail-row"><span className="detail-label">Deal Date</span><span className="detail-value">{fmt.date(c.deal_date)}</span></div>}
-            {c.free_rent_months != null && <div className="detail-row"><span className="detail-label">Free Rent</span><span className="detail-value">{c.free_rent_months} months</span></div>}
-            {c.ti_psf != null && <div className="detail-row"><span className="detail-label">TI Allowance</span><span className="detail-value" style={{ fontFamily: 'var(--font-mono)' }}>${Number(c.ti_psf).toFixed(2)} / SF</span></div>}
-            {c.escalations && <div className="detail-row"><span className="detail-label">Escalations</span><span className="detail-value">{c.escalations}</span></div>}
-            {c.options && <div className="detail-row"><span className="detail-label">Options</span><span className="detail-value">{c.options}</span></div>}
-            {totalAnnualRent && <div className="detail-row"><span className="detail-label">Annual Rent</span><span className="detail-value" style={{ fontFamily: 'var(--font-mono)', color: 'var(--green)' }}>{fmt.price(Math.round(totalAnnualRent))}</span></div>}
-          </div>
-
-          {/* Expenses */}
-          <div className="detail-section">
-            <div className="detail-section-title">Expenses</div>
-            {c.cam_psf != null && <div className="detail-row"><span className="detail-label">CAM</span><span className="detail-value" style={{ fontFamily: 'var(--font-mono)' }}>${Number(c.cam_psf).toFixed(2)} / SF / Mo</span></div>}
-            {c.insurance_psf != null && <div className="detail-row"><span className="detail-label">Insurance</span><span className="detail-value" style={{ fontFamily: 'var(--font-mono)' }}>${Number(c.insurance_psf).toFixed(2)} / SF / Mo</span></div>}
-            {c.tax_psf != null && <div className="detail-row"><span className="detail-label">Property Tax</span><span className="detail-value" style={{ fontFamily: 'var(--font-mono)' }}>${Number(c.tax_psf).toFixed(2)} / SF / Mo</span></div>}
-            {c.total_expenses_psf != null && (
-              <div className="detail-row" style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '8px', marginTop: '4px' }}>
-                <span className="detail-label" style={{ fontWeight: 600 }}>Total Expenses</span>
-                <span className="detail-value" style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>${Number(c.total_expenses_psf).toFixed(2)} / SF / Mo</span>
-              </div>
-            )}
-            {c.expense_stop != null && <div className="detail-row"><span className="detail-label">Expense Stop</span><span className="detail-value" style={{ fontFamily: 'var(--font-mono)' }}>${Number(c.expense_stop).toFixed(2)} / SF / Mo</span></div>}
-            {!c.cam_psf && !c.insurance_psf && !c.tax_psf && !c.total_expenses_psf && (
-              <div style={{ fontSize: '15px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No expense data recorded</div>
-            )}
-          </div>
-
-          {/* Parties */}
-          <div className="detail-section">
-            <div className="detail-section-title">Parties</div>
-            {c.tenant && <div className="detail-row"><span className="detail-label">Tenant</span><span className="detail-value">{c.tenant}</span></div>}
-            {c.landlord && <div className="detail-row"><span className="detail-label">Landlord</span><span className="detail-value">{c.landlord}</span></div>}
-            {c.broker_rep && <div className="detail-row"><span className="detail-label">Broker / Rep</span><span className="detail-value">{c.broker_rep}</span></div>}
-            {c.commission_pct != null && <div className="detail-row"><span className="detail-label">Commission</span><span className="detail-value">{Number(c.commission_pct).toFixed(1)}%</span></div>}
-            {c.source && <div className="detail-row"><span className="detail-label">Source</span><span className="detail-value">{c.source}</span></div>}
-          </div>
-
-          {/* Notes */}
-          {c.notes && (
-            <div className="detail-section">
-              <div className="detail-section-title">Notes</div>
-              <div style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>{c.notes}</div>
-            </div>
-          )}
-        </div>
-
-        {/* Right Column */}
-        <div>
-          {/* Rate Summary Card */}
-          <div className="card mb-4">
-            <h4 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '14px' }}>Rate Summary</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {[
-                ['Base Rate', c.rate, c.lease_type, 'var(--green)'],
-                ['Gross Equiv', grossEquiv, 'All-in', 'var(--amber)'],
-                ['Net Effective', netEffective, 'After FR', 'var(--accent)'],
-              ].filter(([, v]) => v).map(([label, val, sub, color]) => (
-                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: '15px', color: 'var(--text-muted)' }}>{label}</div>
-                    <div style={{ fontSize: '15px', color: 'var(--text-muted)' }}>{sub}</div>
+      {/* Table */}
+      <div className="table-container" style={{ overflow: 'auto', maxHeight: 'calc(100vh - 220px)' }}>
+        <table>
+          <thead>
+            <tr>
+              <th onClick={() => toggleSort('address')} style={{ cursor: 'pointer' }}>Address{sortIndicator('address')}</th>
+              <th onClick={() => toggleSort('submarket')} style={{ cursor: 'pointer' }}>Submarket{sortIndicator('submarket')}</th>
+              <th onClick={() => toggleSort('building_sf')} style={{ cursor: 'pointer' }}>Size{sortIndicator('building_sf')}</th>
+              <th onClick={() => toggleSort('owner')} style={{ cursor: 'pointer' }}>Owner{sortIndicator('owner')}</th>
+              <th onClick={() => toggleSort('vacancy_status')} style={{ cursor: 'pointer' }}>Status{sortIndicator('vacancy_status')}</th>
+              <th>Catalysts</th>
+              <th onClick={() => toggleSort('probability')} style={{ cursor: 'pointer' }}>Prob{sortIndicator('probability')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((p) => (
+              <tr key={p.id} onClick={() => onPropertyClick(p)}>
+                <td className="text-primary">{p.address}</td>
+                <td>
+                  <span className="tag tag-ghost">{p.market}</span>
+                  {' '}{p.submarket}
+                </td>
+                <td style={{ fontFamily: 'var(--font-mono)' }}>
+                  {(p.total_sf || p.building_sf) ? fmt.sf(p.total_sf || p.building_sf) : p.land_acres ? fmt.acres(p.land_acres) : '—'}
+                </td>
+                <td>{p.owner || '—'}</td>
+                <td>
+                  {p.vacancy_status && (
+                    <span className={`tag ${p.vacancy_status === 'Vacant' ? 'tag-red' : p.vacancy_status === 'Partial' ? 'tag-amber' : 'tag-green'}`}>
+                      {p.vacancy_status}
+                    </span>
+                  )}
+                </td>
+                <td>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                    {(p.catalyst_tags || []).slice(0, 3).map((tag) => (
+                      <span key={tag} className={`tag ${catalystTagClass(tag)}`} style={{ fontSize: '15px' }}>{tag}</span>
+                    ))}
+                    {(p.catalyst_tags || []).length > 3 && (
+                      <span className="tag tag-ghost" style={{ fontSize: '15px' }}>+{p.catalyst_tags.length - 3}</span>
+                    )}
                   </div>
-                  <div style={{ fontSize: '18px', fontWeight: 700, fontFamily: 'var(--font-mono)', color }}>
-                    ${Number(val).toFixed(2)}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Expense breakdown bar */}
-            {c.total_expenses_psf && c.rate && (
-              <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--border-subtle)' }}>
-                <div style={{ fontSize: '15px', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Cost Breakdown</div>
-                <div style={{ height: '8px', borderRadius: '4px', overflow: 'hidden', display: 'flex', background: 'var(--border)' }}>
-                  <div style={{ width: `${(c.rate / (grossEquiv || c.rate + c.total_expenses_psf)) * 100}%`, background: 'var(--green)', transition: 'width 0.3s' }} title="Base Rent" />
-                  {c.cam_psf && <div style={{ width: `${(c.cam_psf / (grossEquiv || c.rate + c.total_expenses_psf)) * 100}%`, background: 'var(--accent)' }} title="CAM" />}
-                  {c.insurance_psf && <div style={{ width: `${(c.insurance_psf / (grossEquiv || c.rate + c.total_expenses_psf)) * 100}%`, background: 'var(--purple)' }} title="Insurance" />}
-                  {c.tax_psf && <div style={{ width: `${(c.tax_psf / (grossEquiv || c.rate + c.total_expenses_psf)) * 100}%`, background: 'var(--amber)' }} title="Tax" />}
-                </div>
-                <div style={{ display: 'flex', gap: '12px', marginTop: '8px', flexWrap: 'wrap' }}>
-                  {[
-                    ['Rent', 'var(--green)'],
-                    ['CAM', 'var(--accent)'],
-                    ['Ins', 'var(--purple)'],
-                    ['Tax', 'var(--amber)'],
-                  ].map(([label, color]) => (
-                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '15px', color: 'var(--text-muted)' }}>
-                      <div style={{ width: '6px', height: '6px', borderRadius: '2px', background: color }} />
-                      {label}
+                </td>
+                <td>
+                  {p.probability != null && (
+                    <div className="prob-bar">
+                      <div className="prob-bar-track">
+                        <div className="prob-bar-fill" style={{ width: `${p.probability}%`, background: urgencyColor(p.probability) }} />
+                      </div>
+                      <span className="prob-bar-label" style={{ color: urgencyColor(p.probability) }}>{p.probability}%</span>
                     </div>
-                  ))}
-                </div>
-              </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  No properties match your filters
+                </td>
+              </tr>
             )}
-          </div>
-
-          {/* Building Info */}
-          <div className="card mb-4">
-            <h4 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>Building</h4>
-            {c.building_sf && <div className="detail-row"><span className="detail-label">Building SF</span><span className="detail-value" style={{ fontFamily: 'var(--font-mono)' }}>{fmt.sf(c.building_sf)}</span></div>}
-            {c.year_built && <div className="detail-row"><span className="detail-label">Year Built</span><span className="detail-value">{c.year_built}</span></div>}
-            {c.clear_height && <div className="detail-row"><span className="detail-label">Clear Height</span><span className="detail-value">{fmt.clearHt(c.clear_height)}</span></div>}
-            {!c.building_sf && !c.year_built && !c.clear_height && (
-              <div style={{ fontSize: '15px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No building data</div>
-            )}
-          </div>
-
-          {/* Linked Property */}
-          {linkedProperty && (
-            <div className="card mb-4">
-              <h4 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>Linked Property</h4>
-              <div style={{ padding: '10px', background: 'var(--bg-input)', borderRadius: '6px' }}>
-                <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--text-primary)' }}>{linkedProperty.address}</div>
-                <div style={{ fontSize: '15px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  {linkedProperty.city} · {linkedProperty.submarket} · {linkedProperty.building_sf ? fmt.sf(linkedProperty.building_sf) : ''}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Comp Metadata */}
-          <div className="card">
-            <h4 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>Comp Info</h4>
-            <div className="detail-row"><span className="detail-label">Address</span><span className="detail-value">{c.address}</span></div>
-            <div className="detail-row"><span className="detail-label">City</span><span className="detail-value">{c.city || '—'}</span></div>
-            <div className="detail-row"><span className="detail-label">Submarket</span><span className="detail-value">{c.submarket || '—'}</span></div>
-            {c.created_at && <div className="detail-row"><span className="detail-label">Added</span><span className="detail-value">{fmt.date(c.created_at)}</span></div>}
-          </div>
-        </div>
+          </tbody>
+        </table>
       </div>
     </div>
   );

@@ -1,899 +1,291 @@
-/* ══════════════════════════════════════════════════════════════
-   CLERESTORY — Global Styles
-   Dark industrial theme for CRE brokerage intelligence
-   ══════════════════════════════════════════════════════════════ */
-
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap');
-
-:root {
-  /* Surfaces — Ice Blue */
-  --bg-root:       #eef3f9;
-  --bg-panel:      #ffffff;
-  --bg-card:       #ffffff;
-  --bg-card-hover: #f0f4fa;
-  --bg-input:      #f4f7fb;
-  --bg-modal:      #ffffff;
-
-  /* Borders */
-  --border:        #d4dce8;
-  --border-focus:  #2563eb;
-  --border-subtle: #e8edf5;
-
-  /* Text */
-  --text-primary:   #1a2332;
-  --text-secondary: #5a6577;
-  --text-muted:     #8d96a5;
-  --text-inverse:   #ffffff;
-
-  /* Accent */
-  --accent:        #2563eb;
-  --accent-hover:  #1d4ed8;
-  --accent-soft:   rgba(37, 99, 235, 0.08);
-  --accent-glow:   rgba(37, 99, 235, 0.15);
-
-  /* Status */
-  --green:   #16a34a;
-  --green-soft: rgba(22, 163, 74, 0.08);
-  --red:     #dc2626;
-  --red-soft: rgba(220, 38, 38, 0.07);
-  --amber:   #d97706;
-  --amber-soft: rgba(217, 119, 6, 0.08);
-  --purple:  #7c3aed;
-  --purple-soft: rgba(124, 58, 237, 0.08);
-
-  /* Layout */
-  --sidebar-w: 240px;
-  --header-h:  56px;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-
-  /* Font */
-  --font-sans: 'DM Sans', -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
-
-  /* Transitions */
-  --ease: cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-html, body { height: 100%; overflow: hidden; }
-
-body {
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.55;
-  color: var(--text-primary);
-  background: var(--bg-root);
-  -webkit-font-smoothing: antialiased;
-}
-
-/* ─── SCROLLBARS ──────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #c5cdd8; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #a0aab8; }
-
-/* ─── APP LAYOUT ──────────────────────────────────────────── */
-.app-layout {
-  display: flex;
-  height: 100vh;
-  width: 100vw;
-}
-
-/* ─── SIDEBAR ─────────────────────────────────────────────── */
-.sidebar {
-  width: var(--sidebar-w);
-  min-width: var(--sidebar-w);
-  background: var(--bg-panel);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  z-index: 50;
-}
-
-.sidebar-header {
-  padding: 20px 20px 16px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.sidebar-logo {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.sidebar-logo-icon {
-  width: 28px;
-  height: 28px;
-  background: var(--accent);
-  border-radius: 7px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  color: white;
-}
-
-.sidebar-nav {
-  flex: 1;
-  padding: 12px 10px;
-  overflow-y: auto;
-}
-
-.nav-section {
-  margin-bottom: 20px;
-}
-
-.nav-section-label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  padding: 0 10px;
-  margin-bottom: 6px;
-}
-
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 14.5px;
-  font-weight: 500;
-  transition: all 0.15s var(--ease);
-  border: none;
-  background: none;
-  width: 100%;
-  text-align: left;
-}
-
-.nav-item:hover {
-  background: var(--bg-card);
-  color: var(--text-primary);
-}
-
-.nav-item.active {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.nav-item-icon {
-  width: 20px;
-  font-size: 16px;
-  text-align: center;
-  flex-shrink: 0;
-}
-
-.nav-item-badge {
-  margin-left: auto;
-  background: var(--bg-card);
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 1px 7px;
-  border-radius: 10px;
-  font-family: var(--font-mono);
-}
-
-.nav-item.active .nav-item-badge {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-/* ─── MAIN CONTENT AREA ──────────────────────────────────── */
-.main-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
-}
-
-.main-header {
-  height: var(--header-h);
-  min-height: var(--header-h);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-panel);
-}
-
-.main-header h1 {
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.main-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px;
-}
-
-/* ─── BUTTONS ─────────────────────────────────────────────── */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 500;
-  font-family: var(--font-sans);
-  cursor: pointer;
-  transition: all 0.15s var(--ease);
-  border: 1px solid transparent;
-  white-space: nowrap;
-}
-
-.btn-primary {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-}
-.btn-primary:hover { background: var(--accent-hover); }
-
-.btn-ghost {
-  background: transparent;
-  color: var(--text-secondary);
-  border-color: var(--border);
-}
-.btn-ghost:hover {
-  background: var(--bg-card);
-  color: var(--text-primary);
-  border-color: var(--text-muted);
-}
-
-.btn-sm { padding: 5px 12px; font-size: 13px; }
-.btn-icon {
-  padding: 6px;
-  width: 32px;
-  height: 32px;
-  justify-content: center;
-  font-size: 16px;
-}
-
-/* ─── INPUTS ──────────────────────────────────────────────── */
-.input, .select, .textarea {
-  width: 100%;
-  padding: 9px 14px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-size: 14px;
-  font-family: var(--font-sans);
-  transition: border-color 0.15s var(--ease);
-  outline: none;
-}
-
-.input:focus, .select:focus, .textarea:focus {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.select {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235c6270'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  padding-right: 28px;
-}
-
-.select option { background: #ffffff; color: var(--text-primary); }
-
-.textarea { min-height: 80px; resize: vertical; }
-
-.form-group { margin-bottom: 14px; }
-.form-label {
-  display: block;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  margin-bottom: 5px;
-}
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
-
-/* ─── SEARCH BAR ──────────────────────────────────────────── */
-.search-bar {
-  position: relative;
-  width: 280px;
-}
-
-.search-bar input {
-  width: 100%;
-  padding: 8px 12px 8px 34px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-size: 14px;
-  font-family: var(--font-sans);
-  outline: none;
-  transition: all 0.15s var(--ease);
-}
-
-.search-bar input:focus {
-  border-color: var(--border-focus);
-  background: var(--bg-input);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.search-bar-icon {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-muted);
-  font-size: 14px;
-  pointer-events: none;
-}
-
-.search-kbd {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 10px;
-  font-family: var(--font-mono);
-  color: var(--text-muted);
-  background: var(--bg-panel);
-  padding: 1px 5px;
-  border-radius: 3px;
-  border: 1px solid var(--border);
-}
-
-/* ─── CARDS ───────────────────────────────────────────────── */
-.card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 20px;
-}
-
-.card-hover { cursor: pointer; transition: all 0.15s var(--ease); }
-.card-hover:hover {
-  background: var(--bg-card-hover);
-  border-color: var(--text-muted);
-}
-
-/* ─── STAT CARDS ──────────────────────────────────────────── */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.stat-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 18px 20px;
-}
-
-.stat-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 6px;
-}
-
-.stat-value {
-  font-size: 30px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-}
-
-.stat-sub {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-top: 4px;
-}
-
-/* ─── TABLE ───────────────────────────────────────────────── */
-.table-container {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.table-header-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--border);
-}
-
-.table-header-bar h3 {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-thead th {
-  position: sticky;
-  top: 0;
-  background: var(--bg-panel);
-  padding: 11px 14px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-  text-align: left;
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-}
-
-tbody tr {
-  border-bottom: 1px solid var(--border-subtle);
-  cursor: pointer;
-  transition: background 0.1s var(--ease);
+'use client';
+
+import { useState, useMemo } from 'react';
+import { ACCOUNT_TYPES, MARKETS, SUBMARKETS, CATALYST_TAGS, catalystTagClass, fmt } from '../lib/constants';
+import { updateRow } from '../lib/db';
+
+// Full buyer match scoring (same as BuyerMatching.js)
+function calculateMatchScore(property, account) {
+  let score = 0; const reasons = [];
+  const pm = (property.market || property.submarket || '').toLowerCase();
+  const bm = (account.preferred_markets || []).map(m => m.toLowerCase());
+  if (pm && bm.some(m => pm.includes(m.substring(0, 3)))) { score += 20; reasons.push('Market ✓'); }
+  const propDealTypes = [];
+  if ((property.catalyst_tags || []).includes('SLB Potential')) propDealTypes.push('SLB');
+  if (property.vacancy_status === 'Vacant') propDealTypes.push('Value-Add');
+  const buyerDealTypes = account.deal_type_preference || [];
+  if (propDealTypes.some(t => buyerDealTypes.includes(t))) { score += 20; reasons.push('Deal type ✓'); }
+  else if (buyerDealTypes.length) { score += 10; reasons.push('Deal type ~'); }
+  const sf = property.total_sf || property.building_sf;
+  if (sf && account.min_sf && sf >= account.min_sf && (!account.max_sf || sf <= account.max_sf)) { score += 15; reasons.push('SF fit ✓'); }
+  else if (sf && account.min_sf && sf >= account.min_sf * 0.8) { score += 8; reasons.push('SF near'); }
+  const ppsf = property.price_psf || (property.last_sale_price && sf ? Math.round(property.last_sale_price / sf) : null);
+  if (ppsf && account.min_price_psf && account.max_price_psf && ppsf >= account.min_price_psf && ppsf <= account.max_price_psf) { score += 15; reasons.push('Price ✓'); }
+  if ((property.catalyst_tags || []).includes('SLB Potential') && buyerDealTypes.includes('SLB')) { score += 10; reasons.push('SLB ✓'); }
+  if (property.clear_height && account.min_clear_height && property.clear_height >= account.min_clear_height) { score += 5; reasons.push('Clear ✓'); }
+  if (['Active', 'Actively Buying Now', 'Aggressive'].includes(account.acquisition_timing)) { score += 10; reasons.push('Active buyer'); }
+  return { score: Math.min(score, 100), reasons };
+}
+
+export default function AccountDetail({ account, contacts, deals, properties, activities, tasks, onRefresh, showToast, onContactClick, onDealClick, onPropertyClick }) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ ...account });
+  const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState('matches');
+  const [minScore, setMinScore] = useState(20);
+
+  const set = (field, val) => setForm((f) => ({ ...f, [field]: val }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await updateRow('accounts', account.id, {
+        name: form.name, account_type: form.account_type, market: form.market,
+        city: form.city, phone: form.phone, email: form.email,
+        website: form.website, notes: form.notes,
+        preferred_markets: form.preferred_markets, deal_type_preference: form.deal_type_preference,
+        min_sf: form.min_sf ? parseInt(form.min_sf) : null, max_sf: form.max_sf ? parseInt(form.max_sf) : null,
+        min_price_psf: form.min_price_psf ? parseFloat(form.min_price_psf) : null, max_price_psf: form.max_price_psf ? parseFloat(form.max_price_psf) : null,
+        min_clear_height: form.min_clear_height ? parseInt(form.min_clear_height) : null,
+        acquisition_timing: form.acquisition_timing,
+      });
+      onRefresh(); setEditing(false); showToast('Account updated');
+    } catch (err) { console.error(err); } finally { setSaving(false); }
+  };
+
+  const linkedContacts = contacts.filter(c => c.account_id === account.id || c.company === account.name);
+  const linkedDeals = deals.filter(d => d.buyer === account.name || d.seller === account.name || d.tenant_name === account.name);
+  const linkedProperties = properties.filter(p => p.owner === account.name || p.tenant === account.name);
+
+  // Full buyer matching
+  const isBuyer = ['Institutional Buyer', 'Private Buyer', 'Investor', 'Developer'].includes(account.account_type);
+  const matches = useMemo(() => {
+    if (!isBuyer) return [];
+    return (properties || [])
+      .map(p => { const { score, reasons } = calculateMatchScore(p, account); return { ...p, matchScore: score, matchReasons: reasons }; })
+      .filter(p => p.matchScore >= minScore)
+      .sort((a, b) => b.matchScore - a.matchScore);
+  }, [properties, account, minScore, isBuyer]);
+
+  const tier = (score) => {
+    if (score >= 80) return { label: 'A', color: '#22c55e' };
+    if (score >= 60) return { label: 'B', color: '#3b82f6' };
+    if (score >= 40) return { label: 'C', color: '#f59e0b' };
+    return { label: 'D', color: '#6b7280' };
+  };
+
+  const typeColor = (type) => ({ 'Owner': 'tag-amber', 'Institutional Buyer': 'tag-green', 'Private Buyer': 'tag-green', 'Tenant': 'tag-blue', 'Investor': 'tag-green', 'Developer': 'tag-purple' }[type] || 'tag-ghost');
+
+  const Field = ({ label, value, mono }) => (
+    <div>
+      <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '2px' }}>{label}</div>
+      <div style={{ fontSize: '14px', color: value ? 'var(--text-primary)' : 'var(--text-muted)', fontFamily: mono ? 'var(--font-mono)' : 'inherit' }}>{value || '—'}</div>
+    </div>
+  );
+
+  const TABS = [
+    ...(isBuyer ? [{ id: 'matches', label: `Matched Properties (${matches.length})` }] : []),
+    { id: 'info', label: 'Company Info' },
+    { id: 'contacts', label: `Contacts (${linkedContacts.length})` },
+    { id: 'deals', label: `Deals (${linkedDeals.length})` },
+    { id: 'properties', label: `Properties (${linkedProperties.length})` },
+  ];
+
+  return (
+    <div style={{ maxWidth: '1000px' }}>
+      {/* HEADER */}
+      <div className="card" style={{ marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: 700 }}>{account.name}</h2>
+              {account.account_type && <span className={`tag ${typeColor(account.account_type)}`}>{account.account_type}</span>}
+              {account.acquisition_timing && <span className="tag tag-ghost" style={{ fontSize: '12px' }}>{account.acquisition_timing}</span>}
+            </div>
+            <div style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
+              {[account.city, account.market, account.phone, account.website].filter(Boolean).join(' · ')}
+            </div>
+            {account.preferred_markets?.length > 0 && (
+              <div style={{ display: 'flex', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
+                {account.preferred_markets.map(m => <span key={m} className="tag tag-blue" style={{ fontSize: '11px' }}>{m}</span>)}
+                {account.deal_type_preference?.map(d => <span key={d} className="tag tag-amber" style={{ fontSize: '11px' }}>{d}</span>)}
+              </div>
+            )}
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={() => setEditing(!editing)}>{editing ? 'Cancel' : 'Edit'}</button>
+        </div>
+        {isBuyer && (
+          <div style={{ display: 'flex', gap: '20px', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
+            {account.min_sf && <div><div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>SF Range</div><div style={{ fontSize: '16px', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{(account.min_sf/1000).toFixed(0)}K–{account.max_sf ? (account.max_sf/1000).toFixed(0) + 'K' : '∞'}</div></div>}
+            {account.min_price_psf && <div><div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>$/SF Range</div><div style={{ fontSize: '16px', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>${Math.round(account.min_price_psf)}–${account.max_price_psf ? Math.round(account.max_price_psf) : '∞'}</div></div>}
+            {account.min_clear_height && <div><div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Min Clear</div><div style={{ fontSize: '16px', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{account.min_clear_height}'</div></div>}
+            <div><div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Matches</div><div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--accent)' }}>{matches.length}</div></div>
+          </div>
+        )}
+      </div>
+
+      {/* EDIT FORM — shows above tabs when editing */}
+      {editing && (
+        <div className="card" style={{ marginBottom: '16px' }}>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '12px' }}>Edit Account & Buyer Criteria</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+            {[['name','Company Name'],['city','City'],['phone','Phone'],['email','Email'],['website','Website']].map(([f, l]) => (
+              <div key={f} className="form-group"><label className="form-label">{l}</label><input className="input" value={form[f] || ''} onChange={e => set(f, e.target.value)} /></div>
+            ))}
+            <div className="form-group"><label className="form-label">Type</label><select className="select" value={form.account_type || ''} onChange={e => set('account_type', e.target.value)}><option value="">Select</option>{ACCOUNT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
+            <div className="form-group"><label className="form-label">Market</label><select className="select" value={form.market || ''} onChange={e => set('market', e.target.value)}><option value="">Select</option>{MARKETS.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
+            <div className="form-group"><label className="form-label">Timing</label><select className="select" value={form.acquisition_timing || ''} onChange={e => set('acquisition_timing', e.target.value)}><option value="">Select</option>{['Actively Buying Now','Active','Passive','On Hold','Not Buying'].map(t => <option key={t} value={t}>{t}</option>)}</select></div>
+          </div>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginTop: '12px', marginBottom: '8px' }}>Buyer Criteria</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px' }}>
+            <div className="form-group"><label className="form-label">Min SF</label><input className="input" type="number" value={form.min_sf || ''} onChange={e => set('min_sf', e.target.value)} /></div>
+            <div className="form-group"><label className="form-label">Max SF</label><input className="input" type="number" value={form.max_sf || ''} onChange={e => set('max_sf', e.target.value)} /></div>
+            <div className="form-group"><label className="form-label">Min $/SF</label><input className="input" type="number" value={form.min_price_psf || ''} onChange={e => set('min_price_psf', e.target.value)} /></div>
+            <div className="form-group"><label className="form-label">Max $/SF</label><input className="input" type="number" value={form.max_price_psf || ''} onChange={e => set('max_price_psf', e.target.value)} /></div>
+            <div className="form-group"><label className="form-label">Min Clear Height</label><input className="input" type="number" value={form.min_clear_height || ''} onChange={e => set('min_clear_height', e.target.value)} /></div>
+          </div>
+          <div className="form-group" style={{ marginTop: '12px' }}><label className="form-label">Notes</label><textarea className="textarea" rows={3} value={form.notes || ''} onChange={e => set('notes', e.target.value)} /></div>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}><button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button><button className="btn btn-ghost" onClick={() => setEditing(false)}>Cancel</button></div>
+        </div>
+      )}
+
+      {/* TABS */}
+      <div style={{ display: 'flex', gap: '2px', borderBottom: '1px solid var(--border)', marginBottom: '16px' }}>
+        {TABS.map(t => <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ padding: '8px 16px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 500, background: 'transparent', color: activeTab === t.id ? 'var(--accent)' : 'var(--text-muted)', borderBottom: activeTab === t.id ? '2px solid var(--accent)' : '2px solid transparent' }}>{t.label}</button>)}
+      </div>
+
+      {/* MATCHED PROPERTIES TAB */}
+      {activeTab === 'matches' && isBuyer && (
+        <div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
+            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Min score:</span>
+            <select className="select" value={minScore} onChange={e => setMinScore(+e.target.value)} style={{ width: '80px', fontSize: '13px' }}>
+              <option value={80}>80+</option><option value={60}>60+</option><option value={40}>40+</option><option value={20}>20+</option><option value={0}>All</option>
+            </select>
+            <span style={{ fontSize: '13px', color: 'var(--text-muted)', marginLeft: '8px' }}>{matches.filter(m => m.matchScore >= 80).length} hot · {matches.filter(m => m.matchScore >= 60 && m.matchScore < 80).length} strong · {matches.length} total</span>
+          </div>
+          {matches.length === 0 ? (
+            <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No properties match above score {minScore}. Add buyer criteria to enable matching.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {matches.map(p => {
+                const t = tier(p.matchScore);
+                return (
+                  <div key={p.id} className="card" style={{ padding: '14px 18px', borderLeft: `4px solid ${t.color}`, cursor: 'pointer' }} onClick={() => onPropertyClick?.(p)}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '15px', fontWeight: 700 }}>{p.address}</span>
+                          <span style={{ fontSize: '13px', padding: '2px 8px', borderRadius: '4px', background: t.color + '22', color: t.color, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{p.matchScore}/100 ({t.label})</span>
+                        </div>
+                        <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                          {[p.city || p.submarket, (p.total_sf || p.building_sf) ? Number(p.total_sf || p.building_sf).toLocaleString() + ' SF' : null, p.owner, p.vacancy_status].filter(Boolean).join(' · ')}
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          {p.matchReasons.map((r, i) => <span key={i} style={{ fontSize: '12px', padding: '2px 6px', borderRadius: '3px', background: r.includes('✓') ? '#22c55e15' : '#f59e0b15', color: r.includes('✓') ? '#22c55e' : '#f59e0b', fontFamily: 'var(--font-mono)' }}>{r}</span>)}
+                        </div>
+                        {(p.catalyst_tags || []).length > 0 && (
+                          <div style={{ display: 'flex', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
+                            {p.catalyst_tags.map(tag => <span key={tag} className={`tag ${catalystTagClass(tag)}`} style={{ fontSize: '11px' }}>{tag}</span>)}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ width: '50px', height: '6px', background: 'var(--bg-input)', borderRadius: '3px', overflow: 'hidden', flexShrink: 0, marginTop: '8px' }}>
+                        <div style={{ width: `${p.matchScore}%`, height: '100%', background: t.color, borderRadius: '3px' }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div style={{ marginTop: '12px', padding: '12px', background: 'var(--bg-input)', borderRadius: '8px', fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            Match Score: Market (+20) · Deal Type (+20) · SF Fit (+15) · Price Fit (+15) · SLB (+10) · Clear Height (+5) · Timing (+10) = 100 max
+          </div>
+        </div>
+      )}
+
+      {/* COMPANY INFO TAB */}
+      {activeTab === 'info' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+          <div className="card">
+            <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '14px' }}>Company Info</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <Field label="Phone" value={account.phone} mono />
+              <Field label="Email" value={account.email} />
+              <Field label="Website" value={account.website} />
+              <Field label="City" value={account.city} />
+              <Field label="Market" value={account.market} />
+              <Field label="Timing" value={account.acquisition_timing} />
+            </div>
+          </div>
+          <div className="card">
+            <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '14px' }}>Buyer Criteria</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <Field label="Min SF" value={account.min_sf ? Number(account.min_sf).toLocaleString() : null} mono />
+              <Field label="Max SF" value={account.max_sf ? Number(account.max_sf).toLocaleString() : null} mono />
+              <Field label="Min $/SF" value={account.min_price_psf ? '$' + Math.round(account.min_price_psf) : null} mono />
+              <Field label="Max $/SF" value={account.max_price_psf ? '$' + Math.round(account.max_price_psf) : null} mono />
+              <Field label="Min Clear" value={account.min_clear_height ? account.min_clear_height + "'" : null} mono />
+            </div>
+          </div>
+          <div className="card" style={{ gridColumn: 'span 2' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '14px' }}>Notes</h3>
+            <div style={{ fontSize: '14px', color: account.notes ? 'var(--text-secondary)' : 'var(--text-muted)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{account.notes || 'No notes — click Edit to add'}</div>
+          </div>
+        </div>
+      )}
+
+      {/* CONTACTS TAB */}
+      {activeTab === 'contacts' && (
+        <div className="card">
+          <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '14px' }}>Contacts ({linkedContacts.length})</h3>
+          {linkedContacts.length === 0 ? <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No contacts linked</div> : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {linkedContacts.map(c => (
+                <div key={c.id} onClick={() => onContactClick?.(c)} style={{ padding: '10px 12px', background: 'var(--bg-input)', borderRadius: '6px', cursor: 'pointer', border: '1px solid transparent', transition: 'border-color 0.15s' }} onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'} onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
+                  <div style={{ fontSize: '14px', fontWeight: 500 }}>{c.name}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{c.title}{c.contact_type ? ` · ${c.contact_type}` : ''}{c.phone ? ` · ${c.phone}` : ''}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* DEALS TAB */}
+      {activeTab === 'deals' && (
+        <div className="card">
+          <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '14px' }}>Deals ({linkedDeals.length})</h3>
+          {linkedDeals.length === 0 ? <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No deals linked</div> : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {linkedDeals.map(d => (
+                <div key={d.id} onClick={() => onDealClick?.(d)} style={{ padding: '10px 12px', background: 'var(--bg-input)', borderRadius: '6px', cursor: 'pointer', border: '1px solid transparent', transition: 'border-color 0.15s' }} onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'} onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
+                  <div style={{ fontSize: '14px', fontWeight: 500 }}>{d.deal_name}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{d.stage}{d.deal_value ? ` · ${fmt.price(d.deal_value)}` : ''}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* PROPERTIES TAB */}
+      {activeTab === 'properties' && (
+        <div className="card">
+          <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '14px' }}>Properties ({linkedProperties.length})</h3>
+          {linkedProperties.length === 0 ? <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No properties linked</div> : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {linkedProperties.map(p => (
+                <div key={p.id} onClick={() => onPropertyClick?.(p)} style={{ padding: '10px 12px', background: 'var(--bg-input)', borderRadius: '6px', cursor: 'pointer', border: '1px solid transparent', transition: 'border-color 0.15s' }} onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'} onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
+                  <div style={{ fontSize: '14px', fontWeight: 500 }}>{p.address}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{p.submarket}{(p.total_sf || p.building_sf) ? ` · ${Number(p.total_sf || p.building_sf).toLocaleString()} SF` : ''}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
-
-tbody tr:hover { background: var(--bg-card-hover); }
-tbody tr:last-child { border-bottom: none; }
-
-td {
-  padding: 11px 14px;
-  font-size: 14px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-td.text-primary { color: var(--text-primary); font-weight: 500; }
-
-/* ─── TAGS ────────────────────────────────────────────────── */
-.tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 9px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.tag-blue    { background: var(--accent-soft);  color: var(--accent); }
-.tag-green   { background: var(--green-soft);   color: var(--green); }
-.tag-red     { background: var(--red-soft);     color: var(--red); }
-.tag-amber   { background: var(--amber-soft);   color: var(--amber); }
-.tag-purple  { background: var(--purple-soft);  color: var(--purple); }
-.tag-ghost   { background: rgba(255,255,255,0.05); color: var(--text-secondary); }
-
-/* ─── KANBAN ──────────────────────────────────────────────── */
-.kanban-board {
-  display: flex;
-  gap: 14px;
-  overflow-x: auto;
-  padding-bottom: 20px;
-  min-height: calc(100vh - 180px);
-}
-
-.kanban-col {
-  min-width: 230px;
-  max-width: 230px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.kanban-col-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  margin-bottom: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-secondary);
-}
-
-.kanban-col-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.kanban-col-count {
-  margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.kanban-col-cards {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.kanban-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 14px;
-  cursor: pointer;
-  transition: all 0.15s var(--ease);
-}
-
-.kanban-card:hover {
-  background: var(--bg-card-hover);
-  border-color: var(--text-muted);
-  transform: translateY(-1px);
-}
-
-.kanban-card-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-primary);
-  margin-bottom: 6px;
-  line-height: 1.4;
-}
-
-.kanban-card-sub {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-}
-
-.kanban-card-meta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.kanban-card-value {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  color: var(--green);
-  font-size: 13px;
-}
-
-/* ─── PROBABILITY BAR ─────────────────────────────────────── */
-.prob-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.prob-bar-track {
-  flex: 1;
-  height: 4px;
-  background: var(--border);
-  border-radius: 2px;
-  overflow: hidden;
-  max-width: 60px;
-}
-
-.prob-bar-fill {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.3s var(--ease);
-}
-
-.prob-bar-label {
-  font-size: 12px;
-  font-family: var(--font-mono);
-  font-weight: 500;
-  min-width: 32px;
-}
-
-/* ─── MODAL ───────────────────────────────────────────────── */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  animation: fadeIn 0.15s var(--ease);
-}
-
-.modal {
-  background: var(--bg-modal);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  width: 90%;
-  max-width: 640px;
-  max-height: 85vh;
-  overflow-y: auto;
-  animation: slideUp 0.2s var(--ease);
-}
-
-.modal-lg { max-width: 800px; }
-.modal-sm { max-width: 440px; }
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 24px;
-  border-bottom: 1px solid var(--border);
-}
-
-.modal-header h2 {
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 20px;
-  padding: 4px;
-  border-radius: var(--radius-sm);
-  transition: all 0.15s;
-}
-.modal-close:hover { color: var(--text-primary); background: var(--bg-card); }
-
-.modal-body { padding: 24px; }
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 16px 24px;
-  border-top: 1px solid var(--border);
-}
-
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-
-/* ─── SEARCH RESULTS DROPDOWN ─────────────────────────────── */
-.search-results {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
-  background: var(--bg-modal);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  max-height: 380px;
-  overflow-y: auto;
-  z-index: 200;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.12);
-}
-
-.search-section-label {
-  padding: 8px 14px 4px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-}
-
-.search-result-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  cursor: pointer;
-  transition: background 0.1s;
-}
-
-.search-result-item:hover { background: var(--bg-card-hover); }
-
-.search-result-item .result-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.search-result-item .result-sub {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-/* ─── DETAIL VIEW ─────────────────────────────────────────── */
-.detail-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 20px;
-}
-
-.detail-section {
-  margin-bottom: 24px;
-}
-
-.detail-section-title {
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.detail-row {
-  display: grid;
-  grid-template-columns: 140px 1fr;
-  gap: 8px;
-  padding: 5px 0;
-}
-
-.detail-label {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.detail-value {
-  font-size: 14px;
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.detail-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.detail-apn-table {
-  width: 100%;
-  font-size: 13px;
-}
-
-.detail-apn-table td {
-  padding: 6px 0;
-  font-family: var(--font-mono);
-  font-size: 13px;
-}
-
-/* ─── CSV UPLOAD ──────────────────────────────────────────── */
-.upload-zone {
-  border: 2px dashed var(--border);
-  border-radius: var(--radius-md);
-  padding: 48px 24px;
-  text-align: center;
-  transition: all 0.2s var(--ease);
-  cursor: pointer;
-}
-
-.upload-zone:hover, .upload-zone.dragging {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.upload-zone-icon {
-  font-size: 36px;
-  margin-bottom: 12px;
-  color: var(--text-muted);
-}
-
-.upload-zone-text {
-  font-size: 14px;
-  color: var(--text-secondary);
-  margin-bottom: 4px;
-}
-
-.upload-zone-sub {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-/* ─── EMPTY STATE ─────────────────────────────────────────── */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 64px 24px;
-  text-align: center;
-}
-
-.empty-state-icon {
-  font-size: 40px;
-  margin-bottom: 16px;
-  opacity: 0.3;
-}
-
-.empty-state-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
-}
-
-.empty-state-desc {
-  font-size: 13px;
-  color: var(--text-muted);
-  max-width: 320px;
-  margin-bottom: 20px;
-}
-
-/* ─── TOAST ───────────────────────────────────────────────── */
-.toast {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 12px 20px;
-  font-size: 14px;
-  color: var(--text-primary);
-  box-shadow: 0 8px 30px rgba(0,0,0,0.1);
-  z-index: 300;
-  animation: slideUp 0.2s var(--ease);
-}
-
-/* ─── RESPONSIVE ──────────────────────────────────────────── */
-@media (max-width: 768px) {
-  :root { --sidebar-w: 0px; }
-  .sidebar { display: none; }
-  .main-content { padding: 16px; }
-  .detail-grid { grid-template-columns: 1fr; }
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
-  .kanban-col { min-width: 200px; max-width: 200px; }
-  .search-bar { width: 200px; }
-}
-
-/* ─── MISC ────────────────────────────────────────────────── */
-.text-green { color: var(--green); }
-.text-red { color: var(--red); }
-.text-amber { color: var(--amber); }
-.text-accent { color: var(--accent); }
-.text-muted { color: var(--text-muted); }
-.text-mono { font-family: var(--font-mono); }
-.font-medium { font-weight: 500; }
-.gap-8 { gap: 8px; }
-.flex { display: flex; }
-.items-center { align-items: center; }
-.justify-between { justify-content: space-between; }
-.ml-auto { margin-left: auto; }
-.mt-4 { margin-top: 16px; }
-.mb-4 { margin-bottom: 16px; }
-.mb-6 { margin-bottom: 24px; }
-.w-full { width: 100%; }
-
-
-/* v17 additions */
-.show-dd { display: block !important; }

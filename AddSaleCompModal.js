@@ -1,149 +1,134 @@
 'use client';
 
 import { useState } from 'react';
-import { DEAL_STAGES, DEAL_TYPES, STRATEGIES, PRIORITIES, MARKETING_TYPES, MARKETS, SUBMARKETS } from '../lib/constants';
 import { insertRow } from '../lib/db';
 
-export default function AddDealModal({ onClose, onSave }) {
+const SALE_TYPES = ['Investment', 'Owner-User', 'SLB', 'Portfolio', 'Distress'];
+
+export default function AddSaleCompModal({ onClose, onSave }) {
   const [form, setForm] = useState({
-    deal_name: '', stage: 'Tracking', deal_type: '', strategy: '',
-    marketing_type: 'Off-Market',
-    address: '', submarket: '', buyer: '', seller: '',
-    deal_value: '', commission_rate: '', probability: '',
-    close_date: '', priority: 'Medium', notes: '', onedrive_url: '',
+    address: '', city: '', submarket: '',
+    building_sf: '', land_acres: '', year_built: '', clear_height: '',
+    sale_price: '', price_psf: '', cap_rate: '',
+    sale_date: '', buyer: '', seller: '', sale_type: '',
+    notes: '',
   });
   const [saving, setSaving] = useState(false);
 
-  const set = (field, val) => setForm((f) => ({ ...f, [field]: val }));
+  const set = (field, val) => setForm((f) => {
+    const updated = { ...f, [field]: val };
+    // Auto-calc price_psf
+    if ((field === 'sale_price' || field === 'building_sf') && updated.sale_price && updated.building_sf) {
+      updated.price_psf = (parseFloat(updated.sale_price) / parseInt(updated.building_sf)).toFixed(0);
+    }
+    return updated;
+  });
 
   const handleSave = async () => {
-    if (!form.deal_name) return;
+    if (!form.address.trim()) return;
     setSaving(true);
     try {
-      const data = {
-        deal_name: form.deal_name,
-        stage: form.stage,
-        deal_type: form.deal_type,
-        strategy: form.strategy,
-        address: form.address,
-        submarket: form.submarket,
-        buyer: form.buyer || null,
-        seller: form.seller || null,
-        tenant_name: form.tenant_name || null,
-        deal_value: form.deal_value ? parseFloat(form.deal_value) : null,
-        commission_rate: form.commission_rate ? parseFloat(form.commission_rate) : null,
-        commission_est: form.deal_value && form.commission_rate
-          ? parseFloat(form.deal_value) * parseFloat(form.commission_rate) / 100
-          : null,
-        probability: form.probability ? parseInt(form.probability) : null,
-        priority: form.priority || 'Medium',
-        marketing_type: form.marketing_type || 'Off-Market',
-        close_date: form.close_date || null,
-        onedrive_url: form.onedrive_url || null,
-        notes: form.notes || null,
-      };
-      await insertRow('deals', data);
+      await insertRow('sale_comps', {
+        ...form,
+        building_sf: form.building_sf ? parseInt(form.building_sf) : null,
+        land_acres: form.land_acres ? parseFloat(form.land_acres) : null,
+        year_built: form.year_built ? parseInt(form.year_built) : null,
+        clear_height: form.clear_height ? parseInt(form.clear_height) : null,
+        sale_price: form.sale_price ? parseFloat(form.sale_price) : null,
+        price_psf: form.price_psf ? parseFloat(form.price_psf) : null,
+        cap_rate: form.cap_rate ? parseFloat(form.cap_rate) : null,
+      });
       onSave();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSaving(false);
-    }
+    } catch (err) { console.error(err); }
+    finally { setSaving(false); }
   };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal" style={{ maxWidth: '620px' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Add Deal</h2>
+          <h2>Add Sale Comp</h2>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         <div className="modal-body">
-          <div className="form-group">
-            <label className="form-label">Deal Name *</label>
-            <input className="input" placeholder="918 Radecki Ct — SLB — Bridge" value={form.deal_name} onChange={(e) => set('deal_name', e.target.value)} />
-          </div>
-          <div className="form-row-3">
-            <div className="form-group">
-              <label className="form-label">Stage</label>
-              <select className="select" value={form.stage} onChange={(e) => set('stage', e.target.value)}>
-                {DEAL_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+          <div className="form-row">
+            <div className="form-group" style={{ flex: 2 }}>
+              <label className="form-label">Address *</label>
+              <input className="input" placeholder="120 Puente Ave" value={form.address} onChange={(e) => set('address', e.target.value)} />
             </div>
             <div className="form-group">
-              <label className="form-label">Deal Type</label>
-              <select className="select" value={form.deal_type} onChange={(e) => set('deal_type', e.target.value)}>
-                <option value="">Select</option>
-                {DEAL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Strategy</label>
-              <select className="select" value={form.strategy} onChange={(e) => set('strategy', e.target.value)}>
-                <option value="">Select</option>
-                {STRATEGIES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <label className="form-label">City</label>
+              <input className="input" placeholder="City of Industry" value={form.city} onChange={(e) => set('city', e.target.value)} />
             </div>
           </div>
           <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">Address</label>
-              <input className="input" placeholder="918 Radecki Ct" value={form.address} onChange={(e) => set('address', e.target.value)} />
-            </div>
             <div className="form-group">
               <label className="form-label">Submarket</label>
-              <input className="input" placeholder="City of Industry" value={form.submarket} onChange={(e) => set('submarket', e.target.value)} />
+              <input className="input" value={form.submarket} onChange={(e) => set('submarket', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Sale Type</label>
+              <select className="select" value={form.sale_type} onChange={(e) => set('sale_type', e.target.value)}>
+                <option value="">Select</option>
+                {SALE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
+              <label className="form-label">Building SF</label>
+              <input className="input" type="number" placeholder="115000" value={form.building_sf} onChange={(e) => set('building_sf', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Land (Acres)</label>
+              <input className="input" type="number" step="0.01" value={form.land_acres} onChange={(e) => set('land_acres', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Year Built</label>
+              <input className="input" type="number" placeholder="1990" value={form.year_built} onChange={(e) => set('year_built', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Clear Ht (ft)</label>
+              <input className="input" type="number" placeholder="32" value={form.clear_height} onChange={(e) => set('clear_height', e.target.value)} />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Sale Price ($)</label>
+              <input className="input" type="number" placeholder="31400000" value={form.sale_price} onChange={(e) => set('sale_price', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Price/SF (auto)</label>
+              <input className="input" type="number" value={form.price_psf} onChange={(e) => set('price_psf', e.target.value)} placeholder="273" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Cap Rate (%)</label>
+              <input className="input" type="number" step="0.01" placeholder="5.25" value={form.cap_rate} onChange={(e) => set('cap_rate', e.target.value)} />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Sale Date</label>
+              <input className="input" type="date" value={form.sale_date} onChange={(e) => set('sale_date', e.target.value)} />
+            </div>
+            <div className="form-group">
               <label className="form-label">Buyer</label>
-              <input className="input" value={form.buyer} onChange={(e) => set('buyer', e.target.value)} />
+              <input className="input" placeholder="TA Realty" value={form.buyer} onChange={(e) => set('buyer', e.target.value)} />
             </div>
             <div className="form-group">
               <label className="form-label">Seller</label>
               <input className="input" value={form.seller} onChange={(e) => set('seller', e.target.value)} />
             </div>
           </div>
-          <div className="form-row-3">
-            <div className="form-group">
-              <label className="form-label">Deal Value ($)</label>
-              <input className="input" type="number" placeholder="31400000" value={form.deal_value} onChange={(e) => set('deal_value', e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Commission Rate (%)</label>
-              <input className="input" type="number" step="0.1" placeholder="2.0" value={form.commission_rate} onChange={(e) => set('commission_rate', e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Probability %</label>
-              <input className="input" type="number" min="0" max="100" placeholder="72" value={form.probability} onChange={(e) => set('probability', e.target.value)} />
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">Close Date</label>
-              <input className="input" type="date" value={form.close_date} onChange={(e) => set('close_date', e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Priority</label>
-              <select className="select" value={form.priority} onChange={(e) => set('priority', e.target.value)}>
-                {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
-          </div>
           <div className="form-group">
             <label className="form-label">Notes</label>
-            <textarea className="textarea" value={form.notes} onChange={(e) => set('notes', e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label className="form-label">OneDrive Folder Link</label>
-            <input className="input" placeholder="https://collaborateicg-my.sharepoint.com/..." value={form.onedrive_url} onChange={(e) => set('onedrive_url', e.target.value)} />
+            <textarea className="textarea" rows={2} value={form.notes} onChange={(e) => set('notes', e.target.value)} />
           </div>
         </div>
         <div className="modal-footer">
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave} disabled={saving || !form.deal_name}>
-            {saving ? 'Saving...' : 'Add Deal'}
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving || !form.address.trim()}>
+            {saving ? 'Saving...' : 'Add Sale Comp'}
           </button>
         </div>
       </div>

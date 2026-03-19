@@ -1,267 +1,299 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useRef } from 'react';
+import { insertProperty, insertRow } from '../lib/db';
 
-// ── BUYER MATCHING ENGINE ────────────────────────────────────
-// Formula from Blueprint Section 5.4:
-// Market match: +20 | Deal type: +20 | SF fit: +15 | Price fit: +15
-// SLB bonus: +10 | Clear height: +5 | Power: +5 | Timing: +10
-// Total possible: 100
+// Column name mapping — flexible to handle common variations
+const COL_MAP = {
+  // Properties
+  address: ['address', 'street address', 'street', 'property address', 'location'],
+  city: ['city', 'municipality'],
+  zip: ['zip', 'zip code', 'zipcode', 'postal code', 'postal'],
+  market: ['market', 'mkt'],
+  submarket: ['submarket', 'sub market', 'sub-market', 'micro market'],
+  record_type: ['record type', 'record_type', 'type'],
+  prop_type: ['property type', 'prop type', 'prop_type', 'use type', 'building type'],
+  building_sf: ['building sf', 'building_sf', 'sf', 'square feet', 'sqft', 'rsf', 'rentable sf', 'gla', 'size'],
+  land_acres: ['land acres', 'land_acres', 'acres', 'acreage', 'lot size'],
+  year_built: ['year built', 'year_built', 'yr built', 'vintage'],
+  clear_height: ['clear height', 'clear_height', 'clear ht', 'ceiling height'],
+  dock_doors: ['dock doors', 'dock_doors', 'docks'],
+  grade_doors: ['grade doors', 'grade_doors', 'grade level', 'gl doors'],
+  owner: ['owner', 'owner name', 'property owner', 'ownership'],
+  owner_type: ['owner type', 'owner_type', 'ownership type'],
+  tenant: ['tenant', 'tenant name', 'occupant', 'lessee'],
+  vacancy_status: ['vacancy status', 'vacancy_status', 'vacancy', 'status', 'occupancy'],
+  lease_type: ['lease type', 'lease_type', 'rent type'],
+  lease_expiration: ['lease expiration', 'lease_expiration', 'lease exp', 'expiration', 'lease end'],
+  in_place_rent: ['in place rent', 'in_place_rent', 'rent', 'rate', 'asking rent', 'contract rent'],
+  probability: ['probability', 'prob', 'probability %'],
+  notes: ['notes', 'comments', 'description'],
+  // APNs
+  apn: ['apn', 'apn1', 'assessor parcel', 'parcel number', 'parcel'],
+};
 
-function calculateMatchScore(property, account) {
-  let score = 0;
-  const reasons = [];
-
-  // 1. Market match (+20)
-  const propMarket = guessMarket(property);
-  const buyerMarkets = account.preferred_markets || [];
-  if (propMarket && buyerMarkets.includes(propMarket)) {
-    score += 20;
-    reasons.push(`Market: ${propMarket} ✓`);
-  }
-
-  // 2. Deal type match (+20)
-  const propDealTypes = inferDealTypes(property);
-  const buyerDealTypes = account.deal_type_preference || [];
-  const dealOverlap = propDealTypes.filter(t => buyerDealTypes.includes(t));
-  if (dealOverlap.length > 0) {
-    score += 20;
-    reasons.push(`Deal type: ${dealOverlap.join(', ')} ✓`);
-  }
-
-  // 3. SF in range (+15)
-  const sf = property.building_sf;
-  if (sf && account.min_sf && account.max_sf) {
-    if (sf >= account.min_sf && sf <= account.max_sf) {
-      score += 15;
-      reasons.push(`SF: ${sf.toLocaleString()} in range ✓`);
-    } else if (sf >= account.min_sf * 0.8 && sf <= account.max_sf * 1.2) {
-      score += 8; // partial credit for near-miss
-      reasons.push(`SF: ${sf.toLocaleString()} near range`);
+function mapColumns(headers) {
+  const mapping = {};
+  headers.forEach((h) => {
+    const lower = h.toLowerCase().trim();
+    for (const [field, aliases] of Object.entries(COL_MAP)) {
+      if (aliases.includes(lower)) {
+        mapping[h] = field;
+        break;
+      }
     }
-  } else if (sf && account.min_sf && sf >= account.min_sf) {
-    score += 10; // no max specified, above min
-    reasons.push(`SF: above min ✓`);
-  }
-
-  // 4. Price in range (+15)
-  const pricePsf = property.price_psf || property.last_sale_price && property.building_sf
-    ? Math.round(property.last_sale_price / property.building_sf)
-    : null;
-  if (pricePsf && account.min_price_psf && account.max_price_psf) {
-    if (pricePsf >= account.min_price_psf && pricePsf <= account.max_price_psf) {
-      score += 15;
-      reasons.push(`$/SF: $${pricePsf} in range ✓`);
-    } else if (pricePsf >= account.min_price_psf * 0.8 && pricePsf <= account.max_price_psf * 1.3) {
-      score += 8;
-      reasons.push(`$/SF: $${pricePsf} near range`);
-    }
-  }
-
-  // 5. SLB bonus (+10)
-  const propTags = property.catalyst_tags || [];
-  const hasSLB = propTags.some(t => t.toLowerCase().includes('slb'));
-  const buyerWantsSLB = buyerDealTypes.includes('SLB');
-  if (hasSLB && buyerWantsSLB) {
-    score += 10;
-    reasons.push('SLB match ✓');
-  }
-
-  // 6. Clear height (+5)
-  if (property.clear_height && account.min_clear_height) {
-    if (property.clear_height >= account.min_clear_height) {
-      score += 5;
-      reasons.push(`Clear: ${property.clear_height}' ≥ ${account.min_clear_height}' ✓`);
-    }
-  } else if (!account.min_clear_height) {
-    score += 3; // no requirement = partial credit
-  }
-
-  // 7. Power (+5)
-  if (!account.power_requirement || account.power_requirement === 'Any' || account.power_requirement === 'Standard') {
-    score += 5;
-  }
-
-  // 8. Timing (+10)
-  if (account.acquisition_timing === 'Actively Buying Now') {
-    score += 10;
-    reasons.push('Actively buying ✓');
-  } else if (account.acquisition_timing === 'Buying Selectively') {
-    score += 5;
-    reasons.push('Buying selectively');
-  }
-
-  return { score, reasons };
+  });
+  return mapping;
 }
 
-function guessMarket(p) {
-  const sub = (p.submarket || '').toLowerCase();
-  const city = (p.city || '').toLowerCase();
-  if (sub.includes('sgv') || sub.includes('industry') || sub.includes('el monte') || sub.includes('vernon') || sub.includes('baldwin') || sub.includes('irwindale') || sub.includes('azusa') || sub.includes('walnut') || sub.includes('covina') || sub.includes('puente')) return 'SGV';
-  if (sub.includes('ie') || sub.includes('fontana') || sub.includes('ontario') || sub.includes('rancho') || sub.includes('chino') || sub.includes('jurupa') || sub.includes('riverside') || sub.includes('corona')) return 'IE';
-  if (sub.includes('oc') || sub.includes('irvine') || sub.includes('anaheim') || sub.includes('santa ana')) return 'OC';
-  if (sub.includes('south bay') || sub.includes('carson') || sub.includes('compton') || sub.includes('torrance')) return 'LA';
-  if (sub.includes('central la') || sub.includes('vernon') || sub.includes('commerce')) return 'LA';
-  if (sub.includes('sfv') || sub.includes('san fernando') || sub.includes('sylmar') || sub.includes('burbank')) return 'LA';
-  // City fallback
-  if (['city of industry','el monte','south el monte','irwindale','baldwin park','azusa','west covina','covina','walnut','la puente'].includes(city)) return 'SGV';
-  if (['ontario','fontana','rancho cucamonga','chino','jurupa valley','riverside','corona','redlands','rialto','colton','upland','montclair'].includes(city)) return 'IE';
-  return null;
+function parseNum(val) {
+  if (!val || val === '') return null;
+  const cleaned = String(val).replace(/[$,%\s]/g, '').replace(/,/g, '');
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? null : num;
 }
 
-function inferDealTypes(p) {
-  const types = [];
-  const tags = (p.catalyst_tags || []).map(t => t.toLowerCase());
-  const vac = (p.vacancy_status || '').toLowerCase();
-  
-  if (tags.some(t => t.includes('slb'))) types.push('SLB');
-  if (tags.some(t => t.includes('value') || t.includes('under-market') || t.includes('functionally'))) types.push('Value-Add');
-  if (tags.some(t => t.includes('distress') || t.includes('delinquent'))) types.push('Distress');
-  if (vac === 'vacant') types.push('Value-Add');
-  if (tags.some(t => t.includes('owner-user'))) types.push('Owner-User');
-  if (types.length === 0) types.push('Core', 'Value-Add', 'SLB');
-  return [...new Set(types)];
-}
+export default function CsvUpload({ onClose, onDone }) {
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState(null);
+  const [target, setTarget] = useState('properties');
+  const [dragging, setDragging] = useState(false);
+  const fileRef = useRef(null);
 
-export default function BuyerMatching({ property, accounts, onAccountClick }) {
-  const [minScore, setMinScore] = useState(40);
-  const [showAll, setShowAll] = useState(false);
+  const handleFile = (f) => {
+    if (!f) return;
+    setFile(f);
 
-  const matches = useMemo(() => {
-    if (!accounts || !property) return [];
-    
-    const buyerAccounts = accounts.filter(a =>
-      a.preferred_markets?.length > 0 &&
-      a.acquisition_timing !== 'Not Buying' &&
-      a.acquisition_timing !== 'Paused'
-    );
-
-    return buyerAccounts.map(a => {
-      const { score, reasons } = calculateMatchScore(property, a);
-      return { account: a, score, reasons };
-    })
-    .filter(m => showAll || m.score >= minScore)
-    .sort((a, b) => b.score - a.score);
-  }, [property, accounts, minScore, showAll]);
-
-  const tier = (score) => {
-    if (score >= 80) return { label: 'A', color: '#22c55e', bg: '#22c55e22' };
-    if (score >= 60) return { label: 'B', color: '#3b82f6', bg: '#3b82f622' };
-    if (score >= 40) return { label: 'C', color: '#f59e0b', bg: '#f59e0b22' };
-    return { label: 'D', color: '#6b7280', bg: '#6b728022' };
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result;
+      const lines = text.split('\n').filter((l) => l.trim());
+      const headers = lines[0].split(',').map((h) => h.trim().replace(/^"/, '').replace(/"$/, ''));
+      const rows = lines.slice(1, 6).map((line) => {
+        const vals = line.split(',').map((v) => v.trim().replace(/^"/, '').replace(/"$/, ''));
+        const row = {};
+        headers.forEach((h, i) => { row[h] = vals[i] || ''; });
+        return row;
+      });
+      const colMapping = mapColumns(headers);
+      setPreview({ headers, rows, colMapping, totalRows: lines.length - 1 });
+    };
+    reader.readAsText(f);
   };
 
-  const hot = matches.filter(m => m.score >= 80).length;
-  const strong = matches.filter(m => m.score >= 60 && m.score < 80).length;
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragging(false);
+    const f = e.dataTransfer.files[0];
+    if (f && (f.name.endsWith('.csv') || f.name.endsWith('.tsv'))) handleFile(f);
+  };
+
+  const doImport = async () => {
+    if (!file || !preview) return;
+    setImporting(true);
+    setResult(null);
+
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').filter((l) => l.trim());
+      const headers = lines[0].split(',').map((h) => h.trim().replace(/^"/, '').replace(/"$/, ''));
+      const colMapping = preview.colMapping;
+
+      let imported = 0;
+      let errors = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const vals = lines[i].split(',').map((v) => v.trim().replace(/^"/, '').replace(/"$/, ''));
+        const raw = {};
+        headers.forEach((h, idx) => { raw[h] = vals[idx] || ''; });
+
+        const mapped = {};
+        for (const [csvCol, dbField] of Object.entries(colMapping)) {
+          if (raw[csvCol] !== undefined) mapped[dbField] = raw[csvCol];
+        }
+
+        try {
+          if (target === 'properties') {
+            const propData = {
+              address: mapped.address || null,
+              city: mapped.city || null,
+              zip: mapped.zip || null,
+              market: mapped.market || null,
+              submarket: mapped.submarket || null,
+              record_type: mapped.record_type || null,
+              prop_type: mapped.prop_type || null,
+              building_sf: parseNum(mapped.building_sf),
+              land_acres: parseNum(mapped.land_acres),
+              year_built: parseNum(mapped.year_built),
+              clear_height: parseNum(mapped.clear_height),
+              dock_doors: parseNum(mapped.dock_doors),
+              grade_doors: parseNum(mapped.grade_doors),
+              owner: mapped.owner || null,
+              owner_type: mapped.owner_type || null,
+              tenant: mapped.tenant || null,
+              vacancy_status: mapped.vacancy_status || null,
+              lease_type: mapped.lease_type || null,
+              lease_expiration: mapped.lease_expiration || null,
+              in_place_rent: parseNum(mapped.in_place_rent),
+              probability: parseNum(mapped.probability),
+              notes: mapped.notes || null,
+            };
+            // Collect APNs from multiple columns
+            const apns = [];
+            if (mapped.apn) apns.push({ apn: mapped.apn, acres: parseNum(mapped.land_acres) });
+            // Check for APN2, APN3, etc.
+            for (let a = 2; a <= 5; a++) {
+              const apnKey = headers.find((h) => h.toLowerCase().trim() === `apn${a}`);
+              const acreKey = headers.find((h) => h.toLowerCase().trim() === `acres${a}`);
+              if (apnKey && raw[apnKey]) {
+                apns.push({ apn: raw[apnKey], acres: acreKey ? parseNum(raw[acreKey]) : null });
+              }
+            }
+
+            if (propData.address) {
+              await insertProperty(propData, apns);
+              imported++;
+            }
+          } else if (target === 'lease_comps') {
+            const data = {
+              address: mapped.address || null,
+              city: mapped.city || null,
+              submarket: mapped.submarket || null,
+              tenant: mapped.tenant || null,
+              rsf: parseNum(mapped.building_sf),
+              rate: parseNum(mapped.in_place_rent),
+              lease_type: mapped.lease_type || null,
+              notes: mapped.notes || null,
+            };
+            if (data.address) { await insertRow('lease_comps', data); imported++; }
+          } else if (target === 'contacts') {
+            const data = { name: mapped.name || raw[headers[0]], notes: mapped.notes || null };
+            if (data.name) { await insertRow('contacts', data); imported++; }
+          }
+        } catch (err) {
+          errors++;
+          console.error(`Row ${i} error:`, err);
+        }
+      }
+
+      setResult({ imported, errors, total: lines.length - 1 });
+    } catch (err) {
+      console.error('Import error:', err);
+      setResult({ imported: 0, errors: 1, total: 0 });
+    } finally {
+      setImporting(false);
+    }
+  };
 
   return (
-    <div>
-      {/* Summary bar */}
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          {hot > 0 && (
-            <div style={{ padding: '6px 14px', background: '#22c55e18', border: '1px solid #22c55e44', borderRadius: '8px' }}>
-              <span style={{ fontSize: '18px', fontWeight: 700, color: '#22c55e' }}>{hot}</span>
-              <span style={{ fontSize: '15px', color: '#22c55e', marginLeft: '6px' }}>hot matches (80+)</span>
-            </div>
-          )}
-          {strong > 0 && (
-            <div style={{ padding: '6px 14px', background: '#3b82f618', border: '1px solid #3b82f644', borderRadius: '8px' }}>
-              <span style={{ fontSize: '18px', fontWeight: 700, color: '#3b82f6' }}>{strong}</span>
-              <span style={{ fontSize: '15px', color: '#3b82f6', marginLeft: '6px' }}>strong (60+)</span>
-            </div>
-          )}
-          <div style={{ padding: '6px 14px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '8px' }}>
-            <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>{matches.length}</span>
-            <span style={{ fontSize: '15px', color: 'var(--text-muted)', marginLeft: '6px' }}>total</span>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Import CSV</h2>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-body">
+          {/* Target */}
+          <div className="form-group">
+            <label className="form-label">Import into</label>
+            <select className="select" value={target} onChange={(e) => setTarget(e.target.value)} style={{ maxWidth: '200px' }}>
+              <option value="properties">Properties</option>
+              <option value="lease_comps">Lease Comps</option>
+              <option value="contacts">Contacts</option>
+            </select>
           </div>
-        </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <label style={{ fontSize: '15px', color: 'var(--text-muted)' }}>Min score:</label>
-          <select className="select" value={minScore} onChange={e => { setMinScore(+e.target.value); setShowAll(false); }} style={{ width: '80px' }}>
-            <option value={80}>80+</option>
-            <option value={60}>60+</option>
-            <option value={40}>40+</option>
-            <option value={20}>20+</option>
-            <option value={0}>All</option>
-          </select>
-        </div>
-      </div>
 
-      {/* Match cards */}
-      {matches.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-          No buyer matches found above score {minScore}. Try lowering the threshold.
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {matches.map(({ account: a, score, reasons }) => {
-            const t = tier(score);
-            return (
-              <div key={a.id} className="card" style={{ padding: '14px 18px', borderLeft: `4px solid ${t.color}` }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-                      <span onClick={() => onAccountClick?.(a)} style={{ fontSize: '15px', fontWeight: 700, cursor: onAccountClick ? 'pointer' : 'default', color: 'var(--text-primary)', borderBottom: onAccountClick ? '1px dashed var(--accent)' : 'none' }}>{a.name}</span>
-                      <span style={{ fontSize: '15px', padding: '2px 8px', borderRadius: '4px', background: t.bg, color: t.color, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-                        {score}/100 ({t.label})
+          {/* Drop zone */}
+          {!file && (
+            <div
+              className={`upload-zone ${dragging ? 'dragging' : ''}`}
+              onClick={() => fileRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={handleDrop}
+            >
+              <div className="upload-zone-icon">↑</div>
+              <div className="upload-zone-text">Drop your CSV here or click to browse</div>
+              <div className="upload-zone-sub">Supports .csv and .tsv files</div>
+              <input ref={fileRef} type="file" accept=".csv,.tsv" style={{ display: 'none' }} onChange={(e) => handleFile(e.target.files[0])} />
+            </div>
+          )}
+
+          {/* Preview */}
+          {preview && !result && (
+            <div>
+              <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '15px', color: 'var(--text-secondary)' }}>
+                  <strong>{file.name}</strong> · {preview.totalRows} rows · {Object.keys(preview.colMapping).length}/{preview.headers.length} columns mapped
+                </span>
+                <button className="btn btn-ghost btn-sm" onClick={() => { setFile(null); setPreview(null); }}>Change file</button>
+              </div>
+
+              {/* Column mapping preview */}
+              <div style={{ marginBottom: '16px', fontSize: '15px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {preview.headers.map((h) => {
+                    const mapped = preview.colMapping[h];
+                    return (
+                      <span key={h} className={`tag ${mapped ? 'tag-green' : 'tag-ghost'}`}>
+                        {h} {mapped ? `→ ${mapped}` : '(unmapped)'}
                       </span>
-                      {a.buyer_type && (
-                        <span className="tag tag-ghost" style={{ fontSize: '15px' }}>{a.buyer_type}</span>
-                      )}
-                      {a.acquisition_timing === 'Actively Buying Now' && (
-                        <span className="tag tag-green" style={{ fontSize: '15px' }}>Active</span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: '15px', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                      {[
-                        a.city && a.hq_state ? `${a.city}, ${a.hq_state}` : a.city,
-                        a.preferred_markets?.join(', '),
-                        a.min_sf && a.max_sf ? `${(a.min_sf/1000).toFixed(0)}K–${(a.max_sf/1000).toFixed(0)}K SF` : null,
-                        a.min_price_psf && a.max_price_psf ? `$${a.min_price_psf}–$${a.max_price_psf}/SF` : null,
-                        a.est_capital_deployed,
-                      ].filter(Boolean).join(' · ')}
-                    </div>
-                    {/* Match reasons */}
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      {reasons.map((r, i) => (
-                        <span key={i} style={{
-                          fontSize: '15px', padding: '2px 6px', borderRadius: '3px',
-                          background: r.includes('✓') ? '#22c55e15' : '#f59e0b15',
-                          color: r.includes('✓') ? '#22c55e' : '#f59e0b',
-                          fontFamily: 'var(--font-mono)',
-                        }}>{r}</span>
-                      ))}
-                    </div>
-                    {a.notes && (
-                      <div style={{ fontSize: '15px', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: 1.5 }}>
-                        {a.notes.length > 200 ? a.notes.slice(0, 200) + '...' : a.notes}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0, marginLeft: '16px' }}>
-                    {/* Score bar */}
-                    <div style={{ width: '60px', height: '6px', background: 'var(--bg-input)', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{ width: `${score}%`, height: '100%', background: t.color, borderRadius: '3px' }} />
-                    </div>
-                    {a.phone && (
-                      <a href={`tel:${a.phone}`} style={{ fontSize: '15px', fontFamily: 'var(--font-mono)', color: 'var(--accent)', textDecoration: 'none' }}>{a.phone}</a>
-                    )}
-                    {a.deal_count && (
-                      <span style={{ fontSize: '15px', color: 'var(--text-muted)' }}>{a.deal_count} deals</span>
-                    )}
-                  </div>
+                    );
+                  })}
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
 
-      {/* Scoring methodology */}
-      <div style={{ marginTop: '16px', padding: '14px', background: 'var(--bg-input)', borderRadius: '8px', fontSize: '15px', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-        <strong style={{ color: 'var(--text-secondary)' }}>Match Score Formula:</strong> Market (+20) · Deal Type (+20) · SF Fit (+15) · Price Fit (+15) · SLB Bonus (+10) · Clear Height (+5) · Power (+5) · Buyer Timing (+10) = 100 max.
-        Tier A = 80+, B = 60+, C = 40+.
+              {/* Data preview */}
+              <div style={{ overflow: 'auto', maxHeight: '200px', border: '1px solid var(--border)', borderRadius: '6px' }}>
+                <table>
+                  <thead>
+                    <tr>
+                      {preview.headers.map((h) => (
+                        <th key={h} style={{ fontSize: '15px', padding: '6px 8px' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.rows.map((row, i) => (
+                      <tr key={i}>
+                        {preview.headers.map((h) => (
+                          <td key={h} style={{ fontSize: '15px', padding: '4px 8px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row[h]}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Result */}
+          {result && (
+            <div style={{ textAlign: 'center', padding: '24px' }}>
+              <div style={{ fontSize: '40px', marginBottom: '12px' }}>{result.errors === 0 ? '✓' : '⚠'}</div>
+              <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>
+                {result.imported} of {result.total} rows imported
+              </div>
+              {result.errors > 0 && (
+                <div style={{ fontSize: '15px', color: 'var(--red)' }}>{result.errors} errors (check console for details)</div>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          {result ? (
+            <button className="btn btn-primary" onClick={onDone}>Done</button>
+          ) : (
+            <>
+              <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+              <button className="btn btn-primary" onClick={doImport} disabled={!preview || importing}>
+                {importing ? 'Importing...' : `Import ${preview?.totalRows || 0} rows`}
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

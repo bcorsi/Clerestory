@@ -1,137 +1,132 @@
 'use client';
 
-import { useState } from 'react';
-import { insertRow } from '../lib/db';
+import { useMemo } from 'react';
+import { CATALYST_URGENCY, STAGE_COLORS, LEAD_STAGE_COLORS, catalystTagClass, fmt } from '../lib/constants';
 
-const SALE_TYPES = ['Investment', 'Owner-User', 'SLB', 'Portfolio', 'Distress'];
+export default function CatalystView({
+  tag, properties, leads, deals,
+  onPropertyClick, onLeadClick, onDealClick, onClear
+}) {
+  const matchedProperties = useMemo(() =>
+    (properties || []).filter(p => (p.catalyst_tags || []).includes(tag))
+  , [properties, tag]);
 
-export default function AddSaleCompModal({ onClose, onSave }) {
-  const [form, setForm] = useState({
-    address: '', city: '', submarket: '',
-    building_sf: '', land_acres: '', year_built: '', clear_height: '',
-    sale_price: '', price_psf: '', cap_rate: '',
-    sale_date: '', buyer: '', seller: '', sale_type: '',
-    notes: '',
-  });
-  const [saving, setSaving] = useState(false);
+  const matchedLeads = useMemo(() =>
+    (leads || []).filter(l => (l.catalyst_tags || []).includes(tag) && !['Converted', 'Dead'].includes(l.stage))
+  , [leads, tag]);
 
-  const set = (field, val) => setForm((f) => {
-    const updated = { ...f, [field]: val };
-    // Auto-calc price_psf
-    if ((field === 'sale_price' || field === 'building_sf') && updated.sale_price && updated.building_sf) {
-      updated.price_psf = (parseFloat(updated.sale_price) / parseInt(updated.building_sf)).toFixed(0);
-    }
-    return updated;
-  });
+  const matchedDeals = useMemo(() =>
+    (deals || []).filter(d => {
+      const linked = (properties || []).find(p => p.id === d.property_id || p.address === d.address);
+      return linked && (linked.catalyst_tags || []).includes(tag);
+    })
+  , [deals, properties, tag]);
 
-  const handleSave = async () => {
-    if (!form.address.trim()) return;
-    setSaving(true);
-    try {
-      await insertRow('sale_comps', {
-        ...form,
-        building_sf: form.building_sf ? parseInt(form.building_sf) : null,
-        land_acres: form.land_acres ? parseFloat(form.land_acres) : null,
-        year_built: form.year_built ? parseInt(form.year_built) : null,
-        clear_height: form.clear_height ? parseInt(form.clear_height) : null,
-        sale_price: form.sale_price ? parseFloat(form.sale_price) : null,
-        price_psf: form.price_psf ? parseFloat(form.price_psf) : null,
-        cap_rate: form.cap_rate ? parseFloat(form.cap_rate) : null,
-      });
-      onSave();
-    } catch (err) { console.error(err); }
-    finally { setSaving(false); }
-  };
+  const total = matchedProperties.length + matchedLeads.length + matchedDeals.length;
+  const urgency = CATALYST_URGENCY[tag] || 'medium';
+  const urgColor = { immediate: '#ef4444', high: '#f59e0b', medium: '#3b82f6', low: '#6b7280' }[urgency];
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: '620px' }} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Add Sale Comp</h2>
-          <button className="modal-close" onClick={onClose}>×</button>
-        </div>
-        <div className="modal-body">
-          <div className="form-row">
-            <div className="form-group" style={{ flex: 2 }}>
-              <label className="form-label">Address *</label>
-              <input className="input" placeholder="120 Puente Ave" value={form.address} onChange={(e) => set('address', e.target.value)} />
+    <div>
+      {/* Header */}
+      <div className="card" style={{ marginBottom: '16px', borderLeft: `3px solid ${urgColor}` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+              <span className={`tag ${catalystTagClass(tag)}`} style={{ fontSize: '14px', padding: '4px 12px' }}>{tag}</span>
+              <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{total} records</span>
             </div>
-            <div className="form-group">
-              <label className="form-label">City</label>
-              <input className="input" placeholder="City of Industry" value={form.city} onChange={(e) => set('city', e.target.value)} />
+            <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+              {matchedProperties.length} properties · {matchedLeads.length} leads · {matchedDeals.length} deals
             </div>
           </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">Submarket</label>
-              <input className="input" value={form.submarket} onChange={(e) => set('submarket', e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Sale Type</label>
-              <select className="select" value={form.sale_type} onChange={(e) => set('sale_type', e.target.value)}>
-                <option value="">Select</option>
-                {SALE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">Building SF</label>
-              <input className="input" type="number" placeholder="115000" value={form.building_sf} onChange={(e) => set('building_sf', e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Land (Acres)</label>
-              <input className="input" type="number" step="0.01" value={form.land_acres} onChange={(e) => set('land_acres', e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Year Built</label>
-              <input className="input" type="number" placeholder="1990" value={form.year_built} onChange={(e) => set('year_built', e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Clear Ht (ft)</label>
-              <input className="input" type="number" placeholder="32" value={form.clear_height} onChange={(e) => set('clear_height', e.target.value)} />
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">Sale Price ($)</label>
-              <input className="input" type="number" placeholder="31400000" value={form.sale_price} onChange={(e) => set('sale_price', e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Price/SF (auto)</label>
-              <input className="input" type="number" value={form.price_psf} onChange={(e) => set('price_psf', e.target.value)} placeholder="273" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Cap Rate (%)</label>
-              <input className="input" type="number" step="0.01" placeholder="5.25" value={form.cap_rate} onChange={(e) => set('cap_rate', e.target.value)} />
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">Sale Date</label>
-              <input className="input" type="date" value={form.sale_date} onChange={(e) => set('sale_date', e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Buyer</label>
-              <input className="input" placeholder="TA Realty" value={form.buyer} onChange={(e) => set('buyer', e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Seller</label>
-              <input className="input" value={form.seller} onChange={(e) => set('seller', e.target.value)} />
-            </div>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Notes</label>
-            <textarea className="textarea" rows={2} value={form.notes} onChange={(e) => set('notes', e.target.value)} />
-          </div>
-        </div>
-        <div className="modal-footer">
-          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave} disabled={saving || !form.address.trim()}>
-            {saving ? 'Saving...' : 'Add Sale Comp'}
-          </button>
+          <button className="btn btn-ghost btn-sm" onClick={onClear}>✕ Clear filter</button>
         </div>
       </div>
+
+      {/* Properties */}
+      {matchedProperties.length > 0 && (
+        <div className="card" style={{ marginBottom: '16px' }}>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Properties ({matchedProperties.length})</h3>
+          <div style={{ overflowX: 'auto' }}>
+            <table><thead><tr>
+              <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Address</th>
+              <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>City</th>
+              <th style={{ textAlign: 'right', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>SF</th>
+              <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Owner</th>
+              <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Tenant</th>
+              <th style={{ textAlign: 'right', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Score</th>
+            </tr></thead><tbody>
+              {matchedProperties.map(p => (
+                <tr key={p.id} onClick={() => onPropertyClick?.(p)} style={{ cursor: 'pointer', borderBottom: '1px solid var(--border-subtle)' }}>
+                  <td style={{ padding: '8px 10px', fontSize: '14px', fontWeight: 500 }}>{p.address}</td>
+                  <td style={{ padding: '8px 10px', fontSize: '13px', color: 'var(--text-muted)' }}>{p.city || p.submarket || '—'}</td>
+                  <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', fontSize: '13px', textAlign: 'right' }}>{(p.total_sf || p.building_sf) ? Number(p.total_sf || p.building_sf).toLocaleString() : '—'}</td>
+                  <td style={{ padding: '8px 10px', fontSize: '13px' }}>{p.owner || '—'}</td>
+                  <td style={{ padding: '8px 10px', fontSize: '13px' }}>{p.tenant || '—'}</td>
+                  <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', fontSize: '13px', textAlign: 'right', color: 'var(--accent)', fontWeight: 600 }}>{p.probability ?? p.ai_score ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody></table>
+          </div>
+        </div>
+      )}
+
+      {/* Leads */}
+      {matchedLeads.length > 0 && (
+        <div className="card" style={{ marginBottom: '16px' }}>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Leads ({matchedLeads.length})</h3>
+          <div style={{ overflowX: 'auto' }}>
+            <table><thead><tr>
+              <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Lead</th>
+              <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Stage</th>
+              <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Tier</th>
+              <th style={{ textAlign: 'right', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Score</th>
+              <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Next Action</th>
+            </tr></thead><tbody>
+              {matchedLeads.sort((a, b) => (b.score || 0) - (a.score || 0)).map(l => (
+                <tr key={l.id} onClick={() => onLeadClick?.(l)} style={{ cursor: 'pointer', borderBottom: '1px solid var(--border-subtle)' }}>
+                  <td style={{ padding: '8px 10px', fontSize: '14px', fontWeight: 500 }}>{l.lead_name}</td>
+                  <td style={{ padding: '8px 10px' }}><span style={{ fontSize: '12px', padding: '2px 7px', borderRadius: '4px', background: (LEAD_STAGE_COLORS[l.stage] || '#6b7280') + '22', color: LEAD_STAGE_COLORS[l.stage] || '#6b7280', fontWeight: 600 }}>{l.stage}</span></td>
+                  <td style={{ padding: '8px 10px' }}>{l.tier && <span style={{ fontWeight: 700, color: { 'A+': '#22c55e', A: '#3b82f6', B: '#f59e0b', C: '#6b7280' }[l.tier] || '#6b7280' }}>{l.tier}</span>}</td>
+                  <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', fontSize: '13px', textAlign: 'right', color: 'var(--accent)', fontWeight: 600 }}>{l.score ?? '—'}</td>
+                  <td style={{ padding: '8px 10px', fontSize: '13px', color: 'var(--amber)' }}>{l.next_action || '—'}</td>
+                </tr>
+              ))}
+            </tbody></table>
+          </div>
+        </div>
+      )}
+
+      {/* Deals */}
+      {matchedDeals.length > 0 && (
+        <div className="card" style={{ marginBottom: '16px' }}>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Deals ({matchedDeals.length})</h3>
+          <div style={{ overflowX: 'auto' }}>
+            <table><thead><tr>
+              <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Deal</th>
+              <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Stage</th>
+              <th style={{ textAlign: 'right', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Value</th>
+              <th style={{ textAlign: 'right', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Commission</th>
+            </tr></thead><tbody>
+              {matchedDeals.map(d => (
+                <tr key={d.id} onClick={() => onDealClick?.(d)} style={{ cursor: 'pointer', borderBottom: '1px solid var(--border-subtle)' }}>
+                  <td style={{ padding: '8px 10px', fontSize: '14px', fontWeight: 500 }}>{d.deal_name}</td>
+                  <td style={{ padding: '8px 10px' }}><span style={{ fontSize: '12px', padding: '2px 7px', borderRadius: '4px', background: (STAGE_COLORS[d.stage] || '#6b7280') + '22', color: STAGE_COLORS[d.stage] || '#6b7280', fontWeight: 600 }}>{d.stage}</span></td>
+                  <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', fontSize: '13px', textAlign: 'right', color: 'var(--accent)', fontWeight: 600 }}>{d.deal_value ? fmt.price(d.deal_value) : '—'}</td>
+                  <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', fontSize: '13px', textAlign: 'right', color: '#22c55e' }}>{d.commission_est ? fmt.price(d.commission_est) : '—'}</td>
+                </tr>
+              ))}
+            </tbody></table>
+          </div>
+        </div>
+      )}
+
+      {total === 0 && (
+        <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
+          <div style={{ fontSize: '14px', color: 'var(--text-muted)' }}>No records found with catalyst tag "{tag}"</div>
+        </div>
+      )}
     </div>
   );
 }

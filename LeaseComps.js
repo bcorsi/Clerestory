@@ -1,286 +1,104 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { uploadFile, fetchAttachments, deleteAttachment, downloadFile, formatFileSize, getFileIcon } from '../lib/storage';
+import React, { useState, useMemo } from 'react';
+import { LEASE_TYPES, fmt } from '../lib/constants';
 
-export default function FileManager({ propertyId, dealId, showToast }) {
-  const [attachments, setAttachments] = useState([]);
-  const [uploading, setUploading] = useState(false);
-  const [dragging, setDragging] = useState(false);
-  const [lightbox, setLightbox] = useState(null);
-  const fileRef = useRef(null);
+export default function LeaseComps({ comps, onCompClick }) {
+  const [search, setSearch] = useState('');
+  const [filterSubmarket, setFilterSubmarket] = useState('');
+  const [filterType, setFilterType] = useState('');
+  const [sortBy, setSortBy] = useState('start_date');
+  const [sortAsc, setSortAsc] = useState(false);
 
-  const photos = attachments.filter((a) => a.file_type === 'photo');
-  const files = attachments.filter((a) => a.file_type === 'document');
+  const allSubmarkets = [...new Set(comps.map((c) => c.submarket).filter(Boolean))].sort();
 
-  // Load attachments
-  useEffect(() => {
-    loadAttachments();
-  }, [propertyId, dealId]);
-
-  const loadAttachments = async () => {
-    try {
-      const data = await fetchAttachments({ propertyId, dealId });
-      setAttachments(data);
-    } catch (err) {
-      console.error('Load attachments error:', err);
+  const filtered = useMemo(() => {
+    let list = [...comps];
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter((c) =>
+        [c.address, c.tenant, c.city].some((f) => f && f.toLowerCase().includes(q))
+      );
     }
-  };
+    if (filterSubmarket) list = list.filter((c) => c.submarket === filterSubmarket);
+    if (filterType) list = list.filter((c) => c.lease_type === filterType);
 
-  const handleUpload = async (fileList) => {
-    if (!fileList || fileList.length === 0) return;
-    setUploading(true);
+    list.sort((a, b) => {
+      let va = a[sortBy], vb = b[sortBy];
+      if (va == null) va = sortAsc ? Infinity : -Infinity;
+      if (vb == null) vb = sortAsc ? Infinity : -Infinity;
+      if (typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+      return sortAsc ? va - vb : vb - va;
+    });
+    return list;
+  }, [comps, search, filterSubmarket, filterType, sortBy, sortAsc]);
 
-    try {
-      for (const file of Array.from(fileList)) {
-        await uploadFile(file, { propertyId, dealId });
-      }
-      await loadAttachments();
-      showToast?.(`${fileList.length} file${fileList.length > 1 ? 's' : ''} uploaded`);
-    } catch (err) {
-      console.error('Upload error:', err);
-      showToast?.('Upload failed: ' + err.message);
-    } finally {
-      setUploading(false);
-    }
+  const toggleSort = (col) => {
+    if (sortBy === col) setSortAsc(!sortAsc);
+    else { setSortBy(col); setSortAsc(false); }
   };
-
-  const handleDelete = async (att) => {
-    if (!confirm(`Delete ${att.file_name}?`)) return;
-    try {
-      await deleteAttachment(att);
-      setAttachments((prev) => prev.filter((a) => a.id !== att.id));
-      showToast?.('File deleted');
-    } catch (err) {
-      console.error('Delete error:', err);
-    }
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setDragging(false);
-    handleUpload(e.dataTransfer.files);
-  };
+  const si = (col) => sortBy === col ? (sortAsc ? ' ↑' : ' ↓') : '';
 
   return (
     <div>
-      {/* Photos Section */}
-      <div className="detail-section">
-        <div className="detail-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>Photos ({photos.length})</span>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => {
-              fileRef.current.accept = 'image/*';
-              fileRef.current.click();
-            }}
-            disabled={uploading}
-          >
-            {uploading ? 'Uploading...' : '+ Upload'}
-          </button>
-        </div>
-
-        {photos.length === 0 ? (
-          <div
-            style={{
-              padding: '32px', textAlign: 'center', border: '2px dashed var(--border)',
-              borderRadius: 'var(--radius-md)', cursor: 'pointer',
-              transition: 'all 0.2s', background: dragging ? 'var(--accent-soft)' : 'transparent',
-              borderColor: dragging ? 'var(--accent)' : 'var(--border)',
-            }}
-            onClick={() => { fileRef.current.accept = 'image/*'; fileRef.current.click(); }}
-            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={handleDrop}
-          >
-            <div style={{ fontSize: '24px', marginBottom: '8px', opacity: 0.3 }}>🖼</div>
-            <div style={{ fontSize: '15px', color: 'var(--text-muted)' }}>Drop photos here or click to upload</div>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px' }}>
-            {photos.map((photo) => (
-              <div
-                key={photo.id}
-                style={{
-                  position: 'relative', borderRadius: 'var(--radius-sm)', overflow: 'hidden',
-                  aspectRatio: '4/3', cursor: 'pointer', border: '1px solid var(--border)',
-                }}
-                onClick={() => setLightbox(photo)}
-              >
-                <img
-                  src={photo.url}
-                  alt={photo.file_name}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDelete(photo); }}
-                  style={{
-                    position: 'absolute', top: '4px', right: '4px',
-                    background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none',
-                    borderRadius: '4px', width: '22px', height: '22px', fontSize: '15px',
-                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    opacity: 0, transition: 'opacity 0.15s',
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-            {/* Add more button */}
-            <div
-              style={{
-                aspectRatio: '4/3', border: '2px dashed var(--border)', borderRadius: 'var(--radius-sm)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                transition: 'border-color 0.15s',
-              }}
-              onClick={() => { fileRef.current.accept = 'image/*'; fileRef.current.click(); }}
-              onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent)'}
-              onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
-            >
-              <span style={{ fontSize: '20px', color: 'var(--text-muted)' }}>+</span>
-            </div>
-          </div>
-        )}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <input className="input" placeholder="Search address, tenant..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: '260px' }} />
+        <select className="select" value={filterSubmarket} onChange={(e) => setFilterSubmarket(e.target.value)} style={{ maxWidth: '200px' }}>
+          <option value="">All Submarkets</option>
+          {allSubmarkets.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select className="select" value={filterType} onChange={(e) => setFilterType(e.target.value)} style={{ maxWidth: '160px' }}>
+          <option value="">All Lease Types</option>
+          {LEASE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <span style={{ marginLeft: 'auto', fontSize: '15px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+          {filtered.length} comps
+        </span>
       </div>
 
-      {/* Files Section */}
-      <div className="detail-section">
-        <div className="detail-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>Files ({files.length})</span>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => {
-              fileRef.current.accept = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.zip';
-              fileRef.current.click();
-            }}
-            disabled={uploading}
-          >
-            {uploading ? 'Uploading...' : '+ Upload'}
-          </button>
-        </div>
-
-        {files.length === 0 ? (
-          <div
-            style={{
-              padding: '24px', textAlign: 'center', border: '2px dashed var(--border)',
-              borderRadius: 'var(--radius-md)', cursor: 'pointer',
-              transition: 'all 0.2s', background: dragging ? 'var(--accent-soft)' : 'transparent',
-              borderColor: dragging ? 'var(--accent)' : 'var(--border)',
-            }}
-            onClick={() => { fileRef.current.accept = '*'; fileRef.current.click(); }}
-            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={handleDrop}
-          >
-            <div style={{ fontSize: '24px', marginBottom: '8px', opacity: 0.3 }}>📁</div>
-            <div style={{ fontSize: '15px', color: 'var(--text-muted)' }}>Drop files here or click to upload</div>
-            <div style={{ fontSize: '15px', color: 'var(--text-muted)', marginTop: '4px' }}>PDF, Excel, Word, PowerPoint, CSV</div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {files.map((file) => (
-              <div
-                key={file.id}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '10px',
-                  padding: '8px 12px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)',
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-card-hover)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-input)'}
-              >
-                <span style={{ fontSize: '18px', flexShrink: 0 }}>{getFileIcon(file.file_name)}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {file.file_name}
-                  </div>
-                  <div style={{ fontSize: '15px', color: 'var(--text-muted)' }}>
-                    {formatFileSize(file.file_size)} · {new Date(file.created_at).toLocaleDateString()}
-                  </div>
-                </div>
-                <button
-                  onClick={() => downloadFile(file)}
-                  className="btn btn-ghost btn-sm"
-                  style={{ fontSize: '15px' }}
-                >
-                  ↓
-                </button>
-                <button
-                  onClick={() => handleDelete(file)}
-                  className="btn btn-ghost btn-sm"
-                  style={{ fontSize: '15px', color: 'var(--text-muted)' }}
-                >
-                  ×
-                </button>
-              </div>
+      <div className="table-container" style={{ overflow: 'auto', maxHeight: 'calc(100vh - 220px)' }}>
+        <table>
+          <thead>
+            <tr>
+              <th onClick={() => toggleSort('address')} style={{ cursor: 'pointer' }}>Address{si('address')}</th>
+              <th>Submarket</th>
+              <th onClick={() => toggleSort('tenant')} style={{ cursor: 'pointer' }}>Tenant{si('tenant')}</th>
+              <th onClick={() => toggleSort('rsf')} style={{ cursor: 'pointer' }}>RSF{si('rsf')}</th>
+              <th onClick={() => toggleSort('rate')} style={{ cursor: 'pointer' }}>Rate{si('rate')}</th>
+              <th>Gross Equiv</th>
+              <th>Type</th>
+              <th onClick={() => toggleSort('term_months')} style={{ cursor: 'pointer' }}>Term{si('term_months')}</th>
+              <th onClick={() => toggleSort('start_date')} style={{ cursor: 'pointer' }}>Start{si('start_date')}</th>
+              <th>FR</th>
+              <th>TIs</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((c) => (
+              <tr key={c.id} onClick={() => onCompClick(c)} style={{ cursor: 'pointer' }}>
+                <td className="text-primary">{c.address}</td>
+                <td>{c.submarket || '—'}</td>
+                <td>{c.tenant || '—'}</td>
+                <td style={{ fontFamily: 'var(--font-mono)' }}>{c.rsf ? fmt.sf(c.rsf) : '—'}</td>
+                <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--green)' }}>
+                  {c.rate ? `$${Number(c.rate).toFixed(2)}` : '—'}
+                </td>
+                <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--amber)' }}>
+                  {c.gross_equivalent ? `$${Number(c.gross_equivalent).toFixed(2)}` : c.total_expenses_psf && c.rate ? `$${(Number(c.rate) + Number(c.total_expenses_psf)).toFixed(2)}` : '—'}
+                </td>
+                <td><span className="tag tag-ghost">{c.lease_type || '—'}</span></td>
+                <td style={{ fontFamily: 'var(--font-mono)' }}>{c.term_months ? `${c.term_months} mo` : '—'}</td>
+                <td>{c.start_date ? fmt.date(c.start_date) : '—'}</td>
+                <td style={{ fontFamily: 'var(--font-mono)' }}>{c.free_rent_months ? `${c.free_rent_months} mo` : '—'}</td>
+                <td style={{ fontFamily: 'var(--font-mono)' }}>{c.ti_psf ? `$${Number(c.ti_psf).toFixed(2)}` : '—'}</td>
+              </tr>
             ))}
-            {/* Upload more */}
-            <div
-              style={{
-                padding: '8px 12px', border: '1px dashed var(--border)', borderRadius: 'var(--radius-sm)',
-                textAlign: 'center', cursor: 'pointer', fontSize: '15px', color: 'var(--text-muted)',
-                transition: 'border-color 0.15s',
-              }}
-              onClick={() => { fileRef.current.accept = '*'; fileRef.current.click(); }}
-              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={handleDrop}
-              onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent)'}
-              onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
-            >
-              + Add more files
-            </div>
-          </div>
-        )}
+            {filtered.length === 0 && (
+              <tr><td colSpan={11} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No comps found</td></tr>
+            )}
+          </tbody>
+        </table>
       </div>
-
-      {/* Hidden file input */}
-      <input
-        ref={fileRef}
-        type="file"
-        multiple
-        style={{ display: 'none' }}
-        onChange={(e) => handleUpload(e.target.files)}
-      />
-
-      {/* Lightbox */}
-      {lightbox && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 200, cursor: 'pointer',
-          }}
-          onClick={() => setLightbox(null)}
-        >
-          <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }}>
-            <img
-              src={lightbox.url}
-              alt={lightbox.file_name}
-              style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: '8px' }}
-            />
-            <div style={{
-              position: 'absolute', bottom: '-40px', left: 0, right: 0, textAlign: 'center',
-              fontSize: '15px', color: 'rgba(255,255,255,0.7)',
-            }}>
-              {lightbox.file_name}
-            </div>
-          </div>
-          <button
-            onClick={() => setLightbox(null)}
-            style={{
-              position: 'absolute', top: '20px', right: '20px',
-              background: 'rgba(255,255,255,0.1)', color: 'white', border: 'none',
-              borderRadius: '50%', width: '40px', height: '40px', fontSize: '20px',
-              cursor: 'pointer',
-            }}
-          >
-            ×
-          </button>
-        </div>
-      )}
     </div>
   );
 }

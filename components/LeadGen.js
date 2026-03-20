@@ -44,6 +44,8 @@ export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
   const [listSort, setListSort] = useState('score');
   const [listSortDir, setListSortDir] = useState('desc');
   const [statusFilter, setStatusFilter] = useState('active');
+  const [dragLead, setDragLead] = useState(null);
+  const [dragOver, setDragOver] = useState(null);
 
   const active = leads.filter((l) => !['Converted', 'Dead'].includes(l.stage));
   const convertedLeads = leads.filter((l) => l.stage === 'Converted');
@@ -67,6 +69,20 @@ export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
   })();
   const toggleListSort = (f) => { if (listSort === f) setListSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setListSort(f); setListSortDir('desc'); } };
   const si = (f) => listSort === f ? (listSortDir === 'asc' ? ' ↑' : ' ↓') : '';
+
+  const visibleStages = showDead ? [...LEAD_STAGES, 'Dead'] : LEAD_STAGES;
+
+  const handleDrop = async (e, targetStage) => {
+    e.preventDefault();
+    setDragOver(null);
+    if (!dragLead || dragLead.stage === targetStage) { setDragLead(null); return; }
+    try {
+      await updateRow('leads', dragLead.id, { stage: targetStage });
+      onRefresh();
+      showToast(`Moved to ${targetStage}`);
+    } catch (err) { console.error(err); }
+    setDragLead(null);
+  };
 
   const handleConvert = async (lead, e) => {
     e.stopPropagation();

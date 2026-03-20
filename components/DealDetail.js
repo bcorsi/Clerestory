@@ -263,7 +263,7 @@ export default function DealDetail({
               </div>
             );
           })}
-          <div onClick={() => handleStageChange('Dead')} style={{ padding: '4px 10px', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', background: deal.stage === 'Dead' ? var(--ink3) : 'transparent', color: deal.stage === 'Dead' ? 'white' : 'var(--text-muted)', border: '1px solid var(--border)', marginLeft: '8px' }}>Dead</div>
+          <div onClick={() => handleStageChange('Dead')} style={{ padding: '4px 10px', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', background: deal.stage === 'Dead' ? 'var(--ink3)' : 'transparent', color: deal.stage === 'Dead' ? 'white' : 'var(--text-muted)', border: '1px solid var(--border)', marginLeft: '8px' }}>Dead</div>
         </div>
       </div>
 

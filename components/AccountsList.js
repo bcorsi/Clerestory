@@ -57,7 +57,7 @@ export default function AccountsList({ accounts, onAccountClick }) {
 
   const MarketPills = ({ markets }) => {
     if (!markets?.length) return <span style={{ color: 'var(--text-muted)',  }}>—</span>;
-    const mColors = { SGV: 'var(--purple)', IE: 'var(--amber)', LA: 'var(--blue)', OC: var(--blue3), 'San Diego': 'var(--green)', Ventura: var(--purple) };
+    const mColors = { SGV: 'var(--purple)', IE: 'var(--amber)', LA: 'var(--blue)', OC: 'var(--blue3)', 'San Diego': 'var(--green)', Ventura: 'var(--purple)' };
     return (
       <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
         {markets.map(m => (

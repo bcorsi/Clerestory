@@ -229,124 +229,104 @@ export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
     );
   };
 
+
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-          {LEAD_STAGES.map((s) => (
-            <div key={s} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '14px', color: 'var(--text-muted)' }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: LEAD_STAGE_COLORS[s] }} />
-              <span>{s}</span>
-              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', fontWeight: 600 }}>{byStage[s]?.length || 0}</span>
-            </div>
-          ))}
-          {deadLeads.length > 0 && (
-            <button onClick={() => setShowDead(!showDead)}
-              style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '14px', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--ink3)' }} />
-              <span>Dead</span>
-              <span style={{ fontFamily: 'var(--font-mono)', color: showDead ? 'var(--red)' : 'var(--text-muted)', fontWeight: 600 }}>{deadLeads.length}</span>
-            </button>
-          )}
+      {/* ═══ HEADER ═══ */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '0 0 14px', marginBottom: '0' }}>
+        {/* Stage filter pills */}
+        {[['Lead', statusLeads.filter(l => l.stage !== 'Owner Contacted').length, 'var(--blue)'],
+          ['Owner Contacted', statusLeads.filter(l => l.stage === 'Owner Contacted').length, 'var(--green)']
+        ].map(([label, count, color]) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: 'var(--ink2)' }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
+            <span style={{ fontWeight: 500 }}>{label}</span>
+            <span style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, color }}>{count}</span>
+          </div>
+        ))}
+        {deadLeads.length > 0 && (
+          <button onClick={() => setShowDead(!showDead)} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '14px', color: 'var(--ink3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: "'Instrument Sans',sans-serif" }}>
+            <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--ink3)' }} />
+            <span>Dead</span>
+            <span style={{ fontFamily: "'DM Mono',monospace", fontWeight: 600, color: showDead ? 'var(--ink2)' : 'var(--ink4)' }}>{deadLeads.length}</span>
+          </button>
+        )}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
+          <button className={`btn btn-sm ${view === 'kanban' ? 'btn-blue' : ''}`} onClick={() => setView('kanban')}>⊞</button>
+          <button className={`btn btn-sm ${view === 'list' ? 'btn-blue' : ''}`} onClick={() => setView('list')}>☰</button>
         </div>
-        <ViewToggle />
       </div>
 
-      {view === 'list' ? (
-        <div>
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', gap: '4px' }}>
-              {[['active', `Active (${active.length})`], ['converted', `Converted (${convertedLeads.length})`], ['dead', `Dead (${deadLeads.length})`], ['all', `All (${leads.length})`]].map(([v, l]) => (
-                <button key={v} onClick={() => setStatusFilter(v)} style={{ padding: '4px 10px', borderRadius: '3px', border: '1px solid', fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', background: statusFilter === v ? 'var(--amber-bg, rgba(212,140,20,0.1))' : 'transparent', borderColor: statusFilter === v ? 'var(--amber-bdr, rgba(212,140,20,0.24))' : 'var(--line, rgba(200,220,255,0.08))', color: statusFilter === v ? 'var(--amber2, #F0A824)' : 'var(--ivory4, #504A40)' }}>{l}</button>
-              ))}
-            </div>
-            <input className="input" style={{ flex: 1, minWidth: '180px', fontSize: '13px' }} placeholder="Search leads..." value={listSearch} onChange={e => setListSearch(e.target.value)} />
-            <select className="select" style={{ fontSize: '13px', maxWidth: '180px' }} value={listPropType} onChange={e => setListPropType(e.target.value)}>
-              <option value="">All property types</option>
-              {PROP_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{filteredActive.length} leads</span>
-          </div>
-          <div className="table-container" style={{ overflow: 'auto', maxHeight: 'calc(100vh - 270px)' }}>
-          <table>
-            <thead>
-              <tr>
-                <th style={{cursor:'pointer'}} onClick={()=>toggleListSort('lead_name')}>Lead{si('lead_name')}</th>
-                <th>Stage</th>
-                <th style={{cursor:'pointer'}} onClick={()=>toggleListSort('tier')}>Tier{si('tier')}</th>
-                <th style={{cursor:'pointer'}} onClick={()=>toggleListSort('score')}>Score{si('score')}</th>
-                <th style={{cursor:'pointer'}} onClick={()=>toggleListSort('prop_type')}>Type{si('prop_type')}</th>
-                <th style={{textAlign:'right',cursor:'pointer'}} onClick={()=>toggleListSort('building_sf')}>SF{si('building_sf')}</th>
-                <th style={{textAlign:'right',cursor:'pointer'}} onClick={()=>toggleListSort('land_acres')}>Acres{si('land_acres')}</th>
-                <th>Decision Maker</th>
-                <th>Phone</th>
-                <th>Next Action</th>
-                <th style={{cursor:'pointer'}} onClick={()=>toggleListSort('priority')}>Priority{si('priority')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredActive.map((lead) => (
-                <tr key={lead.id} onClick={() => onLeadClick?.(lead)} style={{ cursor: 'pointer' }}>
-                  <td><div style={{ fontWeight: 500 }}>{lead.lead_name}</div>{lead.address && <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{lead.address}</div>}</td>
-                  <td><span style={{  padding: '2px 7px', borderRadius: '4px', background: (LEAD_STAGE_COLORS[lead.stage] || 'var(--ink3)') + '22', color: LEAD_STAGE_COLORS[lead.stage] || 'var(--ink3)', fontWeight: 600 }}>{lead.stage}</span></td>
-                  <td>{lead.tier && <span style={{ fontWeight: 700, color: tierColor(lead.tier) }}>{lead.tier}</span>}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)',  color: 'var(--accent)' }}>{lead.score ?? '—'}</td>
-                  <td style={{ fontSize: '13px' }}>{lead.prop_type || '—'}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', textAlign: 'right' }}>{lead.building_sf ? Number(lead.building_sf).toLocaleString() : '—'}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', textAlign: 'right' }}>{lead.land_acres || '—'}</td>
-                  <td style={{  }}>{lead.decision_maker || '—'}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)',  }}>{lead.phone || '—'}</td>
-                  <td style={{  color: 'var(--amber)' }}>{lead.next_action || '—'}</td>
-                  <td>{lead.priority && <span className={`tag ${lead.priority === 'High' ? 'tag-amber' : 'tag-ghost'}`} style={{  }}>{lead.priority}</span>}</td>
-                </tr>
-              ))}
-              {filteredActive.length === 0 && <tr><td colSpan={11} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No leads match filters</td></tr>}
-            </tbody>
-          </table>
-        </div>
+      {view === 'kanban' ? (
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${visibleStages.length}, minmax(260px, 1fr))`, gap: 0, overflowX: 'auto' }}>
+          {visibleStages.map(stage => {
+            const stageLeads = byStage[stage] || [];
+            return (
+              <div key={stage} className="stage-col"
+                onDragOver={e => { e.preventDefault(); setDragOver(stage); }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={e => handleDrop(e, stage)}>
+
+                <div className="stage-head">
+                  <div className="sh-left">
+                    <div className="stage-dot" style={{ background: LEAD_STAGE_COLORS[stage] || 'var(--ink3)' }} />
+                    <div className="stage-name">{stage}</div>
+                  </div>
+                  <div className="stage-count" style={{ color: LEAD_STAGE_COLORS[stage] || 'var(--ink4)' }}>{stageLeads.length}</div>
+                </div>
+
+                <div style={{ padding: '8px', minHeight: '100px', background: dragOver === stage ? 'rgba(85,119,160,0.06)' : 'transparent', transition: 'background 0.15s' }}>
+                  {stageLeads.map(lead => (
+                    <div key={lead.id} className="deal-card" draggable
+                      onDragStart={e => { setDragLead(lead); e.dataTransfer.effectAllowed = 'move'; }}
+                      onClick={() => onLeadClick?.(lead)}
+                      style={{ opacity: dragLead?.id === lead.id ? 0.4 : 1, borderLeftColor: LEAD_STAGE_COLORS[stage] || 'var(--blue2)', marginBottom: '8px', cursor: 'pointer' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                        <div className="dc-name">{lead.lead_name}</div>
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexShrink: 0 }}>
+                          {lead.tier && <span style={{ fontFamily: "'DM Mono',monospace", fontSize: '11px', fontWeight: 700, color: {'A+':'var(--green)',A:'var(--blue)',B:'var(--amber)',C:'var(--ink3)'}[lead.tier] || 'var(--ink3)' }}>{lead.tier}</span>}
+                          {lead.score && <span style={{ fontFamily: "'Playfair Display',serif", fontSize: '18px', fontWeight: 700, color: 'var(--blue2)' }}>{lead.score}</span>}
+                        </div>
+                      </div>
+                      {lead.address && <div className="dc-address">{lead.address}{lead.city ? ' · ' + (lead.market || lead.submarket || lead.city) : ''}</div>}
+                      <div style={{ fontSize: '12px', color: 'var(--ink4)', marginTop: '4px' }}>
+                        {lead.substep_index != null && LEAD_SUBSTEPS[stage] && (
+                          <span>{lead.substep_index}/{LEAD_SUBSTEPS[stage].length} steps</span>
+                        )}
+                      </div>
+                      {lead.next_action && <div style={{ fontSize: '12px', color: 'var(--amber)', marginTop: '4px' }}>→ {lead.next_action}</div>}
+                      {(lead.catalyst_tags||[]).length > 0 && (
+                        <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginTop: '6px' }}>
+                          {(lead.catalyst_tags||[]).slice(0,2).map(t => <span key={t} className={`tag ${catalystTagClass(t)}`}>{t}</span>)}
+                          {(lead.catalyst_tags||[]).length > 2 && <span className="tag tag-ghost">+{lead.catalyst_tags.length-2}</span>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${LEAD_STAGES.length}, 1fr)`, gap: '12px', alignItems: 'start' }}>
-          {LEAD_STAGES.map((stage) => (
-            <div key={stage}>
-              <div style={{ padding: '8px 12px', borderRadius: 'var(--radius-sm)', background: 'var(--card)', borderTop: `3px solid ${LEAD_STAGE_COLORS[stage]}`, marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{  fontWeight: 600 }}>{stage}</span>
-                <span style={{  fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{byStage[stage]?.length || 0}</span>
-              </div>
-              {(byStage[stage] || []).map((lead) => <Card key={lead.id} lead={lead} />)}
-              {!(byStage[stage]?.length) && <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)',  border: '1px dashed var(--border)', borderRadius: 'var(--radius)' }}>Empty</div>}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Dead Leads Section */}
-      {showDead && deadLeads.length > 0 && (
-        <div style={{ marginTop: '24px' }}>
-          <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--card)', borderTop: '3px solid #374151', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)' }}>Dead Leads</span>
-            <span style={{ fontSize: '13px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{deadLeads.length}</span>
-          </div>
-          <div className="table-container" style={{ overflow: 'auto', maxHeight: '400px' }}>
-            <table>
-              <thead>
-                <tr><th>Lead</th><th>Reason</th><th>Killed</th><th>Decision Maker</th><th>Restore</th></tr>
-              </thead>
-              <tbody>
-                {deadLeads.map(lead => (
-                  <tr key={lead.id} onClick={() => onLeadClick?.(lead)} style={{ cursor: 'pointer', opacity: 0.7 }}>
-                    <td><div style={{ fontWeight: 500 }}>{lead.lead_name}</div>{lead.address && <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{lead.address}</div>}</td>
-                    <td><span style={{ fontSize: '13px', color: 'var(--red)' }}>{lead.kill_reason || '—'}</span></td>
-                    <td style={{ fontSize: '13px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{lead.killed_at ? new Date(lead.killed_at).toLocaleDateString() : '—'}</td>
-                    <td style={{ fontSize: '13px' }}>{lead.decision_maker || '—'}</td>
-                    <td>
-                      <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px' }} onClick={(e) => { e.stopPropagation(); handleStage(lead, 'Lead', e); }}>↩ Restore</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        /* LIST VIEW */
+        <div className="table-container">
+          <table>
+            <thead><tr><th>Lead</th><th>Address</th><th>Stage</th><th>Tier</th><th>Score</th><th>Catalysts</th><th>Next Action</th></tr></thead>
+            <tbody>
+              {statusLeads.concat(showDead ? deadLeads : []).map(lead => (
+                <tr key={lead.id} onClick={() => onLeadClick?.(lead)} style={{ cursor: 'pointer', opacity: lead.stage === 'Dead' ? 0.5 : lead.stage === 'Converted' ? 0.7 : 1 }}>
+                  <td style={{ fontWeight: 500 }}>{lead.lead_name}</td>
+                  <td>{lead.address || '—'}</td>
+                  <td><span className="badge" style={{ background: (LEAD_STAGE_COLORS[lead.stage]||'var(--ink3)') + '14', borderColor: (LEAD_STAGE_COLORS[lead.stage]||'var(--ink3)') + '44', color: LEAD_STAGE_COLORS[lead.stage]||'var(--ink3)' }}>{lead.stage}</span></td>
+                  <td>{lead.tier && <span style={{ fontWeight: 700, color: {'A+':'var(--green)',A:'var(--blue)',B:'var(--amber)',C:'var(--ink3)'}[lead.tier]||'var(--ink3)' }}>{lead.tier}</span>}</td>
+                  <td style={{ fontFamily: "'DM Mono',monospace", color: 'var(--blue)' }}>{lead.score || '—'}</td>
+                  <td><div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>{(lead.catalyst_tags||[]).slice(0,2).map(t => <span key={t} className={`tag ${catalystTagClass(t)}`}>{t}</span>)}</div></td>
+                  <td style={{ fontSize: '12px', color: 'var(--amber)' }}>{lead.next_action || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

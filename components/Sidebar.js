@@ -13,6 +13,8 @@ const NAV_ICONS = {
   tasks: '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="7" cy="7" r="5"/><path d="M7 4.5V7l1.5 1.5"/></svg>',
   'lease-comps': '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2 11h10M3 11V6l4-4 4 4v5"/></svg>',
   'sale-comps': '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="7" cy="7" r="5"/><path d="M7 3v8M3 7h8"/></svg>',
+  'comp-dashboard': '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2 11V5M5 11V3M8 11V7M11 11V2"/></svg>',
+  'owner-search': '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="6" cy="6" r="4"/><path d="M9.5 9.5L13 13"/></svg>',
   'warn-intel': '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M7 1L1 4v4c0 3 2.5 4.5 6 4.5s6-1.5 6-4.5V4z"/></svg>',
   'map-view': '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="7" cy="7" r="2"/><circle cx="7" cy="7" r="5"/></svg>',
   settings: '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="7" cy="7" r="2.5"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.8 2.8l1.4 1.4M9.8 9.8l1.4 1.4M11.2 2.8l-1.4 1.4M4.2 9.8l-1.4 1.4"/></svg>',
@@ -35,8 +37,10 @@ export default function Sidebar({ page, setPage, counts, user, onSignOut }) {
     { section: 'Comps', items: [
       { id: 'lease-comps', label: 'Lease Comps', badge: counts.leaseComps },
       { id: 'sale-comps', label: 'Sale Comps', badge: counts.saleComps },
+      { id: 'comp-dashboard', label: 'Comp Analytics' },
     ]},
     { section: 'Intelligence', items: [
+      { id: 'owner-search', label: 'Owner Search' },
       { id: 'warn-intel', label: 'WARN Intel', badge: counts.warnNew || null },
       { id: 'map-view', label: 'Map View' },
     ]},
@@ -68,10 +72,10 @@ export default function Sidebar({ page, setPage, counts, user, onSignOut }) {
                   className={`nav-item ${page === item.id ? 'active' : ''}`}
                   onClick={() => setPage(item.id)}
                 >
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div className="nav-left">
                     <span style={{ width: '14px', height: '14px', flexShrink: 0, display: 'flex' }} dangerouslySetInnerHTML={{ __html: NAV_ICONS[item.id] || '' }} />
                     {item.label}
-                  </span>
+                  </div>
                   {item.badge != null && item.badge > 0 && (
                     <span className={`nav-badge ${item.alert ? 'nav-badge-alert' : ''}`}>{item.badge}</span>
                   )}
@@ -90,18 +94,18 @@ export default function Sidebar({ page, setPage, counts, user, onSignOut }) {
           onClick={() => setPage('settings')}
           style={{ margin: '6px 0' }}
         >
-          <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="nav-left">
             <span style={{ width: '14px', height: '14px', flexShrink: 0, display: 'flex' }} dangerouslySetInnerHTML={{ __html: NAV_ICONS.settings }} />
             Settings
-          </span>
+          </div>
         </div>
       </div>
 
       <div className="sidebar-footer">
-        <div className="avatar-circle">{initials}</div>
+        <div className="avatar">{initials}</div>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--sb-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userName}</div>
-          <div style={{ fontFamily: 'var(--font-serif)', fontSize: '12px', fontStyle: 'italic', fontWeight: 300, color: 'rgba(107,131,166,0.65)', marginTop: '2px' }}>
+          <div className="f-name">{userName}</div>
+          <div className="f-role">
             {user?.email ? user.email.split('@')[0] + '@...' : 'Industrial Intelligence'}
           </div>
         </div>

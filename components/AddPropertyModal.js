@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { MARKETS, SUBMARKETS, RECORD_TYPES, PROP_TYPES, VACANCY_STATUS, OWNER_TYPES, LEASE_TYPES, CATALYST_TAGS, fmt } from '../lib/constants';
-import { insertProperty } from '../lib/db';
+import { insertProperty, autoResearch } from '../lib/db';
 
 export default function AddPropertyModal({ onClose, onSave }) {
   const [form, setForm] = useState({
@@ -70,6 +70,10 @@ export default function AddPropertyModal({ onClose, onSave }) {
         acres: a.acres ? parseFloat(a.acres) : null,
       }));
       await insertProperty(propData, validApns);
+      // Fire auto-research in background (don't block save)
+      if (propData.address) {
+        autoResearch('property', propData).catch(() => {});
+      }
       onSave();
     } catch (err) {
       console.error('Save error:', err);

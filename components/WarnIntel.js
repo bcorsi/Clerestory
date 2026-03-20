@@ -189,6 +189,9 @@ export default function WarnIntel({ properties, leads, onRefresh, showToast }) {
     finally { setConverting(prev => ({ ...prev, [row.id]: false })); }
   };
 
+  const permClosures = filtered.filter(r => (r.warn_type || r.layoff_type || '').toLowerCase().includes('closure')).length;
+  const convertedCount = filtered.filter(r => r._converted).length;
+
   const statCards = [
     { label: 'Total loaded', value: rawData.length, color: 'var(--text-primary)' },
     { label: 'Industrial (SGV/IE)', value: rawData.filter(r => isIndustrial(r) && isInMarket(r)).length, color: 'var(--accent)' },
@@ -198,141 +201,142 @@ export default function WarnIntel({ properties, leads, onRefresh, showToast }) {
 
   return (
     <div>
-      {/* STAT CARDS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
-        {statCards.map(s => (
-          <div key={s.label} className="card" style={{ padding: '14px 16px' }}>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '2px' }}>{s.label}</div>
-            <div style={{ fontSize: '24px', fontWeight: 700, color: s.color }}>{s.value}</div>
+      {/* ═══ PAGE HEADER ═══ */}
+      <div style={{ padding: '28px 36px 20px', background: 'var(--card)', borderBottom: '1px solid var(--line)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: '34px', fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>WARN <em style={{ fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic', color: 'var(--blue)' }}>Intelligence</em></div>
+            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: '16px', fontStyle: 'italic', fontWeight: 300, color: 'var(--ink4)', marginTop: '6px' }}>The edge is in the data.</div>
+          </div>
+          <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--ink4)', textAlign: 'right', paddingTop: '6px' }}>
+            CA Worker Adjustment &amp; Retraining Notification<br />Auto-updating · Filtered to SoCal Industrial
+          </div>
+        </div>
+      </div>
+
+      {/* ═══ SIGNAL STRIP ═══ */}
+      {newCount > 0 && (
+        <div style={{ padding: '20px 36px', background: 'var(--card)', borderBottom: '1px solid var(--line)', display: 'flex', gap: '16px', alignItems: 'center', position: 'relative' }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: 'var(--blue2)', borderRadius: '0 2px 2px 0' }} />
+          <div style={{ width: '11px', height: '11px', borderRadius: '50%', background: 'var(--blue2)', flexShrink: 0, animation: 'pulse 2.2s infinite', boxShadow: '0 0 10px rgba(107,131,166,0.6)' }} />
+          <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: '19px', fontStyle: 'italic', color: 'var(--blue2)', flexShrink: 0 }}>Signal</div>
+          <div style={{ fontSize: '15px', lineHeight: 1.72, color: 'var(--ink2)' }}>
+            <strong style={{ color: 'var(--blue)' }}>{newCount} new notices</strong> in the last 14 days match your SoCal industrial focus.
+            {tenantMatches.length > 0 && <> <strong style={{ color: 'var(--blue)' }}>{tenantMatches.length} tenant matches</strong> found against your properties.</>}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ STATS ROW ═══ */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', borderBottom: '1px solid var(--line)', background: 'var(--card)' }}>
+        {[
+          ['New This Week', newCount, newCount > 0 ? 'var(--rust)' : 'var(--ink)', 'SoCal industrial'],
+          ['Total Loaded', rawData.length, 'var(--ink)', 'all records'],
+          ['Perm. Closures', permClosures, permClosures > 0 ? 'var(--rust)' : 'var(--ink)', 'highest priority'],
+          ['Tenant Matches', tenantMatches.length, tenantMatches.length > 0 ? 'var(--blue)' : 'var(--ink)', 'against your properties'],
+          ['Converted', convertedCount, 'var(--blue)', 'to active leads'],
+        ].map(([label, val, color, sub]) => (
+          <div key={label} style={{ padding: '20px 24px 16px', borderRight: '1px solid var(--line)' }}>
+            <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink3)', marginBottom: '8px' }}>{label}</div>
+            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: '36px', fontWeight: 700, color, lineHeight: 1 }}>{val}</div>
+            <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--ink3)', marginTop: '5px' }}>{sub}</div>
           </div>
         ))}
       </div>
 
-      {/* UPLOAD + FILTERS */}
-      <div className="card" style={{ marginBottom: '16px' }}>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <label style={{ padding: '6px 14px', background: 'var(--accent)', color: 'white', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
-            📂 Upload WARN CSV
-            <input type="file" accept=".csv,.tsv,.txt" onChange={handleUpload} style={{ display: 'none' }} />
-          </label>
-          <div style={{ display: 'flex', gap: '4px' }}>
-            {[['all', 'All'], ['industrial', 'Industrial'], ['sgv-ie', 'SoCal Industrial']].map(([v, l]) => (
-              <button key={v} onClick={() => setFilter(v)} style={{ padding: '4px 12px', borderRadius: '4px', border: '1px solid', fontSize: '12px', cursor: 'pointer', background: filter === v ? 'var(--accent-soft)' : 'transparent', borderColor: filter === v ? 'var(--accent)' : 'var(--border)', color: filter === v ? 'var(--accent)' : 'var(--text-muted)', fontWeight: 500 }}>{l}</button>
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: '4px' }}>
-            {[['all', 'All dates'], ['14d', '14 days'], ['30d', '30 days'], ['90d', '90 days']].map(([v, l]) => (
-              <button key={v} onClick={() => setDateRange(v)} style={{ padding: '4px 10px', borderRadius: '4px', border: '1px solid', fontSize: '12px', cursor: 'pointer', background: dateRange === v ? 'var(--accent-soft)' : 'transparent', borderColor: dateRange === v ? 'var(--accent)' : 'var(--border)', color: dateRange === v ? 'var(--accent)' : 'var(--text-muted)' }}>{l}</button>
-            ))}
-          </div>
-          <input className="input" style={{ flex: 1, minWidth: '180px', fontSize: '13px' }} placeholder="Search company or address..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-          {rawData.length > 0 && <button className="btn btn-ghost btn-sm" style={{ fontSize: '11px', color: 'var(--red)' }} onClick={() => { if (confirm(`Delete all ${rawData.length} loaded WARN notices?`)) setRawData([]); }}>🗑 Clear All</button>}
-        </div>
+      {/* ═══ UPLOAD + FILTERS ═══ */}
+      <div style={{ padding: '14px 36px', borderBottom: '1px solid var(--line)', background: 'var(--bg2)', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <label className="btn btn-primary" style={{ cursor: 'pointer' }}>
+          📂 Upload WARN CSV
+          <input type="file" accept=".csv,.tsv,.txt" onChange={handleUpload} style={{ display: 'none' }} />
+        </label>
+        {[['all', 'All'], ['industrial', 'Industrial'], ['sgv-ie', 'SoCal Industrial']].map(([v, l]) => (
+          <button key={v} className={`filter-chip ${filter === v ? 'active' : ''}`} onClick={() => setFilter(v)}>{l}</button>
+        ))}
+        <input className="input" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search company, city..." style={{ maxWidth: '220px', marginLeft: 'auto' }} />
       </div>
 
-      {/* TENANT MATCH ALERTS */}
-      {tenantMatches.length > 0 && (
-        <div className="card" style={{ marginBottom: '16px', borderLeft: '3px solid var(--rust)' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rust)', marginBottom: '10px' }}>⚠ Tenant Matches — Your Properties</h3>
-          {tenantMatches.map(r => (
-            <div key={r.id} style={{ padding: '10px 12px', background: 'var(--red-soft)', borderRadius: '6px', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: 600 }}>{r.company}</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{r.employees} employees · {r.eventType} · {r.noticeDate}</div>
-              </div>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <button className="btn btn-ghost btn-sm" style={{ fontSize: '11px' }} onClick={() => handleResearch(r)} disabled={researching[r.id]}>{researching[r.id] ? '...' : '🔍 Research'}</button>
-                <button className="btn btn-primary btn-sm" style={{ fontSize: '11px' }} onClick={() => handleConvertToLead(r)} disabled={converting[r.id]}>{converting[r.id] ? '...' : '→ Lead'}</button>
-              </div>
+      {/* ═══ MAIN CONTENT ═══ */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', padding: '0' }}>
+        {/* FEED */}
+        <div style={{ borderRight: '1px solid var(--line)' }}>
+          <div style={{ padding: '14px 24px', borderBottom: '1px solid var(--line)', background: 'var(--card)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink2)' }}>WARN Notices</div>
+            <span style={{ fontFamily: "'DM Mono',monospace", fontSize: '12px', color: 'var(--ink4)' }}>{filtered.length} records</span>
+          </div>
+
+          {filtered.length === 0 ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--ink4)', fontSize: '14px' }}>
+              {rawData.length === 0 ? 'Upload a WARN CSV to begin' : 'No records match filters'}
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* MAIN TABLE */}
-      {rawData.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '60px 20px' }}>
-          <div style={{ fontSize: '40px', marginBottom: '12px' }}>📋</div>
-          <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '6px' }}>No WARN data loaded</div>
-          <div style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-            Download the latest WARN report from <a href="https://edd.ca.gov/en/jobs_and_training/layoff_services_warn" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>EDD.ca.gov</a> and upload the CSV above.
-          </div>
-        </div>
-      ) : (
-        <div className="card">
-          <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '10px' }}>Showing {filtered.length} of {rawData.length} notices</div>
-          <div style={{ overflowX: 'auto' }}>
-            <table>
-              <thead><tr>
-                <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Date</th>
-                <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Company</th>
-                <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Industry</th>
-                <th style={{ textAlign: 'right', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>EEs</th>
-                <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Event</th>
-                <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>County</th>
-                <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Address</th>
-                <th style={{ textAlign: 'center', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Actions</th>
-              </tr></thead>
-              <tbody>
-                {filtered.slice(0, 200).map(r => {
-                  const isMatch = tenantNames.has(r.company.toLowerCase()) || [...tenantNames].some(t => r.company.toLowerCase().includes(t));
-                  const isRecent = isNew(r, 14);
-                  const sicFirst = (r.sic || '').charAt(0);
-                  const bizType = SIC_LABELS[sicFirst] || (isIndustrial(r) ? 'Industrial (keyword)' : '—');
-                  return (
-                    <tr key={r.id} style={{ borderBottom: '1px solid var(--border-subtle)', background: isMatch ? 'var(--red-soft)' : isRecent ? 'var(--accent-soft)' : 'transparent' }}>
-                      <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', fontSize: '13px', whiteSpace: 'nowrap' }}>
-                        {r.noticeDate}
-                        {isRecent && <span style={{ marginLeft: '6px', fontSize: '10px', padding: '1px 5px', borderRadius: '3px', background: 'var(--green)22', color: 'var(--green)', fontWeight: 700 }}>NEW</span>}
-                      </td>
-                      <td style={{ padding: '8px 10px', fontSize: '14px', fontWeight: 500 }}>
-                        {r.company}
-                        {isMatch && <span style={{ marginLeft: '6px', fontSize: '10px', padding: '1px 5px', borderRadius: '3px', background: 'var(--rust)22', color: 'var(--rust)', fontWeight: 700 }}>MATCH</span>}
-                      </td>
-                      <td style={{ padding: '8px 10px', fontSize: '12px', color: 'var(--text-muted)' }}>{bizType}</td>
-                      <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, textAlign: 'right', color: r.employees >= 200 ? 'var(--rust)' : r.employees >= 50 ? 'var(--amber)' : 'var(--text-primary)' }}>{r.employees.toLocaleString()}</td>
-                      <td style={{ padding: '8px 10px', fontSize: '13px' }}>{r.eventType}</td>
-                      <td style={{ padding: '8px 10px', fontSize: '13px', color: 'var(--text-muted)' }}>{r.county}</td>
-                      <td style={{ padding: '8px 10px', fontSize: '13px', color: 'var(--text-muted)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.address}</td>
-                      <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
-                          <button className="btn btn-ghost btn-sm" style={{ fontSize: '11px', padding: '2px 8px' }} onClick={() => handleResearch(r)} disabled={researching[r.id]}>{researching[r.id] ? '...' : '🔍'}</button>
-                          <button className="btn btn-ghost btn-sm" style={{ fontSize: '11px', padding: '2px 8px' }} onClick={() => handleConvertToLead(r)} disabled={converting[r.id]}>{converting[r.id] ? '...' : '→'}</button>
-                          <button className="btn btn-ghost btn-sm" style={{ fontSize: '11px', padding: '2px 8px', color: 'var(--red)' }} onClick={() => setRawData(prev => prev.filter(x => x.id !== r.id))}>×</button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          {filtered.length > 200 && <div style={{ textAlign: 'center', padding: '10px', fontSize: '13px', color: 'var(--text-muted)' }}>Showing first 200 of {filtered.length}</div>}
-
-          {/* Expanded research results */}
-          {Object.keys(researchResults).length > 0 && (
-            <div style={{ marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '10px' }}>Research Results</h3>
-              {Object.entries(researchResults).map(([id, text]) => {
-                const row = rawData.find(r => r.id === id);
-                const maTags = enrichedTags[id] || [];
+          ) : (
+            <div>
+              {filtered.slice(0, 50).map((r, i) => {
+                const isMatch = tenantMatches.some(m => m.id === r.id);
+                const isNew = r.notice_date && (Date.now() - new Date(r.notice_date)) < 14 * 86400000;
+                const isClosure = (r.warn_type || r.layoff_type || '').toLowerCase().includes('closure');
                 return (
-                  <div key={id} style={{ padding: '14px', background: 'var(--purple)11', border: '1px solid var(--purple)33', borderRadius: '8px', marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '14px', fontWeight: 600 }}>{row?.company || id}</span>
-                        {maTags.map(t => <span key={t} className="tag tag-red" style={{ fontSize: '11px' }}>{t}</span>)}
+                  <div key={r.id || i} style={{ padding: '16px 24px', borderBottom: '1px solid var(--line3)', background: 'var(--card)', cursor: 'pointer', transition: 'background 0.1s', borderLeft: isMatch ? '3px solid var(--blue2)' : isNew ? '3px solid var(--amber)' : '3px solid transparent' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'var(--card)'}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink2)' }}>{r.company || r.employer || '—'}</div>
+                      <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                        {isMatch && <span className="badge badge-blue">MATCH</span>}
+                        {isNew && <span className="badge badge-amber">NEW</span>}
+                        {isClosure && <span className="badge badge-warn">Closure</span>}
                       </div>
-                      <button className="btn btn-primary btn-sm" style={{ fontSize: '11px' }} onClick={() => row && handleConvertToLead(row)} disabled={!row || converting[id]}>→ Convert to Lead{maTags.length > 0 ? ' (+ M&A)' : ''}</button>
                     </div>
-                    <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{text}</div>
+                    <div style={{ fontSize: '13px', color: 'var(--ink3)', marginBottom: '6px' }}>{r.address || r.city || '—'}{r.county ? ' · ' + r.county : ''}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', fontSize: '12px' }}>
+                      <div><span style={{ color: 'var(--ink4)' }}>Employees: </span><span style={{ fontWeight: 600, color: 'var(--ink2)' }}>{r.employees || r.num_affected || '—'}</span></div>
+                      <div><span style={{ color: 'var(--ink4)' }}>Type: </span><span style={{ fontWeight: 500, color: isClosure ? 'var(--rust)' : 'var(--ink2)' }}>{r.warn_type || r.layoff_type || '—'}</span></div>
+                      <div><span style={{ color: 'var(--ink4)' }}>Effective: </span><span style={{ fontFamily: "'DM Mono',monospace", color: 'var(--ink2)' }}>{r.effective_date || '—'}</span></div>
+                      <div><span style={{ color: 'var(--ink4)' }}>Filed: </span><span style={{ fontFamily: "'DM Mono',monospace", color: 'var(--ink2)' }}>{r.notice_date || r.received_date || '—'}</span></div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                      <button className="btn btn-sm" onClick={e => { e.stopPropagation(); handleConvertToLead(r); }}>→ Convert to Lead</button>
+                      {r._aiResearch && <div style={{ fontSize: '12px', color: 'var(--purple)', fontWeight: 500 }}>✦ Researched</div>}
+                    </div>
                   </div>
                 );
               })}
             </div>
           )}
         </div>
-      )}
+
+        {/* SIDEBAR — County Breakdown */}
+        <div style={{ background: 'var(--card)' }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line)', background: 'var(--bg)', fontSize: '13px', fontWeight: 600, color: 'var(--ink2)' }}>By County</div>
+          <div style={{ padding: '12px 18px' }}>
+            {(() => {
+              const counties = {};
+              filtered.forEach(r => { const c = r.county || 'Unknown'; counties[c] = (counties[c] || 0) + 1; });
+              const sorted = Object.entries(counties).sort((a, b) => b[1] - a[1]);
+              const max = sorted.length > 0 ? sorted[0][1] : 1;
+              return sorted.map(([county, count]) => (
+                <div key={county} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--ink3)', width: '120px', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{county}</span>
+                  <div style={{ flex: 1, height: '6px', background: 'var(--bg3)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${(count / max) * 100}%`, background: 'var(--blue)', borderRadius: '3px' }} />
+                  </div>
+                  <span style={{ fontFamily: "'DM Mono',monospace", fontSize: '12px', fontWeight: 600, color: 'var(--ink2)', minWidth: '24px' }}>{count}</span>
+                </div>
+              ));
+            })()}
+          </div>
+
+          <div style={{ padding: '14px 18px', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)', background: 'var(--bg)', fontSize: '13px', fontWeight: 600, color: 'var(--ink2)' }}>Recent Activity</div>
+          <div style={{ padding: '8px 0' }}>
+            {filtered.slice(0, 5).map((r, i) => (
+              <div key={i} style={{ padding: '10px 18px', borderBottom: '1px solid var(--line3)', fontSize: '12px' }}>
+                <div style={{ fontWeight: 500, color: 'var(--ink2)', marginBottom: '2px' }}>{r.company || r.employer || '—'}</div>
+                <div style={{ color: 'var(--ink4)' }}>{r.city || '—'} · {r.notice_date || '—'}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

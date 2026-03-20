@@ -191,395 +191,338 @@ export default function DealDetail({
     </div>
   ) : null;
 
+
   const TABS = [
     { id: 'timeline', label: 'Timeline' },
     { id: 'underwriting', label: 'Underwriting' },
     { id: 'contacts', label: `Contacts (${dealContacts.length})` },
     { id: 'outreach', label: `Outreach (${outreachLog.length})` },
-    { id: 'files', label: `Files${(deal.file_links||[]).length ? ` (${(deal.file_links||[]).length})` : ''}` },
-    { id: 'tasks', label: `Tasks${pendingTasks ? ` (${pendingTasks})` : ''}` },
+    { id: 'files', label: 'Files' },
+    { id: 'tasks', label: `Tasks (${linkedTasks.filter(t=>!t.completed).length})` },
   ];
 
   return (
-    <div style={{ maxWidth: '900px' }}>
-      {/* HEADER */}
-      <div className="card" style={{ marginBottom: '16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+    <div>
+      {/* ═══ DEAL HEADER ═══ */}
+      <div style={{ padding: '24px 36px 16px', background: 'var(--card)', borderBottom: '1px solid var(--line)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: 700 }}>{deal.deal_name}</h2>
-              <span style={{ padding: '3px 10px', borderRadius: '5px', fontSize: '13px', fontWeight: 600, background: stageColor + '22', color: stageColor }}>{deal.stage}</span>
-              {deal.marketing_type && <span className="tag tag-ghost" style={{ fontSize: '12px' }}>{deal.marketing_type}</span>}
-              {deal.follow_up_cadence && <span className="tag tag-blue" style={{ fontSize: '11px' }}>🔄 {deal.follow_up_cadence}</span>}
+            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: '28px', fontWeight: 700, color: 'var(--ink)', marginBottom: '8px' }}>{deal.deal_name}</div>
+            <div style={{ fontSize: '14px', color: 'var(--ink3)', marginBottom: '10px' }}>{deal.address || ''}{deal.submarket ? ' · ' + deal.submarket : ''}</div>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {deal.deal_type && <span className="badge badge-blue">{deal.deal_type}</span>}
+              <span className="badge" style={{ background: (STAGE_COLORS[deal.stage]||'var(--ink3)') + '14', borderColor: (STAGE_COLORS[deal.stage]||'var(--ink3)') + '44', color: STAGE_COLORS[deal.stage]||'var(--ink3)' }}>{deal.stage}</span>
+              {deal.priority && <span className={`badge ${deal.priority === 'High' ? 'badge-warn' : deal.priority === 'Medium' ? 'badge-amber' : 'badge-gray'}`}>{deal.priority}</span>}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>{deal.address}{deal.submarket ? ` · ${deal.submarket}` : ''}</span>
-              {deal.onedrive_url && <a href={deal.onedrive_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: 'var(--accent)', textDecoration: 'none', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-input)' }}>📁 OneDrive ↗</a>}
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+            <button className="btn" onClick={() => setEditing(true)}>Edit Deal</button>
+            {onAddActivity && <button className="btn" onClick={() => onAddActivity(null, deal.id)}>+ Activity</button>}
+            {onAddTask && <button className="btn" onClick={() => onAddTask(deal.id)}>+ Task</button>}
+          </div>
+        </div>
+
+        {/* Stage pipeline */}
+        <div style={{ display: 'flex', gap: '2px', alignItems: 'center', flexWrap: 'wrap', padding: '10px 0' }}>
+          {DEAL_STAGES.filter(s => s !== 'Dead').map(stage => (
+            <div key={stage} onClick={() => handleStageChange(stage)}
+              style={{ padding: '5px 12px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: 500,
+                background: deal.stage === stage ? (STAGE_COLORS[stage]||'var(--ink3)') + '22' : 'transparent',
+                color: deal.stage === stage ? STAGE_COLORS[stage]||'var(--ink3)' : 'var(--ink4)',
+                border: `1px solid ${deal.stage === stage ? (STAGE_COLORS[stage]||'var(--ink3)') + '44' : 'var(--line)'}`,
+                transition: 'all 0.12s'
+              }}>{stage}</div>
+          ))}
+          <div onClick={() => handleStageChange('Dead')} style={{ padding: '5px 12px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: 500, background: deal.stage === 'Dead' ? 'var(--ink3)' : 'transparent', color: deal.stage === 'Dead' ? 'white' : 'var(--ink4)', border: '1px solid var(--line)', marginLeft: '8px' }}>Dead</div>
+        </div>
+      </div>
+
+      {/* Aerial */}
+      {deal.address && (
+        <div style={{ padding: '0 36px 14px', background: 'var(--card)' }}>
+          <AerialThumbnail address={deal.address} city={deal.submarket} apns={linkedProperty?.apns} height={180} />
+        </div>
+      )}
+
+      {/* ═══ METRICS BAR ═══ */}
+      <div className="metrics-bar" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+        <div className="metric-cell">
+          <div className="metric-label">Deal Value</div>
+          <div className="metric-val accent">{deal.deal_value ? fmt.price(deal.deal_value) : '—'}</div>
+        </div>
+        <div className="metric-cell">
+          <div className="metric-label">Commission</div>
+          <div className="metric-val" style={{ color: 'var(--green)' }}>{deal.commission_est ? fmt.price(deal.commission_est) : '—'}</div>
+        </div>
+        <div className="metric-cell">
+          <div className="metric-label">Probability</div>
+          <div className="metric-val">{deal.probability != null ? deal.probability + '%' : '—'}</div>
+        </div>
+        <div className="metric-cell">
+          <div className="metric-label">Close Date</div>
+          <div className="metric-val" style={{ fontSize: '28px' }}>{deal.close_date || '—'}</div>
+        </div>
+        <div className="metric-cell">
+          <div className="metric-label">$/SF</div>
+          <div className="metric-val">{deal.deal_value && deal.building_sf ? '$' + Math.round(deal.deal_value / deal.building_sf) : '—'}</div>
+        </div>
+      </div>
+
+      {/* ═══ SUB NAV ═══ */}
+      <div className="sub-nav">
+        {TABS.map(t => (
+          <div key={t.id} className={`sub-tab ${activeTab === t.id ? 'active' : ''}`} onClick={() => setActiveTab(t.id)}>{t.label}</div>
+        ))}
+      </div>
+
+      {/* ═══ CONTENT ═══ */}
+      <div style={{ padding: '28px 36px 48px' }}>
+        {activeTab === 'timeline' && (
+          <div className="timeline-card">
+            <div className="tl-head">
+              <span className="tl-title">Timeline</span>
+              <div className="tl-btns" style={{ display: 'flex', gap: '6px' }}>
+                <button className="tl-btn accent" onClick={handleSynthesize} disabled={synthLoading}>{synthLoading ? '✦ Synthesizing...' : '✦ Synthesize'}</button>
+                <button className="tl-btn" onClick={() => setShowLogForm(!showLogForm)}>{showLogForm ? 'Cancel' : '+ Log'}</button>
+                <button className="tl-btn" onClick={() => setShowNoteForm(!showNoteForm)}>{showNoteForm ? 'Cancel' : '+ Note'}</button>
+                <button className="tl-btn" onClick={() => setShowFuForm(!showFuForm)}>{showFuForm ? 'Cancel' : '+ Follow-Up'}</button>
+              </div>
             </div>
-            {/* Catalyst tags from linked property */}
-            {linkedProperty?.catalyst_tags?.length > 0 && (
-              <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginTop: '6px' }}>
-                {linkedProperty.catalyst_tags.map(tag => <span key={tag} className={`tag ${catalystTagClass(tag)}`} style={{ fontSize: '12px', cursor: 'pointer' }} onClick={() => onCatalystClick?.(tag)}>{tag}</span>)}
+
+            {showNoteForm && (
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)' }}>
+                <textarea className="textarea" value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Add note..." rows={3} />
+                <button className="btn btn-primary" style={{ marginTop: '8px' }} onClick={handleAddNote} disabled={savingNote}>{savingNote ? 'Saving...' : 'Save Note'}</button>
+              </div>
+            )}
+
+            {showLogForm && (
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)' }}>
+                <input className="input" value={logSubject} onChange={e => setLogSubject(e.target.value)} placeholder="Subject..." style={{ marginBottom: '8px' }} />
+                <textarea className="textarea" value={logNotes} onChange={e => setLogNotes(e.target.value)} placeholder="Notes..." rows={2} />
+                <button className="btn btn-primary" style={{ marginTop: '8px' }} onClick={handleLogAct} disabled={savingLog}>{savingLog ? 'Saving...' : 'Log Activity'}</button>
+              </div>
+            )}
+
+            {showFuForm && (
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)' }}>
+                <input className="input" value={fuReason} onChange={e => setFuReason(e.target.value)} placeholder="Follow-up reason..." style={{ marginBottom: '8px' }} />
+                <input className="input" type="date" value={fuDate} onChange={e => setFuDate(e.target.value)} style={{ marginBottom: '8px', maxWidth: '200px' }} />
+                <button className="btn btn-primary" onClick={handleAddFu} disabled={savingFu}>{savingFu ? 'Saving...' : 'Set Follow-Up'}</button>
+              </div>
+            )}
+
+            {synth && (
+              <div style={{ padding: '16px 20px', background: 'var(--purple-bg)', borderBottom: '1px solid rgba(96,64,168,0.2)' }}>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--purple)', textTransform: 'uppercase', marginBottom: '6px' }}>✦ AI Synthesis</div>
+                <div style={{ fontSize: '14px', lineHeight: 1.7, color: 'var(--ink2)', whiteSpace: 'pre-wrap' }}>{synth}</div>
+              </div>
+            )}
+
+            {/* Follow-ups */}
+            {linkedFU.filter(f => !f.completed).map(fu => {
+              const od = new Date(fu.due_date) < new Date(new Date().toDateString());
+              return (
+                <div key={fu.id} style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid var(--line2)' }}>
+                  <span>{od ? '⚠' : '🔔'}</span>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: '14px', fontWeight: 500, color: od ? 'var(--rust)' : 'var(--amber)' }}>{fu.reason}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--ink4)', marginLeft: '8px', fontFamily: "'DM Mono',monospace" }}>{od ? 'OVERDUE · ' : ''}{fu.due_date}</span>
+                  </div>
+                  <button className="btn btn-sm" onClick={() => handleCompleteFu(fu)}>✓</button>
+                </div>
+              );
+            })}
+
+            {/* Entries */}
+            {timeline.length === 0 ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--ink4)', fontSize: '13px' }}>No activity yet</div>
+            ) : timeline.slice(0, 30).map(e => (
+              <div key={`${e.kind}-${e.id}`} className="tl-entry">
+                <div className="tl-dot" style={e.kind === 'activity' ? { background: 'var(--amber)', boxShadow: '0 0 0 3px rgba(184,122,16,0.08)' } : {}} />
+                <div>
+                  <div className="entry-date" style={{ fontFamily: "'DM Mono',monospace", fontSize: '11px', color: 'var(--ink4)', letterSpacing: '0.06em', marginBottom: '6px' }}>{e.date ? new Date(e.date).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}).toUpperCase() : ''}</div>
+                  <div className="entry-text" style={{ fontSize: '14px', color: 'var(--ink2)', lineHeight: 1.72 }}>{e.subject && <strong>{e.subject}. </strong>}{e.detail || ''}{e.outcome && <span style={{ color: 'var(--green)' }}> → {e.outcome}</span>}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'underwriting' && (
+          <Underwriting deal={deal} property={linkedProperty} leaseComps={linkedLC} saleComps={linkedSC} />
+        )}
+
+        {activeTab === 'contacts' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink3)' }}>Deal Contacts</h3>
+              <button className="btn btn-sm" onClick={() => setShowAddContact(!showAddContact)}>{showAddContact ? 'Cancel' : '+ Add Contact'}</button>
+            </div>
+            {showAddContact && (
+              <div style={{ padding: '14px', background: 'var(--bg)', borderRadius: '10px', border: '1px solid var(--line)', marginBottom: '14px' }}>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Contact</label>
+                    <select className="select" value={addContactId} onChange={e => setAddContactId(e.target.value)}>
+                      <option value="">Select contact...</option>
+                      {(contacts||[]).map(c => <option key={c.id} value={c.id}>{c.name} — {c.company || c.contact_type}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Role</label>
+                    <select className="select" value={addContactRole} onChange={e => setAddContactRole(e.target.value)}>
+                      {DEAL_CONTACT_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <button className="btn btn-primary btn-sm" onClick={handleAddDealContact}>Add to Deal</button>
+              </div>
+            )}
+            {dealContacts.length === 0 ? (
+              <div style={{ fontSize: '13px', color: 'var(--ink4)', padding: '16px 0' }}>No contacts linked to this deal</div>
+            ) : (
+              <div className="table-container">
+                <table>
+                  <thead><tr><th>Name</th><th>Company</th><th>Role</th><th>Phone</th><th>Email</th><th></th></tr></thead>
+                  <tbody>
+                    {dealContacts.map(dc => {
+                      const c = (contacts||[]).find(x => x.id === dc.contact_id);
+                      return c ? (
+                        <tr key={dc.id} onClick={() => onContactClick?.(c)} style={{ cursor: 'pointer' }}>
+                          <td style={{ fontWeight: 500 }}>{c.name}</td>
+                          <td>{c.company || '—'}</td>
+                          <td><span className="badge badge-blue">{dc.role}</span></td>
+                          <td style={{ fontFamily: "'DM Mono',monospace" }}>{c.phone || '—'}</td>
+                          <td style={{ fontSize: '12px' }}>{c.email || '—'}</td>
+                          <td><button className="btn btn-sm" onClick={e => { e.stopPropagation(); handleRemoveDealContact(dc.id); }}>×</button></td>
+                        </tr>
+                      ) : null;
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            <div style={{ position: 'relative' }}>
-              <button className="btn btn-ghost btn-sm" onClick={() => document.getElementById('cadence-dd').classList.toggle('show-dd')}>🔄 Cadence</button>
-              <div id="cadence-dd" style={{ position: 'absolute', right: 0, top: '100%', marginTop: '4px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '4px', zIndex: 10, display: 'none', minWidth: '140px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
-                {CADENCE_OPTIONS.map(c => <div key={c.label} onClick={() => { handleSetCadence(c); document.getElementById('cadence-dd').classList.remove('show-dd'); }} style={{ padding: '6px 12px', fontSize: '13px', cursor: 'pointer', borderRadius: '4px', whiteSpace: 'nowrap' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-input)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>{c.label}</div>)}
-              </div>
+        )}
+
+        {activeTab === 'outreach' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink3)' }}>Outreach Log</h3>
+              <button className="btn btn-sm" onClick={() => setShowAddOutreach(!showAddOutreach)}>{showAddOutreach ? 'Cancel' : '+ Log Outreach'}</button>
             </div>
-            <button className="btn btn-ghost btn-sm" onClick={() => setEditing(!editing)}>{editing ? 'Cancel' : 'Edit'}</button>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: '24px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
-          {deal.deal_value && <div><div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Deal Value</div><div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent)' }}>{fmt.price(deal.deal_value)}</div></div>}
-          {deal.commission_est && <div><div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Commission</div><div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green)' }}>{fmt.price(deal.commission_est)}</div></div>}
-          {deal.probability != null && <div><div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Probability</div><div style={{ fontSize: '18px', fontWeight: 700 }}>{deal.probability}%</div></div>}
-          {deal.close_date && <div><div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Est. Close</div><div style={{ fontSize: '18px', fontWeight: 700 }}>{deal.close_date}</div></div>}
-        </div>
-      </div>
-
-      {/* STAGES */}
-      <div className="card" style={{ marginBottom: '16px' }}>
-        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Pipeline Stage — click to move</div>
-        <div style={{ display: 'flex', gap: '3px', alignItems: 'center', flexWrap: 'wrap' }}>
-          {DEAL_STAGES.filter(s => s !== 'Dead').map((s, i) => {
-            const isActive = s === deal.stage;
-            const isPast = DEAL_STAGES.indexOf(s) < DEAL_STAGES.indexOf(deal.stage);
-            return (
-              <div key={s} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                <div onClick={() => handleStageChange(s)} style={{
-                  padding: '4px 10px', borderRadius: '4px', fontSize: '13px', fontWeight: isActive ? 700 : 500, cursor: 'pointer',
-                  background: isActive ? STAGE_COLORS[s] : isPast ? STAGE_COLORS[s] + '44' : 'var(--bg-input)',
-                  color: isActive ? 'white' : isPast ? STAGE_COLORS[s] : 'var(--text-muted)',
-                  border: `1px solid ${isActive ? STAGE_COLORS[s] : 'var(--border)'}`, whiteSpace: 'nowrap', transition: 'all 0.15s',
-                }}
-                  onMouseEnter={e => { if (!isActive) { e.currentTarget.style.borderColor = STAGE_COLORS[s]; e.currentTarget.style.color = STAGE_COLORS[s]; } }}
-                  onMouseLeave={e => { if (!isActive) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = isPast ? STAGE_COLORS[s] : 'var(--text-muted)'; } }}
-                >{s}</div>
-                {i < DEAL_STAGES.filter(x => x !== 'Dead').length - 1 && <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>›</span>}
-              </div>
-            );
-          })}
-          <div onClick={() => handleStageChange('Dead')} style={{ padding: '4px 10px', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', background: deal.stage === 'Dead' ? 'var(--ink3)' : 'transparent', color: deal.stage === 'Dead' ? 'white' : 'var(--text-muted)', border: '1px solid var(--border)', marginLeft: '8px' }}>Dead</div>
-        </div>
-      </div>
-
-      {/* TAB BAR */}
-      <div style={{ display: 'flex', gap: '2px', borderBottom: '1px solid var(--border)', marginBottom: '16px' }}>
-        {TABS.map(t => <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ padding: '8px 16px', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 500, background: 'transparent', color: activeTab === t.id ? 'var(--accent)' : 'var(--text-muted)', borderBottom: activeTab === t.id ? '2px solid var(--accent)' : '2px solid transparent' }}>{t.label}</button>)}
-      </div>
-
-      {/* TIMELINE TAB */}
-      {activeTab === 'timeline' && (
-        <div className="card" style={{ marginBottom: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '6px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Timeline</h3>
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-              <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px', color: 'var(--purple)', borderColor: 'var(--purple)44' }} onClick={handleSynthesize} disabled={synthLoading}>{synthLoading ? '✦ Synthesizing...' : '✦ Synthesize'}</button>
-              <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px' }} onClick={() => { closeAll(); setShowLogForm(!showLogForm); }}>{showLogForm ? 'Cancel' : '+ Log Call/Email'}</button>
-              <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px' }} onClick={() => { closeAll(); setShowNoteForm(!showNoteForm); }}>{showNoteForm ? 'Cancel' : '+ Note'}</button>
-              <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px' }} onClick={() => { closeAll(); setShowFuForm(!showFuForm); }}>{showFuForm ? 'Cancel' : '+ Follow-Up'}</button>
-            </div>
-          </div>
-
-          {/* AI Synthesis result */}
-          {synth && (
-            <div style={{ padding: '14px', background: 'var(--purple)11', border: '1px solid var(--purple)33', borderRadius: '8px', marginBottom: '14px', fontSize: '14px', lineHeight: 1.7, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--purple)', textTransform: 'uppercase' }}>✦ AI Synthesis (Opus)</span>
-                {deal.ai_synthesis_at && <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{new Date(deal.ai_synthesis_at).toLocaleString()}</span>}
-              </div>
-              {synth}
-            </div>
-          )}
-
-          {showLogForm && (
-            <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: '6px', marginBottom: '12px', border: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-                {LOG_TYPES.map(t => <button key={t} onClick={() => setLogType(t)} style={{ padding: '3px 10px', borderRadius: '4px', border: '1px solid', fontSize: '12px', cursor: 'pointer', borderColor: logType === t ? 'var(--accent)' : 'var(--border)', background: logType === t ? 'var(--accent-soft)' : 'transparent', color: logType === t ? 'var(--accent)' : 'var(--text-muted)' }}>{t === 'Call' ? '📞 Call' : t === 'Email' ? '✉️ Email' : '🤝 Meeting'}</button>)}
-              </div>
-              <input className="input" placeholder="Subject..." value={logSubject} onChange={e => setLogSubject(e.target.value)} style={{ marginBottom: '6px', fontSize: '14px' }} />
-              <select className="select" value={logContactId} onChange={e => setLogContactId(e.target.value)} style={{ marginBottom: '6px', fontSize: '13px' }}>
-                <option value="">Link to contact (optional)</option>
-                {linkedContacts.map(c => <option key={c.id} value={c.id}>{c.name}{c.company ? ` — ${c.company}` : ''}</option>)}
-              </select>
-              <textarea className="textarea" rows={2} value={logNotes} onChange={e => setLogNotes(e.target.value)} placeholder="Notes..." style={{ marginBottom: '8px', fontSize: '13px' }} />
-              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                <button className="btn btn-ghost btn-sm" onClick={() => setShowLogForm(false)}>Cancel</button>
-                <button className="btn btn-primary btn-sm" onClick={handleLogActivity} disabled={savingLog || !logSubject.trim()}>{savingLog ? '...' : `Log ${logType}`}</button>
-              </div>
-            </div>
-          )}
-
-          {showNoteForm && (
-            <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: '6px', marginBottom: '12px', border: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                {NOTE_TYPES.map(t => <button key={t} onClick={() => setNoteType(t)} style={{ padding: '3px 10px', borderRadius: '4px', border: '1px solid', fontSize: '12px', cursor: 'pointer', borderColor: noteType === t ? 'var(--accent)' : 'var(--border)', background: noteType === t ? 'var(--accent-soft)' : 'transparent', color: noteType === t ? 'var(--accent)' : 'var(--text-muted)' }}>{t}</button>)}
-              </div>
-              <textarea className="textarea" rows={3} value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Add a note..." style={{ marginBottom: '8px', fontSize: '14px' }} />
-              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                <button className="btn btn-ghost btn-sm" onClick={() => setShowNoteForm(false)}>Cancel</button>
-                <button className="btn btn-primary btn-sm" onClick={handleAddNote} disabled={savingNote || !noteText.trim()}>{savingNote ? '...' : 'Save'}</button>
-              </div>
-            </div>
-          )}
-
-          {showFuForm && (
-            <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: '6px', marginBottom: '12px', border: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                <input className="input" style={{ flex: 1, fontSize: '14px' }} placeholder="Follow-up reason..." value={fuReason} onChange={e => setFuReason(e.target.value)} />
-                <input className="input" type="date" style={{ width: '160px', fontSize: '14px' }} value={fuDate} onChange={e => setFuDate(e.target.value)} />
-              </div>
-              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                <button className="btn btn-ghost btn-sm" onClick={() => setShowFuForm(false)}>Cancel</button>
-                <button className="btn btn-primary btn-sm" onClick={handleAddFu} disabled={savingFu || !fuReason.trim() || !fuDate}>{savingFu ? '...' : 'Set Follow-Up'}</button>
-              </div>
-            </div>
-          )}
-
-          {linkedFollowUps.filter(f => !f.completed).length > 0 && (
-            <div style={{ marginBottom: '12px' }}>
-              {linkedFollowUps.filter(f => !f.completed).sort((a, b) => new Date(a.due_date) - new Date(b.due_date)).map(fu => {
-                const od = new Date(fu.due_date) < new Date(new Date().toDateString());
-                return (<div key={fu.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', marginBottom: '4px', borderRadius: '6px', background: od ? 'var(--red-soft)' : 'var(--amber-bg)', border: `1px solid ${od ? 'var(--red)' : 'var(--amber)'}33` }}>
-                  <span>{od ? '⚠' : '🔔'}</span>
-                  <div style={{ flex: 1 }}><span style={{ fontSize: '14px', fontWeight: 500, color: od ? 'var(--red)' : 'var(--amber)' }}>{fu.reason}</span><span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: '8px', fontFamily: 'var(--font-mono)' }}>{od ? 'OVERDUE · ' : ''}{fu.due_date}</span></div>
-                  <button className="btn btn-ghost btn-sm" style={{ fontSize: '11px' }} onClick={() => handleCompleteFu(fu)}>✓</button>
-                </div>);
-              })}
-            </div>
-          )}
-
-          {timeline.length === 0 ? (
-            <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>No activity yet — log a call or add a note</div>
-          ) : (
-            <div style={{ position: 'relative', paddingLeft: '24px' }}>
-              <div style={{ position: 'absolute', left: '7px', top: '4px', bottom: '4px', width: '2px', background: 'var(--border)' }} />
-              {timeline.map(item => (
-                <div key={item.id} style={{ position: 'relative', paddingBottom: '14px' }}>
-                  <div style={{ position: 'absolute', left: '-24px', top: '3px', width: '16px', height: '16px', borderRadius: '50%', background: 'var(--card)', border: '2px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px' }}>{item.icon}</div>
-                  <div style={{ padding: '10px 12px', background: 'var(--bg-input)', borderRadius: '6px' }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: item.detail ? '4px' : 0, flexWrap: 'wrap' }}>
-                      <span className={`tag ${item.kind === 'note' ? 'tag-purple' : 'tag-blue'}`} style={{ fontSize: '11px' }}>{item.label}</span>
-                      {item.subject && <span style={{ fontSize: '14px', fontWeight: 500 }}>{item.subject}</span>}
-                      {item.outcome && <span className="tag tag-ghost" style={{ fontSize: '11px' }}>{item.outcome}</span>}
-                      <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: 'auto', fontFamily: 'var(--font-mono)' }}>{fmtAgo(item.date)}</span>
-                    </div>
-                    {item.detail && <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{item.detail}</div>}
+            {showAddOutreach && (
+              <div style={{ padding: '14px', background: 'var(--bg)', borderRadius: '10px', border: '1px solid var(--line)', marginBottom: '14px' }}>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Method</label>
+                    <select className="select" value={outreachMethod} onChange={e => setOutreachMethod(e.target.value)}>
+                      {OUTREACH_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Outcome</label>
+                    <select className="select" value={outreachOutcome} onChange={e => setOutreachOutcome(e.target.value)}>
+                      {OUTREACH_OUTCOMES.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* UNDERWRITING TAB */}
-      {activeTab === 'underwriting' && (
-        <Underwriting deal={deal} property={linkedProperty} leaseComps={leaseComps} saleComps={saleComps} onRefresh={onRefresh} showToast={showToast} onLeaseCompClick={onLeaseCompClick} onSaleCompClick={onSaleCompClick} />
-      )}
-
-      {/* CONTACTS TAB — Deal Contacts with Roles */}
-      {activeTab === 'contacts' && (
-        <div className="card" style={{ marginBottom: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Deal Contacts</h3>
-            <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px' }} onClick={() => setShowDcForm(!showDcForm)}>{showDcForm ? 'Cancel' : '+ Link Contact'}</button>
-          </div>
-          {showDcForm && (
-            <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: '6px', marginBottom: '12px', border: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                <select className="select" style={{ flex: 1, fontSize: '13px' }} value={dcContactId} onChange={e => setDcContactId(e.target.value)}>
-                  <option value="">Select contact...</option>
-                  {(contacts || []).map(c => <option key={c.id} value={c.id}>{c.name}{c.company ? ` — ${c.company}` : ''}</option>)}
-                </select>
-                <select className="select" style={{ width: '160px', fontSize: '13px' }} value={dcRole} onChange={e => setDcRole(e.target.value)}>
-                  {DEAL_CONTACT_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button className="btn btn-primary btn-sm" onClick={handleAddDc} disabled={!dcContactId}>Link</button>
-              </div>
-            </div>
-          )}
-          {dealContacts.length === 0 ? (
-            <div style={{ fontSize: '13px', color: 'var(--text-muted)', padding: '8px 0' }}>No contacts linked to this deal yet</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {dealContacts.map(dc => (
-                <div key={dc.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'var(--bg-input)', borderRadius: '6px' }}>
-                  <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => dc.contact && onContactClick?.(dc.contact)}>
-                    <div style={{ fontSize: '14px', fontWeight: 500 }}>{dc.contact?.name || 'Unknown'}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{dc.contact?.company || ''}{dc.contact?.phone ? ` · ${dc.contact.phone}` : ''}</div>
-                  </div>
-                  <span className="tag tag-blue" style={{ fontSize: '11px' }}>{dc.role}</span>
-                  <button onClick={() => handleRemoveDc(dc.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '16px', padding: '0 4px' }}>×</button>
+                <div className="form-group" style={{ marginBottom: '10px' }}>
+                  <label className="form-label">Notes</label>
+                  <textarea className="textarea" value={outreachNotes} onChange={e => setOutreachNotes(e.target.value)} rows={2} />
                 </div>
-              ))}
-            </div>
-          )}
-          {/* Also show loosely-linked contacts */}
-          {linkedContacts.length > 0 && (
-            <div style={{ marginTop: '16px' }}>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>Related Contacts</div>
-              {linkedContacts.filter(c => !dealContacts.some(dc => dc.contact_id === c.id)).map(c => (
-                <div key={c.id} onClick={() => onContactClick?.(c)} style={{ padding: '8px 10px', background: 'var(--bg-input)', borderRadius: '6px', cursor: 'pointer', marginBottom: '4px' }}>
-                  <div style={{ fontSize: '14px', fontWeight: 500 }}>{c.name}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{c.contact_type}{c.company ? ` · ${c.company}` : ''}</div>
-                </div>
-              ))}
-            </div>
-          )}
-          {linkedAccounts.length > 0 && (
-            <div style={{ marginTop: '16px' }}>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>Linked Accounts</div>
-              {linkedAccounts.map(a => (
-                <div key={a.id} onClick={() => onAccountClick?.(a)} style={{ padding: '8px 10px', background: 'var(--bg-input)', borderRadius: '6px', cursor: 'pointer', marginBottom: '4px' }}>
-                  <div style={{ fontSize: '14px', fontWeight: 500 }}>{a.name}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{a.account_type}{a.city ? ` · ${a.city}` : ''}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* OUTREACH TAB — Buyer Outreach Log */}
-      {activeTab === 'outreach' && (
-        <div className="card" style={{ marginBottom: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Buyer Outreach Log</h3>
-            <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px' }} onClick={() => setShowOrForm(!showOrForm)}>{showOrForm ? 'Cancel' : '+ Log Outreach'}</button>
-          </div>
-          {showOrForm && (
-            <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: '6px', marginBottom: '12px', border: '1px solid var(--border)' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-                <select className="select" style={{ fontSize: '13px' }} value={orAcctId} onChange={e => setOrAcctId(e.target.value)}>
-                  <option value="">Select buyer account...</option>
-                  {(accounts || []).filter(a => ['Institutional Buyer', 'Private Buyer', 'Investor', 'Developer'].includes(a.account_type)).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
-                <select className="select" style={{ fontSize: '13px' }} value={orContactId} onChange={e => setOrContactId(e.target.value)}>
-                  <option value="">Contact (optional)...</option>
-                  {(contacts || []).filter(c => !orAcctId || c.account_id === orAcctId).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-                <select className="select" style={{ fontSize: '13px' }} value={orMethod} onChange={e => setOrMethod(e.target.value)}>
-                  {OUTREACH_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-                <select className="select" style={{ fontSize: '13px' }} value={orOutcome} onChange={e => setOrOutcome(e.target.value)}>
-                  <option value="">Outcome...</option>
-                  {OUTREACH_OUTCOMES.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
+                <button className="btn btn-primary btn-sm" onClick={handleAddOutreach}>Log Outreach</button>
               </div>
-              <textarea className="textarea" rows={2} value={orNotes} onChange={e => setOrNotes(e.target.value)} placeholder="Notes..." style={{ marginBottom: '8px', fontSize: '13px' }} />
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button className="btn btn-primary btn-sm" onClick={handleAddOutreach} disabled={!orAcctId && !orContactId}>Log Outreach</button>
+            )}
+            {outreachLog.length === 0 ? (
+              <div style={{ fontSize: '13px', color: 'var(--ink4)', padding: '16px 0' }}>No outreach logged yet</div>
+            ) : (
+              <div className="table-container">
+                <table>
+                  <thead><tr><th>Date</th><th>Method</th><th>Outcome</th><th>Notes</th></tr></thead>
+                  <tbody>
+                    {outreachLog.map(o => (
+                      <tr key={o.id}>
+                        <td style={{ fontFamily: "'DM Mono',monospace" }}>{o.outreach_date || o.created_at?.split('T')[0]}</td>
+                        <td><span className="badge badge-blue">{o.method}</span></td>
+                        <td><span className={`badge ${o.outcome === 'Connected' || o.outcome === 'Meeting Set' ? 'badge-green' : 'badge-gray'}`}>{o.outcome}</span></td>
+                        <td style={{ fontSize: '12px', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.notes || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </div>
-          )}
-          {outreachLog.length === 0 ? (
-            <div style={{ fontSize: '13px', color: 'var(--text-muted)', padding: '8px 0' }}>No buyer outreach logged yet</div>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table><thead><tr>
-                <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Date</th>
-                <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Buyer</th>
-                <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Contact</th>
-                <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Method</th>
-                <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Outcome</th>
-                <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Notes</th>
-              </tr></thead><tbody>
-                {outreachLog.map(o => {
-                  const outcomeColor = { 'Interested': 'var(--green)', 'Offer Coming': 'var(--blue)', 'Passed': 'var(--rust)', 'No Response': 'var(--ink3)' }[o.outcome] || 'var(--amber)';
-                  return (
-                    <tr key={o.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                      <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', fontSize: '13px' }}>{o.outreach_date}</td>
-                      <td style={{ padding: '8px 10px', fontSize: '14px', fontWeight: 500 }}>{o.account?.name || '—'}</td>
-                      <td style={{ padding: '8px 10px', fontSize: '13px' }}>{o.contact?.name || '—'}</td>
-                      <td style={{ padding: '8px 10px', fontSize: '13px' }}>{o.method}</td>
-                      <td style={{ padding: '8px 10px' }}>{o.outcome && <span style={{ fontSize: '12px', padding: '2px 7px', borderRadius: '4px', background: outcomeColor + '22', color: outcomeColor, fontWeight: 600 }}>{o.outcome}</span>}</td>
-                      <td style={{ padding: '8px 10px', fontSize: '13px', color: 'var(--text-muted)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.notes || '—'}</td>
-                    </tr>
-                  );
-                })}
-              </tbody></table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* FILES TAB */}
-      {activeTab === 'files' && (
-        <div className="card" style={{ marginBottom: '16px' }}>
-          <FilesLinks record={deal} table="deals" onRefresh={onRefresh} showToast={showToast} />
-        </div>
-      )}
-
-      {/* TASKS TAB */}
-      {activeTab === 'tasks' && (
-        <div className="card" style={{ marginBottom: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tasks {pendingTasks > 0 && <span style={{ color: 'var(--rust)' }}>({pendingTasks})</span>}</h3>
-            <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px' }} onClick={() => onAddTask?.(deal.id)}>+ Task</button>
+            )}
           </div>
-          {linkedTasks.length === 0 ? <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No tasks</div> : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {linkedTasks.sort((a, b) => a.completed - b.completed).map(t => {
-                const pc = { High: 'var(--rust)', Medium: 'var(--amber)', Low: 'var(--ink3)' }[t.priority] || 'var(--ink3)';
-                const od = !t.completed && t.due_date && new Date(t.due_date) < new Date();
-                return (<div key={t.id} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '8px 10px', background: 'var(--bg-input)', borderRadius: '6px', borderLeft: `3px solid ${t.completed ? 'var(--border)' : pc}`, opacity: t.completed ? 0.6 : 1 }}>
-                  <div style={{ width: '14px', height: '14px', borderRadius: '3px', flexShrink: 0, marginTop: '2px', border: '2px solid', borderColor: t.completed ? 'var(--accent)' : pc, background: t.completed ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px' }}>{t.completed ? '✓' : ''}</div>
-                  <div style={{ flex: 1 }}><div style={{ fontSize: '14px', fontWeight: 500, textDecoration: t.completed ? 'line-through' : 'none' }}>{t.title}</div>{t.due_date && <div style={{ fontSize: '12px', color: od ? 'var(--red)' : 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>{od ? '⚠ ' : ''}{t.due_date}</div>}</div>
-                  <span style={{ fontSize: '12px', padding: '1px 5px', borderRadius: '3px', background: pc + '22', color: pc }}>{t.priority}</span>
-                </div>);
-              })}
-            </div>
-          )}
-        </div>
-      )}
+        )}
 
-      {/* EDIT or DETAIL CARDS */}
-      {editing ? (
-        <div className="card" style={{ marginBottom: '16px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div className="form-group" style={{ gridColumn: '1/-1' }}><label className="form-label">Deal Name</label><input className="input" value={form.deal_name || ''} onChange={e => set('deal_name', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">Stage</label><select className="select" value={form.stage} onChange={e => set('stage', e.target.value)}>{DEAL_STAGES.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-            <div className="form-group"><label className="form-label">Deal Type</label><select className="select" value={form.deal_type || ''} onChange={e => set('deal_type', e.target.value)}><option value="">Select</option>{DEAL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
-            <div className="form-group"><label className="form-label">Strategy</label><select className="select" value={form.strategy || ''} onChange={e => set('strategy', e.target.value)}><option value="">Select</option>{STRATEGIES.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-            <div className="form-group"><label className="form-label">Marketing</label><select className="select" value={form.marketing_type || ''} onChange={e => set('marketing_type', e.target.value)}>{MARKETING_TYPES.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
-            {[['buyer', 'Buyer'], ['seller', 'Seller'], ['tenant_name', 'Tenant'], ['deal_value', 'Deal Value ($)'], ['commission_rate', 'Commission (%)'], ['probability', 'Probability (%)'], ['close_date', 'Close Date'], ['priority', 'Priority']].map(([f, l]) => (
-              <div key={f} className="form-group"><label className="form-label">{l}</label><input className="input" type={['deal_value', 'commission_rate', 'probability'].includes(f) ? 'number' : f === 'close_date' ? 'date' : 'text'} value={form[f] || ''} onChange={e => set(f, e.target.value)} /></div>
-            ))}
-            <div className="form-group" style={{ gridColumn: '1/-1' }}><label className="form-label">OneDrive Link</label><input className="input" placeholder="https://..." value={form.onedrive_url || ''} onChange={e => set('onedrive_url', e.target.value)} /></div>
-          </div>
-          <div className="form-group" style={{ marginTop: '12px' }}><label className="form-label">Notes</label><textarea className="textarea" rows={3} value={form.notes || ''} onChange={e => set('notes', e.target.value)} /></div>
-          <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}><button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button><button className="btn btn-ghost" onClick={() => setEditing(false)}>Cancel</button></div>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-          <div className="card">
-            <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '14px' }}>Deal Details</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-              <Field label="Type" value={deal.deal_type} />
-              <Field label="Strategy" value={deal.strategy} />
-              <Field label="Marketing" value={deal.marketing_type} />
-              <Field label="Buyer" value={deal.buyer} />
-              <Field label="Seller" value={deal.seller} />
-              <Field label="Tenant" value={deal.tenant_name} />
-              <Field label="Commission Rate" value={deal.commission_rate ? deal.commission_rate + '%' : null} />
-              <Field label="Priority" value={deal.priority} />
+        {activeTab === 'files' && <FilesLinks record={deal} table="deals" onRefresh={onRefresh} showToast={showToast} />}
+
+        {activeTab === 'tasks' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink3)' }}>Tasks</h3>
+              {onAddTask && <button className="btn btn-sm" onClick={() => onAddTask(deal.id)}>+ Task</button>}
             </div>
-          </div>
-          <div className="card">
-            <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '14px' }}>Linked Property</h3>
-            {linkedProperty ? (
-              <div onClick={() => onPropertyClick?.(linkedProperty)} style={{ padding: '10px', background: 'var(--bg-input)', borderRadius: '6px', cursor: 'pointer', border: '1px solid transparent', transition: 'border-color 0.15s' }} onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'} onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
-                <div style={{ fontSize: '14px', fontWeight: 600 }}>{linkedProperty.address}</div>
-                <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>{linkedProperty.submarket} · {linkedProperty.building_sf ? linkedProperty.building_sf.toLocaleString() + ' SF' : ''} · {linkedProperty.owner}</div>
+            {linkedTasks.length === 0 ? (
+              <div style={{ fontSize: '13px', color: 'var(--ink4)', padding: '16px 0' }}>No tasks</div>
+            ) : (
+              <div className="table-container">
+                <table>
+                  <thead><tr><th>Task</th><th>Priority</th><th>Due</th><th>Status</th></tr></thead>
+                  <tbody>
+                    {linkedTasks.map(t => {
+                      const pc = { High: 'var(--rust)', Medium: 'var(--amber)', Low: 'var(--ink3)' }[t.priority] || 'var(--ink3)';
+                      const od = !t.completed && t.due_date && new Date(t.due_date) < new Date();
+                      return (
+                        <tr key={t.id} style={{ opacity: t.completed ? 0.6 : 1 }}>
+                          <td style={{ fontWeight: 500, textDecoration: t.completed ? 'line-through' : 'none' }}>{t.title}</td>
+                          <td><span className="badge" style={{ background: pc + '14', borderColor: pc + '44', color: pc }}>{t.priority}</span></td>
+                          <td style={{ fontFamily: "'DM Mono',monospace", color: od ? 'var(--rust)' : 'var(--ink4)' }}>{od ? 'OVERDUE · ' : ''}{t.due_date || '—'}</td>
+                          <td>{t.completed ? <span className="badge badge-green">Done</span> : <span className="badge badge-amber">Pending</span>}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            ) : <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No property linked</div>}
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Edit Modal */}
+      {editing && (
+        <div className="modal-overlay" onClick={() => setEditing(false)}>
+          <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Edit Deal</h2>
+              <button className="modal-close" onClick={() => setEditing(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-row">
+                <div className="form-group"><label className="form-label">Deal Name</label><input className="input" value={editForm.deal_name || ''} onChange={e => setEditForm({...editForm, deal_name: e.target.value})} /></div>
+                <div className="form-group"><label className="form-label">Deal Type</label><select className="select" value={editForm.deal_type || ''} onChange={e => setEditForm({...editForm, deal_type: e.target.value})}><option value="">—</option>{DEAL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
+              </div>
+              <div className="form-row">
+                <div className="form-group"><label className="form-label">Deal Value</label><input className="input" type="number" value={editForm.deal_value || ''} onChange={e => setEditForm({...editForm, deal_value: e.target.value})} /></div>
+                <div className="form-group"><label className="form-label">Commission Est.</label><input className="input" type="number" value={editForm.commission_est || ''} onChange={e => setEditForm({...editForm, commission_est: e.target.value})} /></div>
+              </div>
+              <div className="form-row">
+                <div className="form-group"><label className="form-label">Probability %</label><input className="input" type="number" value={editForm.probability || ''} onChange={e => setEditForm({...editForm, probability: e.target.value})} /></div>
+                <div className="form-group"><label className="form-label">Close Date</label><input className="input" type="date" value={editForm.close_date || ''} onChange={e => setEditForm({...editForm, close_date: e.target.value})} /></div>
+              </div>
+              <div className="form-row">
+                <div className="form-group"><label className="form-label">Strategy</label><select className="select" value={editForm.strategy || ''} onChange={e => setEditForm({...editForm, strategy: e.target.value})}><option value="">—</option>{STRATEGIES.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                <div className="form-group"><label className="form-label">Building SF</label><input className="input" type="number" value={editForm.building_sf || ''} onChange={e => setEditForm({...editForm, building_sf: e.target.value})} /></div>
+              </div>
+              <div className="form-group" style={{ marginBottom: '12px' }}><label className="form-label">Notes</label><textarea className="textarea" value={editForm.notes || ''} onChange={e => setEditForm({...editForm, notes: e.target.value})} rows={3} /></div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn" onClick={() => setEditing(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+            </div>
           </div>
         </div>
       )}

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { LEASE_TYPES } from '../lib/constants';
-import { insertRow } from '../lib/db';
+import { insertRow, autoResearch } from '../lib/db';
 
 export default function AddLeaseCompModal({ onClose, onSave }) {
   const [form, setForm] = useState({
@@ -39,9 +39,20 @@ export default function AddLeaseCompModal({ onClose, onSave }) {
         start_date: form.start_date || null,
         free_rent_months: form.free_rent_months ? parseInt(form.free_rent_months) : null,
         ti_psf: form.ti_psf ? parseFloat(form.ti_psf) : null,
+        total_expenses_psf: totalExpenses > 0 ? totalExpenses : null,
+        gross_equivalent: grossEquiv && grossEquiv > 0 ? grossEquiv : null,
+        escalation: form.escalations || null,
+        landlord: form.landlord || null,
+        broker: form.broker_rep || null,
+        source: form.source || null,
+        deal_type: null,
         notes: form.notes || null,
       };
       await insertRow('lease_comps', data);
+      // Auto-research tenant in background
+      if (data.tenant) {
+        autoResearch('lease_comp', data).catch(() => {});
+      }
       onSave();
     } catch (err) { console.error(err); }
     finally { setSaving(false); }

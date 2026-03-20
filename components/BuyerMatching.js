@@ -145,10 +145,10 @@ export default function BuyerMatching({ property, accounts, onAccountClick }) {
   }, [property, accounts, minScore, showAll]);
 
   const tier = (score) => {
-    if (score >= 80) return { label: 'A', color: 'var(--green)', bg: 'var(--green)22' };
-    if (score >= 60) return { label: 'B', color: 'var(--blue)', bg: 'var(--blue)22' };
-    if (score >= 40) return { label: 'C', color: 'var(--amber)', bg: 'var(--amber)22' };
-    return { label: 'D', color: 'var(--ink3)', bg: 'var(--ink3)22' };
+    if (score >= 80) return { label: 'A', color: 'var(--green)', bg: 'var(--green-bg)' };
+    if (score >= 60) return { label: 'B', color: 'var(--blue)', bg: 'var(--blue-bg)' };
+    if (score >= 40) return { label: 'C', color: 'var(--amber)', bg: 'var(--amber-bg)' };
+    return { label: 'D', color: 'var(--ink3)', bg: 'rgba(122,116,108,0.13)' };
   };
 
   const hot = matches.filter(m => m.score >= 80).length;
@@ -160,13 +160,13 @@ export default function BuyerMatching({ property, accounts, onAccountClick }) {
       <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ display: 'flex', gap: '12px' }}>
           {hot > 0 && (
-            <div style={{ padding: '6px 14px', background: 'var(--green)18', border: '1px solid var(--green)44', borderRadius: '8px' }}>
+            <div style={{ padding: '6px 14px', background: 'var(--green-bg)', border: '1px solid rgba(26,122,72,0.27)', borderRadius: '8px' }}>
               <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green)' }}>{hot}</span>
               <span style={{  color: 'var(--green)', marginLeft: '6px' }}>hot matches (80+)</span>
             </div>
           )}
           {strong > 0 && (
-            <div style={{ padding: '6px 14px', background: 'var(--blue)18', border: '1px solid var(--blue)44', borderRadius: '8px' }}>
+            <div style={{ padding: '6px 14px', background: 'var(--blue-bg)', border: '1px solid rgba(85,119,160,0.27)', borderRadius: '8px' }}>
               <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--blue)' }}>{strong}</span>
               <span style={{  color: 'var(--blue)', marginLeft: '6px' }}>strong (60+)</span>
             </div>
@@ -227,7 +227,7 @@ export default function BuyerMatching({ property, accounts, onAccountClick }) {
                       {reasons.map((r, i) => (
                         <span key={i} style={{
                            padding: '2px 6px', borderRadius: '3px',
-                          background: r.includes('✓') ? 'var(--green)15' : 'var(--amber)15',
+                          background: r.includes('✓') ? 'rgba(26,122,72,0.08)' : 'rgba(184,122,16,0.08)',
                           color: r.includes('✓') ? 'var(--green)' : 'var(--amber)',
                           fontFamily: 'var(--font-mono)',
                         }}>{r}</span>

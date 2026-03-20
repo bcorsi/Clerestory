@@ -23,6 +23,8 @@ import TaskDetail from '../components/TaskDetail';
 import LeaseComps from '../components/LeaseComps';
 import LeaseCompDetail from '../components/LeaseCompDetail';
 import SaleComps from '../components/SaleComps';
+import CompDashboard from '../components/CompDashboard';
+import OwnerSearch from '../components/OwnerSearch';
 import ProfileSettings from '../components/ProfileSettings';
 import CsvUpload from '../components/CsvUpload';
 import AddPropertyModal from '../components/AddPropertyModal';
@@ -210,7 +212,8 @@ export default function App() {
     accounts: 'Accounts', 'account-detail': selectedAccount?.name || 'Account',
     activities: 'Activities', tasks: 'Tasks', 'task-detail': selectedTask?.title || 'Task',
     'lease-comps': 'Lease Comps', 'lease-comp-detail': selectedLeaseComp?.address || 'Lease Comp',
-    'sale-comps': 'Sale Comps', 'warn-intel': 'WARN Intel',
+    'sale-comps': 'Sale Comps', 'comp-dashboard': 'Comp Analytics',
+    'owner-search': 'Owner Search', 'warn-intel': 'WARN Intel',
     'catalyst-view': catalystFilter ? `Catalyst: ${catalystFilter}` : 'Catalyst View',
     'map-view': 'Map View',
     settings: 'Settings',
@@ -332,6 +335,8 @@ export default function App() {
             {page === 'lease-comps' && <LeaseComps comps={leaseComps} onCompClick={openLeaseComp} />}
             {page === 'lease-comp-detail' && selectedLeaseComp && <LeaseCompDetail comp={selectedLeaseComp} properties={properties} />}
             {page === 'sale-comps' && <SaleComps comps={saleComps} />}
+            {page === 'comp-dashboard' && <CompDashboard leaseComps={leaseComps} saleComps={saleComps} />}
+            {page === 'owner-search' && <OwnerSearch properties={properties} leads={leads} onPropertyClick={openProperty} onLeadClick={openLead} showToast={showToast} />}
             {page === 'warn-intel' && <WarnIntel properties={properties} leads={leads} onRefresh={loadData} showToast={showToast} />}
             {page === 'catalyst-view' && catalystFilter && <CatalystView tag={catalystFilter} properties={properties} leads={leads} deals={deals} onPropertyClick={openProperty} onLeadClick={openLead} onDealClick={openDeal} onClear={() => { setCatalystFilter(null); setPage('dashboard'); }} />}
             {page === 'map-view' && <MapView properties={properties} leads={leads} deals={deals} onPropertyClick={openProperty} onLeadClick={openLead} onDealClick={openDeal} />}

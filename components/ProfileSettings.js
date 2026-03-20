@@ -102,7 +102,7 @@ export default function ProfileSettings({ user, showToast }) {
         {pwError && (
           <div style={{
             padding: '10px 14px', borderRadius: 'var(--radius-sm)',
-            background: 'var(--red-soft)', color: 'var(--red)',
+            background: 'var(--bg)', color: 'var(--red)',
              marginBottom: '12px',
           }}>{pwError}</div>
         )}

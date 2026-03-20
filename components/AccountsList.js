@@ -49,9 +49,9 @@ export default function AccountsList({ accounts, onAccountClick }) {
   };
 
   const timingColor = (t) => {
-    if (t === 'Actively Buying Now') return { bg: 'var(--green)18', color: 'var(--green)', border: 'var(--green)44' };
-    if (t === 'Buying Selectively') return { bg: 'var(--blue)18', color: 'var(--blue)', border: 'var(--blue)44' };
-    if (t === 'Paused') return { bg: 'var(--amber)18', color: 'var(--amber)', border: 'var(--amber)44' };
+    if (t === 'Actively Buying Now') return { bg: 'var(--green-bg)', color: 'var(--green)', border: 'rgba(26,122,72,0.27)' };
+    if (t === 'Buying Selectively') return { bg: 'var(--blue-bg)', color: 'var(--blue)', border: 'rgba(85,119,160,0.27)' };
+    if (t === 'Paused') return { bg: 'var(--amber-bg)', color: 'var(--amber)', border: 'rgba(184,122,16,0.27)' };
     return { bg: 'var(--bg-input)', color: 'var(--text-muted)', border: 'var(--border)' };
   };
 

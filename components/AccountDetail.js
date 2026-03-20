@@ -182,7 +182,7 @@ export default function AccountDetail({ account, contacts, deals, properties, ac
                           {[p.city || p.submarket, (p.total_sf || p.building_sf) ? Number(p.total_sf || p.building_sf).toLocaleString() + ' SF' : null, p.owner, p.vacancy_status].filter(Boolean).join(' · ')}
                         </div>
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                          {p.matchReasons.map((r, i) => <span key={i} style={{ fontSize: '12px', padding: '2px 6px', borderRadius: '3px', background: r.includes('✓') ? 'var(--green)15' : 'var(--amber)15', color: r.includes('✓') ? 'var(--green)' : 'var(--amber)', fontFamily: 'var(--font-mono)' }}>{r}</span>)}
+                          {p.matchReasons.map((r, i) => <span key={i} style={{ fontSize: '12px', padding: '2px 6px', borderRadius: '3px', background: r.includes('✓') ? 'rgba(26,122,72,0.08)' : 'rgba(184,122,16,0.08)', color: r.includes('✓') ? 'var(--green)' : 'var(--amber)', fontFamily: 'var(--font-mono)' }}>{r}</span>)}
                         </div>
                         {(p.catalyst_tags || []).length > 0 && (
                           <div style={{ display: 'flex', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>

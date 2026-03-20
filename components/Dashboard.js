@@ -311,7 +311,7 @@ export default function Dashboard({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {urgentCatalysts.map((sig, i) => (
                   <div key={i} onClick={() => sig.type === 'lead' ? onLeadClick?.(sig.record) : onPropertyClick?.(sig.record)}
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', borderRadius: '5px', cursor: 'pointer', transition: 'all 0.15s', background: sig.urgency === 'immediate' ? 'var(--red-soft)' : 'var(--amber-bg)' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', borderRadius: '5px', cursor: 'pointer', transition: 'all 0.15s', background: sig.urgency === 'immediate' ? 'var(--bg)' : 'var(--amber-bg)' }}
                     onMouseEnter={e => e.currentTarget.style.transform = 'translateX(3px)'}
                     onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
                     <span style={{  fontWeight: 700, color: sig.urgency === 'immediate' ? 'var(--red)' : 'var(--amber)', flexShrink: 0 }}>

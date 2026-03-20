@@ -48,6 +48,36 @@ export default function PropertyDetail({
   const [autoTagLoading, setAutoTagLoading] = useState(false);
   const [researching, setResearching] = useState(false);
 
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportMemo = async () => {
+    setExporting(true);
+    try {
+      const res = await fetch('/api/export-memo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          property: p,
+          leaseComps: displayLC,
+          saleComps: displaySC,
+          deals: linkedDeals,
+        }),
+      });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(p.address || 'Property').replace(/[^a-zA-Z0-9]/g, '_')}_Memo.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast?.('Memo exported');
+    } catch (e) {
+      console.error(e);
+      showToast?.('Export error — check console');
+    } finally { setExporting(false); }
+  };
+
   const linkedLeads = (leads||[]).filter(l => l.property_id===p.id||l.address===p.address);
   const linkedDeals = (deals||[]).filter(d => d.property_id===p.id||d.address===p.address);
   const linkedContacts = (contacts||[]).filter(c => c.property_id===p.id||c.company===p.owner||c.company===p.tenant);
@@ -142,210 +172,320 @@ export default function PropertyDetail({
     {id:'tasks',label:`Tasks${pendingTasks?` (${pendingTasks})`:''}`},
   ];
 
+
+  const gmapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || '';
+  const heroSrc = gmapsKey && p.address ? `https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(p.address+', '+(p.city||'')+', CA')}&zoom=17&size=1200x400&maptype=satellite&key=${gmapsKey}` : null;
+  const leaseMonths = p.lease_expiration ? Math.max(0, Math.round((new Date(p.lease_expiration) - new Date()) / (30.44*86400000))) : null;
+
   return (
-    <div style={{maxWidth:'1000px'}}>
-      {/* HEADER */}
-      <div className="card" style={{marginBottom:'16px'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+    <div>
+      {editing && <EditPropertyModal property={p} onClose={()=>setEditing(false)} onRefresh={onRefresh} showToast={showToast} />}
+
+      {/* ═══ HERO ═══ */}
+      <div className="prop-hero" style={{ position: 'relative', background: '#1C2E40', minHeight: '220px', overflow: 'hidden' }}>
+        {heroSrc ? (
+          <img src={heroSrc} alt="" style={{ width: '100%', height: '260px', objectFit: 'cover', display: 'block', opacity: 0.85 }} />
+        ) : (
+          <div style={{ height: '220px', background: 'linear-gradient(135deg, #0E1824 0%, #1C2E40 100%)' }} />
+        )}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.15) 60%, transparent 100%)' }} />
+        <div className="hero-address" style={{ position: 'absolute', bottom: '24px', left: '36px', right: '36px' }}>
+          <h1 style={{ fontFamily: "'Playfair Display',serif", fontSize: '34px', fontWeight: 700, color: '#fff', marginBottom: '10px', letterSpacing: '-0.01em', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>{p.address}</h1>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ padding: '4px 12px', borderRadius: '5px', fontSize: '12px', fontWeight: 500, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.85)' }}>{[p.city, p.zip].filter(Boolean).join(' · ')}</span>
+            {p.vacancy_status && <span style={{ padding: '4px 12px', borderRadius: '5px', fontSize: '12px', fontWeight: 500, background: p.vacancy_status === 'Occupied' ? 'rgba(26,122,72,0.3)' : 'rgba(192,60,24,0.3)', border: `1px solid ${p.vacancy_status === 'Occupied' ? 'rgba(26,122,72,0.5)' : 'rgba(192,60,24,0.5)'}`, color: p.vacancy_status === 'Occupied' ? '#6EE0A4' : '#F0906A' }}>{p.vacancy_status}</span>}
+            {(p.catalyst_tags||[]).slice(0,3).map(tag => (
+              <span key={tag} style={{ padding: '4px 12px', borderRadius: '5px', fontSize: '12px', fontWeight: 500, background: 'rgba(184,122,16,0.3)', border: '1px solid rgba(184,122,16,0.5)', color: '#F0C060', cursor: 'pointer' }} onClick={() => onCatalystClick?.(tag)}>{tag}</span>
+            ))}
+            {(p.catalyst_tags||[]).length > 3 && <span style={{ padding: '4px 12px', borderRadius: '5px', fontSize: '12px', fontWeight: 500, background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }}>+{p.catalyst_tags.length - 3}</span>}
+          </div>
+        </div>
+      </div>
+
+      {/* ═══ ACTION BAR ═══ */}
+      <div className="action-bar" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 36px', background: 'var(--card)', borderBottom: '1px solid var(--line)' }}>
+        {p.ai_score != null && (
+          <div className="score-pill" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 18px', background: 'var(--blue-bg)', border: '1px solid var(--blue-bdr)', borderRadius: '10px' }}>
+            <span style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: '14px', fontStyle: 'italic', color: 'var(--ink3)' }}>AI Score</span>
+            <span style={{ fontFamily: "'Playfair Display',serif", fontSize: '28px', fontWeight: 700, color: 'var(--blue)', lineHeight: 1 }}>{p.ai_score}</span>
+            <div style={{ width: '80px', height: '4px', background: 'var(--bg3)', borderRadius: '2px', overflow: 'hidden' }}><div style={{ height: '100%', width: `${Math.min(p.ai_score, 100)}%`, background: 'var(--blue2)', borderRadius: '2px' }} /></div>
+          </div>
+        )}
+        {p.probability != null && (
+          <div className="score-pill" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 18px', background: 'var(--green-bg)', border: '1px solid var(--green-bdr)', borderRadius: '10px' }}>
+            <span style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: '14px', fontStyle: 'italic', color: 'var(--ink3)' }}>Close Prob.</span>
+            <span style={{ fontFamily: "'Playfair Display',serif", fontSize: '28px', fontWeight: 700, color: 'var(--green)', lineHeight: 1 }}>{p.probability}%</span>
+            <div style={{ width: '80px', height: '4px', background: 'var(--bg3)', borderRadius: '2px', overflow: 'hidden' }}><div style={{ height: '100%', width: `${p.probability}%`, background: 'var(--green)', borderRadius: '2px' }} /></div>
+          </div>
+        )}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+          {onAddActivity && <button className="btn" onClick={() => onAddActivity(p.id)}>+ Activity</button>}
+          {onAddTask && <button className="btn" onClick={() => onAddTask(p.id)}>+ Task</button>}
+          <button className="btn" onClick={handleExportMemo} disabled={exporting}>
+            {exporting ? '↻ Exporting...' : '↓ Export Memo'}
+          </button>
+          <button className="btn btn-blue" onClick={() => setEditing(true)}>Edit Property</button>
+        </div>
+      </div>
+
+      {/* ═══ SUB NAV ═══ */}
+      <div className="sub-nav">
+        {tabs.map(tab => (
+          <div key={tab.id} className={`sub-tab ${activeTab === tab.id ? 'active' : ''}`} onClick={() => changeTab(tab.id)}>{tab.label}</div>
+        ))}
+      </div>
+
+      {/* ═══ PAGE GRID ═══ */}
+      {activeTab === 'overview' ? (
+        <div className="page-grid">
           <div>
-            <h2 style={{fontSize:'22px',fontWeight:700,marginBottom:'4px'}}>{p.address}</h2>
-            <div style={{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}}>
-              <span style={{fontSize:'14px',color:'var(--text-muted)'}}>{[p.city,p.submarket,p.zip].filter(Boolean).join(' · ')}</span>
-              {p.prop_type&&<span className="tag tag-ghost" style={{fontSize:'12px'}}>{p.prop_type}</span>}
-              {p.vacancy_status&&<span className={`tag ${p.vacancy_status==='Vacant'?'tag-red':p.vacancy_status==='Partial'?'tag-amber':'tag-blue'}`} style={{fontSize:'12px'}}>{p.vacancy_status}</span>}
-              {p.follow_up_cadence&&<span className="tag tag-blue" style={{fontSize:'11px'}}>🔄 {p.follow_up_cadence}</span>}
-              {p.address&&<a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address+', '+(p.city||'')+', CA')}`} target="_blank" rel="noopener noreferrer" style={{fontSize:'12px',color:'var(--accent)',textDecoration:'none',padding:'2px 8px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg-input)'}}>📍 Maps ↗</a>}
-              {p.onedrive_url&&<a href={p.onedrive_url} target="_blank" rel="noopener noreferrer" style={{fontSize:'12px',color:'var(--accent)',textDecoration:'none',padding:'2px 8px',borderRadius:'4px',border:'1px solid var(--border)',background:'var(--bg-input)'}}>📁 OneDrive ↗</a>}
+            {/* Stats Row */}
+            <div className="stats-row">
+              {[
+                ['Total SF', (p.total_sf||p.building_sf) ? Number(p.total_sf||p.building_sf).toLocaleString() : '—'],
+                ['Acres', p.land_acres || p.total_acres || '—'],
+                ['Clear Height', (p.clear_height||p.max_clear_height) ? `${p.clear_height||p.max_clear_height}'` : '—'],
+                ['Dock Doors', p.dock_doors ?? p.total_dock_doors ?? '—'],
+                ['Buildings', p.building_count || (p.buildings||[]).length || '1'],
+                ['Year Built', p.year_built || '—'],
+              ].map(([label, val]) => (
+                <div key={label} className="stat-cell">
+                  <div className="stat-label">{label}</div>
+                  <div className="stat-val">{val}</div>
+                </div>
+              ))}
             </div>
-          </div>
-          <div style={{display:'flex',gap:'6px',flexShrink:0}}>
-            {onAddActivity&&<button className="btn btn-ghost btn-sm" onClick={()=>onAddActivity(p.id)}>+ Activity</button>}
-            {onAddTask&&<button className="btn btn-ghost btn-sm" onClick={()=>onAddTask(p.id)}>+ Task</button>}
-            <div style={{position:'relative'}}>
-              <button className="btn btn-ghost btn-sm" onClick={()=>{const dd=document.getElementById('prop-cadence-dd');dd.style.display=dd.style.display==='block'?'none':'block';}}>🔄 Cadence</button>
-              <div id="prop-cadence-dd" style={{position:'absolute',right:0,top:'100%',marginTop:'4px',background:'var(--card)',border:'1px solid var(--border)',borderRadius:'8px',padding:'4px',zIndex:10,display:'none',minWidth:'140px',boxShadow:'0 4px 12px rgba(0,0,0,0.2)'}}>
-                {CADENCE_OPTIONS.map(c=><div key={c.label} onClick={async()=>{try{await setCadence('properties',p.id,c.label,c.days);onRefresh?.();showToast?.(`${c.label} follow-up set`);}catch(e){console.error(e);}document.getElementById('prop-cadence-dd').style.display='none';}} style={{padding:'6px 12px',fontSize:'13px',cursor:'pointer',borderRadius:'4px',whiteSpace:'nowrap'}} onMouseEnter={e=>e.currentTarget.style.background='var(--bg-input)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>{c.label}</div>)}
-              </div>
-            </div>
-            <button className="btn btn-ghost btn-sm" style={{color:'var(--purple)',borderColor:'var(--purple)44'}} onClick={handleAutoResearch} disabled={researching}>{researching?'✦ Researching...':'✦ Research'}</button>
-            <button className="btn btn-ghost btn-sm" onClick={()=>setEditing(true)}>Edit</button>
-          </div>
-        </div>
-        {/* CATALYST TAGS — clickable + add/remove + auto-suggest */}
-        <div style={{marginTop:'10px'}}>
-          <div style={{display:'flex',gap:'5px',flexWrap:'wrap',alignItems:'center'}}>
-            {(p.catalyst_tags||[]).map(tag=><span key={tag} className={`tag ${urgBadge(tag)}`} style={{fontSize:'12px',cursor:'pointer',position:'relative'}} onClick={()=>onCatalystClick?.(tag)}>{tag}<span onClick={e=>{e.stopPropagation();removeTag(tag);}} style={{marginLeft:'4px',cursor:'pointer',opacity:0.6,fontSize:'11px'}}>×</span></span>)}
-            <button className="btn btn-ghost btn-sm" style={{fontSize:'11px',padding:'2px 8px'}} onClick={()=>setShowTagPicker(!showTagPicker)}>{showTagPicker?'Done':'+ Tag'}</button>
-            <button className="btn btn-ghost btn-sm" style={{fontSize:'11px',padding:'2px 8px',color:'var(--purple)',borderColor:'var(--purple)44'}} onClick={handleAutoTag} disabled={autoTagLoading}>{autoTagLoading?'✦ Analyzing...':'✦ Auto-Tag'}</button>
-          </div>
-          {showTagPicker&&(<div style={{marginTop:'8px',padding:'10px',background:'var(--bg-input)',borderRadius:'6px',border:'1px solid var(--border)',display:'flex',gap:'4px',flexWrap:'wrap'}}>{CATALYST_TAGS.filter(t=>!(p.catalyst_tags||[]).includes(t)).map(t=><button key={t} onClick={()=>addTag(t)} className={`tag ${urgBadge(t)}`} style={{fontSize:'11px',cursor:'pointer',opacity:0.7,border:'1px dashed var(--border)'}}>{t}</button>)}</div>)}
-        </div>
-        {(p.ai_score!=null||p.probability!=null||avgLR||avgSP)&&(
-          <div style={{display:'flex',gap:'20px',marginTop:'10px',paddingTop:'10px',borderTop:'1px solid var(--border-subtle)',flexWrap:'wrap'}}>
-            {p.ai_score!=null&&<div style={{display:'flex',alignItems:'center',gap:'6px'}}><span style={{fontSize:'12px',color:'var(--text-muted)'}}>AI Score</span><span style={{fontWeight:700,color:'var(--accent)',fontFamily:'var(--font-mono)'}}>{p.ai_score}</span></div>}
-            {p.probability!=null&&<div style={{display:'flex',alignItems:'center',gap:'6px'}}><span style={{fontSize:'12px',color:'var(--text-muted)'}}>Probability</span><span style={{fontWeight:700,color:probColor(p.probability),fontFamily:'var(--font-mono)'}}>{p.probability}%</span></div>}
-            {avgLR&&<div style={{display:'flex',alignItems:'center',gap:'6px'}}><span style={{fontSize:'12px',color:'var(--text-muted)'}}>Avg Lease</span><span style={{fontWeight:700,color:'var(--accent)',fontFamily:'var(--font-mono)'}}>${avgLR}/SF</span></div>}
-            {avgSP&&<div style={{display:'flex',alignItems:'center',gap:'6px'}}><span style={{fontSize:'12px',color:'var(--text-muted)'}}>Avg Sale</span><span style={{fontWeight:700,color:'var(--accent)',fontFamily:'var(--font-mono)'}}>${avgSP}/SF</span></div>}
-          </div>
-        )}
-      </div>
 
-      {/* TIMELINE */}
-      <div className="card" style={{marginBottom:'16px'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
-          <h3 style={{fontSize:'14px',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.05em'}}>Timeline</h3>
-          <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
-            <button className="btn btn-ghost btn-sm" style={{fontSize:'12px',color:'var(--purple)',borderColor:'var(--purple)44'}} onClick={handleSynthesize} disabled={synthLoading}>{synthLoading?'✦ Synthesizing...':'✦ Synthesize'}</button>
-            <button className="btn btn-ghost btn-sm" style={{fontSize:'12px'}} onClick={()=>{closeAll();setShowLogForm(!showLogForm);}}>{showLogForm?'Cancel':'+ Log Call/Email'}</button>
-            <button className="btn btn-ghost btn-sm" style={{fontSize:'12px'}} onClick={()=>{closeAll();setShowNoteForm(!showNoteForm);}}>{showNoteForm?'Cancel':'+ Note'}</button>
-            <button className="btn btn-ghost btn-sm" style={{fontSize:'12px'}} onClick={()=>{closeAll();setShowFuForm(!showFuForm);}}>{showFuForm?'Cancel':'+ Follow-Up'}</button>
-          </div>
-        </div>
-        {synth&&(<div style={{padding:'14px',background:'var(--purple)11',border:'1px solid var(--purple)33',borderRadius:'8px',marginBottom:'14px',fontSize:'14px',lineHeight:1.7,color:'var(--text-primary)',whiteSpace:'pre-wrap'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}><span style={{fontSize:'11px',fontWeight:600,color:'var(--purple)',textTransform:'uppercase'}}>✦ AI Synthesis (Opus)</span>{p.ai_synthesis_at&&<span style={{fontSize:'11px',color:'var(--text-muted)',fontFamily:'var(--font-mono)'}}>{new Date(p.ai_synthesis_at).toLocaleString()}</span>}</div>{synth}</div>)}
-        {showLogForm&&(<div style={{padding:'12px',background:'var(--bg-input)',borderRadius:'6px',marginBottom:'12px',border:'1px solid var(--border)'}}>
-          <div style={{display:'flex',gap:'6px',marginBottom:'8px'}}>{LOG_TYPES.map(t=><button key={t} onClick={()=>setLogType(t)} style={{padding:'3px 10px',borderRadius:'4px',border:'1px solid',fontSize:'12px',cursor:'pointer',borderColor:logType===t?'var(--accent)':'var(--border)',background:logType===t?'var(--accent-soft)':'transparent',color:logType===t?'var(--accent)':'var(--text-muted)'}}>{t==='Call'?'📞 Call':t==='Email'?'✉️ Email':'🤝 Meeting'}</button>)}</div>
-          <input className="input" placeholder="Subject..." value={logSubject} onChange={e=>setLogSubject(e.target.value)} style={{marginBottom:'6px',fontSize:'14px'}} />
-          {linkedContacts.length>0&&<select className="select" value={logContactId} onChange={e=>setLogContactId(e.target.value)} style={{marginBottom:'6px',fontSize:'13px'}}><option value="">Link to contact (optional)</option>{linkedContacts.map(c=><option key={c.id} value={c.id}>{c.name}{c.company?` — ${c.company}`:''}</option>)}</select>}
-          <textarea className="textarea" rows={2} value={logNotes} onChange={e=>setLogNotes(e.target.value)} placeholder="Notes..." style={{marginBottom:'8px',fontSize:'13px'}} />
-          <div style={{display:'flex',gap:'6px',justifyContent:'flex-end'}}><button className="btn btn-ghost btn-sm" onClick={()=>setShowLogForm(false)}>Cancel</button><button className="btn btn-primary btn-sm" onClick={handleLogAct} disabled={savingLog||!logSubject.trim()}>{savingLog?'...':logType}</button></div>
-        </div>)}
-        {showNoteForm&&(<div style={{padding:'12px',background:'var(--bg-input)',borderRadius:'6px',marginBottom:'12px',border:'1px solid var(--border)'}}>
-          <div style={{display:'flex',gap:'6px',marginBottom:'8px',flexWrap:'wrap'}}>{NOTE_TYPES.map(t=><button key={t} onClick={()=>setNoteType(t)} style={{padding:'3px 10px',borderRadius:'4px',border:'1px solid',fontSize:'12px',cursor:'pointer',borderColor:noteType===t?'var(--accent)':'var(--border)',background:noteType===t?'var(--accent-soft)':'transparent',color:noteType===t?'var(--accent)':'var(--text-muted)'}}>{t}</button>)}</div>
-          <textarea className="textarea" rows={3} value={noteText} onChange={e=>setNoteText(e.target.value)} placeholder="Add a note..." style={{marginBottom:'8px',fontSize:'14px'}} />
-          <div style={{display:'flex',gap:'6px',justifyContent:'flex-end'}}><button className="btn btn-ghost btn-sm" onClick={()=>setShowNoteForm(false)}>Cancel</button><button className="btn btn-primary btn-sm" onClick={handleAddNote} disabled={savingNote||!noteText.trim()}>{savingNote?'...':'Save'}</button></div>
-        </div>)}
-        {showFuForm&&(<div style={{padding:'12px',background:'var(--bg-input)',borderRadius:'6px',marginBottom:'12px',border:'1px solid var(--border)'}}>
-          <div style={{display:'flex',gap:'8px',marginBottom:'8px'}}><input className="input" style={{flex:1,fontSize:'14px'}} placeholder="Follow-up reason..." value={fuReason} onChange={e=>setFuReason(e.target.value)} /><input className="input" type="date" style={{width:'160px',fontSize:'14px'}} value={fuDate} onChange={e=>setFuDate(e.target.value)} /></div>
-          <div style={{display:'flex',gap:'6px',justifyContent:'flex-end'}}><button className="btn btn-ghost btn-sm" onClick={()=>setShowFuForm(false)}>Cancel</button><button className="btn btn-primary btn-sm" onClick={handleAddFu} disabled={savingFu||!fuReason.trim()||!fuDate}>{savingFu?'...':'Set'}</button></div>
-        </div>)}
-        {linkedFU.filter(f=>!f.completed).length>0&&(<div style={{marginBottom:'12px'}}>{linkedFU.filter(f=>!f.completed).sort((a,b)=>new Date(a.due_date)-new Date(b.due_date)).map(fu=>{const od=new Date(fu.due_date)<new Date(new Date().toDateString());return(<div key={fu.id} style={{display:'flex',alignItems:'center',gap:'10px',padding:'8px 12px',marginBottom:'4px',borderRadius:'6px',background:od?'var(--red-soft)':'var(--amber-bg)',border:`1px solid ${od?'var(--red)':'var(--amber)'}33`}}><span>{od?'⚠':'🔔'}</span><div style={{flex:1}}><span style={{fontSize:'14px',fontWeight:500,color:od?'var(--red)':'var(--amber)'}}>{fu.reason}</span><span style={{fontSize:'12px',color:'var(--text-muted)',marginLeft:'8px',fontFamily:'var(--font-mono)'}}>{od?'OVERDUE · ':''}{fu.due_date}</span></div><button className="btn btn-ghost btn-sm" style={{fontSize:'11px'}} onClick={()=>handleCompleteFu(fu)}>✓</button></div>);})}</div>)}
-        {timeline.length===0&&!p.notes?(<div style={{padding:'20px 0',textAlign:'center',color:'var(--text-muted)',fontSize:'14px'}}>No activity yet</div>):(
-          <div style={{position:'relative',paddingLeft:'24px'}}>
-            <div style={{position:'absolute',left:'7px',top:'4px',bottom:'4px',width:'2px',background:'var(--border)'}} />
-            {p.notes&&linkedNotes.length===0&&(<div style={{position:'relative',paddingBottom:'14px'}}><div style={{position:'absolute',left:'-24px',top:'3px',width:'16px',height:'16px',borderRadius:'50%',background:'var(--card)',border:'2px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'9px'}}>📝</div><div style={{padding:'10px 12px',background:'var(--bg-input)',borderRadius:'6px'}}><div style={{fontSize:'12px',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:'4px'}}>Notes</div><div style={{fontSize:'14px',color:'var(--text-secondary)',lineHeight:1.6,whiteSpace:'pre-wrap'}}>{p.notes}</div></div></div>)}
-            {timeline.map(item=>(<div key={item.id} style={{position:'relative',paddingBottom:'14px'}}><div style={{position:'absolute',left:'-24px',top:'3px',width:'16px',height:'16px',borderRadius:'50%',background:'var(--card)',border:'2px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'9px'}}>{item.icon}</div><div style={{padding:'10px 12px',background:'var(--bg-input)',borderRadius:'6px'}}><div style={{display:'flex',gap:'8px',alignItems:'center',marginBottom:item.detail?'4px':0,flexWrap:'wrap'}}><span className={`tag ${item.kind==='note'?'tag-purple':'tag-blue'}`} style={{fontSize:'11px'}}>{item.label}</span>{item.subject&&<span style={{fontSize:'14px',fontWeight:500}}>{item.subject}</span>}{item.outcome&&<span className="tag tag-ghost" style={{fontSize:'11px'}}>{item.outcome}</span>}<span style={{fontSize:'12px',color:'var(--text-muted)',marginLeft:'auto',fontFamily:'var(--font-mono)'}}>{fmtAgo(item.date)}</span></div>{item.detail&&<div style={{fontSize:'14px',color:'var(--text-secondary)',lineHeight:1.6,whiteSpace:'pre-wrap'}}>{item.detail}</div>}</div></div>))}
-          </div>
-        )}
-      </div>
-
-      {/* ROLLUP STATS BAR */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:'10px',marginBottom:'16px'}}>
-        {[
-          ['Total SF',p.total_sf||p.building_sf?Number(p.total_sf||p.building_sf).toLocaleString():'—','var(--accent)'],
-          ['Total Acres',p.total_acres||p.land_acres?Number(p.total_acres||p.land_acres).toFixed(2):'—','var(--text-primary)'],
-          ['Max Clear',p.max_clear_height||p.clear_height?(p.max_clear_height||p.clear_height)+"'":'—','var(--text-primary)'],
-          ['Dock Doors',String(p.total_dock_doors??p.dock_doors??0),'var(--text-primary)'],
-          ['Buildings',String(p.building_count||(p.buildings||[]).length||1),'var(--accent)'],
-          ['Parcels',String(p.parcel_count||(p.apns||[]).length||0),'var(--text-primary)'],
-        ].map(([l,v,c])=>(<div key={l} className="card" style={{padding:'10px 14px',textAlign:'center'}}><div style={{fontSize:'11px',color:'var(--text-muted)',textTransform:'uppercase',marginBottom:'2px'}}>{l}</div><div style={{fontSize:'20px',fontWeight:700,color:c,fontFamily:'var(--font-mono)'}}>{v}</div></div>))}
-      </div>
-
-      {/* BUILDINGS + PARCELS + OWNER/TENANT */}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',marginBottom:'16px'}}>
-        <div className="card">
-          <SH title="Buildings" count={(p.buildings||[]).length} onAdd={()=>setShowBldgForm(!showBldgForm)} addLabel={showBldgForm?'Cancel':'+ Building'} />
-          {showBldgForm&&(<div style={{padding:'12px',background:'var(--bg-input)',borderRadius:'6px',marginBottom:'12px',border:'1px solid var(--border)'}}>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',marginBottom:'8px'}}>
-              <input className="input" placeholder="Building name" value={bldgForm.building_name} onChange={e=>setBldgForm(f=>({...f,building_name:e.target.value}))} style={{gridColumn:'1/-1',fontSize:'13px'}} />
-              <input className="input" placeholder="SF *" type="number" value={bldgForm.building_sf} onChange={e=>setBldgForm(f=>({...f,building_sf:e.target.value}))} style={{fontSize:'13px'}} />
-              <input className="input" placeholder="Clear Height" type="number" value={bldgForm.clear_height} onChange={e=>setBldgForm(f=>({...f,clear_height:e.target.value}))} style={{fontSize:'13px'}} />
-              <input className="input" placeholder="Dock Doors" type="number" value={bldgForm.dock_doors} onChange={e=>setBldgForm(f=>({...f,dock_doors:e.target.value}))} style={{fontSize:'13px'}} />
-              <input className="input" placeholder="Grade Doors" type="number" value={bldgForm.grade_doors} onChange={e=>setBldgForm(f=>({...f,grade_doors:e.target.value}))} style={{fontSize:'13px'}} />
-              <input className="input" placeholder="Year Built" type="number" value={bldgForm.year_built} onChange={e=>setBldgForm(f=>({...f,year_built:e.target.value}))} style={{fontSize:'13px'}} />
-              <input className="input" placeholder="Office %" type="number" value={bldgForm.office_pct} onChange={e=>setBldgForm(f=>({...f,office_pct:e.target.value}))} style={{fontSize:'13px'}} />
-            </div>
-            <div style={{display:'flex',justifyContent:'flex-end',gap:'6px'}}>
-              <button className="btn btn-ghost btn-sm" onClick={()=>setShowBldgForm(false)}>Cancel</button>
-              <button className="btn btn-primary btn-sm" onClick={handleAddBldg} disabled={savingBldg||!bldgForm.building_sf}>{savingBldg?'...':'Add'}</button>
-            </div>
-          </div>)}
-          {(p.buildings||[]).length>0?(<div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
-            {(p.buildings||[]).map((b,i)=>(<div key={b.id||i} style={{padding:'10px 12px',background:'var(--bg-input)',borderRadius:'6px',border:'1px solid var(--border-subtle)'}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
-                <span style={{fontSize:'14px',fontWeight:600}}>{b.building_name||`Building ${i+1}`}</span>
-                <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
-                  {b.prop_type&&<span className="tag tag-ghost" style={{fontSize:'11px'}}>{b.prop_type}</span>}
-                  {b.id&&<button onClick={()=>handleRemoveBldg(b)} style={{background:'none',border:'none',cursor:'pointer',color:'var(--text-muted)',fontSize:'14px',padding:'0 2px'}}>×</button>}
+            {/* Timeline */}
+            <div className="timeline-card">
+              <div className="tl-head">
+                <span className="tl-title">Timeline</span>
+                <div className="tl-btns" style={{ display: 'flex', gap: '6px' }}>
+                  <button className="tl-btn accent" onClick={handleSynthesize} disabled={synthLoading}>{synthLoading ? '✦ Synthesizing...' : '✦ Synthesize'}</button>
+                  <button className="tl-btn" onClick={() => { closeAll(); setShowLogForm(!showLogForm); }}>{showLogForm ? 'Cancel' : '+ Log Call'}</button>
+                  <button className="tl-btn" onClick={() => { closeAll(); setShowNoteForm(!showNoteForm); }}>{showNoteForm ? 'Cancel' : '+ Note'}</button>
+                  <button className="tl-btn" onClick={() => { closeAll(); setShowFuForm(!showFuForm); }}>{showFuForm ? 'Cancel' : '+ Follow-Up'}</button>
                 </div>
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'8px',fontSize:'13px'}}>
-                {b.building_sf&&<div><span style={{color:'var(--text-muted)',fontSize:'11px'}}>SF</span><div style={{fontFamily:'var(--font-mono)',fontWeight:600,color:'var(--accent)'}}>{Number(b.building_sf).toLocaleString()}</div></div>}
-                {b.clear_height&&<div><span style={{color:'var(--text-muted)',fontSize:'11px'}}>Clear</span><div style={{fontFamily:'var(--font-mono)'}}>{b.clear_height}'</div></div>}
-                {(b.dock_doors>0||b.grade_doors>0)&&<div><span style={{color:'var(--text-muted)',fontSize:'11px'}}>Doors</span><div style={{fontFamily:'var(--font-mono)'}}>{b.dock_doors||0}D / {b.grade_doors||0}GL</div></div>}
-                {b.year_built&&<div><span style={{color:'var(--text-muted)',fontSize:'11px'}}>Built</span><div style={{fontFamily:'var(--font-mono)'}}>{b.year_built}</div></div>}
-                {b.office_pct&&<div><span style={{color:'var(--text-muted)',fontSize:'11px'}}>Office</span><div style={{fontFamily:'var(--font-mono)'}}>{b.office_pct}%</div></div>}
+
+              {/* Note form */}
+              {showNoteForm && (
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)' }}>
+                  <select className="select" value={noteType} onChange={e => setNoteType(e.target.value)} style={{ marginBottom: '8px', maxWidth: '180px' }}>
+                    {NOTE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  <textarea className="textarea" value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Add note..." rows={3} />
+                  <button className="btn btn-primary" style={{ marginTop: '8px' }} onClick={handleAddNote} disabled={savingNote}>{savingNote ? 'Saving...' : 'Save Note'}</button>
+                </div>
+              )}
+
+              {/* Log form */}
+              {showLogForm && (
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)' }}>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                    {LOG_TYPES.map(t => <button key={t} className={`btn btn-sm ${logType === t ? 'btn-blue' : ''}`} onClick={() => setLogType(t)}>{t}</button>)}
+                  </div>
+                  <input className="input" value={logSubject} onChange={e => setLogSubject(e.target.value)} placeholder="Subject..." style={{ marginBottom: '8px' }} />
+                  <textarea className="textarea" value={logNotes} onChange={e => setLogNotes(e.target.value)} placeholder="Notes (optional)..." rows={2} />
+                  <button className="btn btn-primary" style={{ marginTop: '8px' }} onClick={handleLogAct} disabled={savingLog}>{savingLog ? 'Saving...' : 'Log Activity'}</button>
+                </div>
+              )}
+
+              {/* Follow-up form */}
+              {showFuForm && (
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)' }}>
+                  <input className="input" value={fuReason} onChange={e => setFuReason(e.target.value)} placeholder="Follow-up reason..." style={{ marginBottom: '8px' }} />
+                  <input className="input" type="date" value={fuDate} onChange={e => setFuDate(e.target.value)} style={{ marginBottom: '8px', maxWidth: '200px' }} />
+                  <button className="btn btn-primary" onClick={handleAddFu} disabled={savingFu}>{savingFu ? 'Saving...' : 'Set Follow-Up'}</button>
+                </div>
+              )}
+
+              {/* AI Synthesis */}
+              {synth && (
+                <div style={{ padding: '16px 20px', background: 'var(--purple-bg)', borderBottom: '1px solid rgba(96,64,168,0.2)' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--purple)', textTransform: 'uppercase', marginBottom: '6px' }}>✦ AI Synthesis</div>
+                  <div style={{ fontSize: '14px', lineHeight: 1.7, color: 'var(--ink2)', whiteSpace: 'pre-wrap' }}>{synth}</div>
+                </div>
+              )}
+
+              {/* Follow-ups */}
+              {linkedFU.filter(f => !f.completed).map(fu => {
+                const od = new Date(fu.due_date) < new Date(new Date().toDateString());
+                return (
+                  <div key={fu.id} style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid var(--line2)' }}>
+                    <span>{od ? '⚠' : '🔔'}</span>
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontSize: '14px', fontWeight: 500, color: od ? 'var(--rust)' : 'var(--amber)' }}>{fu.reason}</span>
+                      <span style={{ fontSize: '12px', color: 'var(--ink4)', marginLeft: '8px', fontFamily: "'DM Mono',monospace" }}>{od ? 'OVERDUE · ' : ''}{fu.due_date}</span>
+                    </div>
+                    <button className="btn btn-sm" onClick={() => handleCompleteFu(fu)}>✓</button>
+                  </div>
+                );
+              })}
+
+              {/* Timeline entries */}
+              {timeline.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--ink4)', fontSize: '13px' }}>No activity yet</div>
+              ) : timeline.slice(0, 20).map(e => (
+                <div key={`${e.kind}-${e.id}`} className="tl-entry">
+                  <div className={e.kind === 'note' && e.pinned ? 'tl-dot' : 'tl-dot'} style={e.kind === 'activity' ? { background: 'var(--amber)', boxShadow: '0 0 0 3px rgba(184,122,16,0.08)' } : {}} />
+                  <div>
+                    <div className="entry-date">{e.date ? new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase() : ''}</div>
+                    <div className="entry-text">{e.subject && <strong>{e.subject}. </strong>}{e.detail || ''}{e.outcome && <span style={{ color: 'var(--green)' }}> → {e.outcome}</span>}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Buildings */}
+            <div className="sec-head">Buildings <span style={{ fontSize: '11px', color: 'var(--ink4)', fontWeight: 400, letterSpacing: 0, textTransform: 'none' }}>({(p.buildings||[]).length || 1})</span></div>
+            {(p.buildings && p.buildings.length > 0) ? p.buildings.map(b => (
+              <div key={b.id} className="bld-card">
+                <div className="bld-name">{b.building_name || 'Building'} — {b.prop_type || p.prop_type || 'Industrial'}</div>
+                <div className="bld-stats">
+                  <div><div className="bld-stat-label">Square Feet</div><div className="bld-stat-val">{b.building_sf ? Number(b.building_sf).toLocaleString() : '—'}</div></div>
+                  <div><div className="bld-stat-label">Clear Height</div><div className="bld-stat-val">{b.clear_height ? `${b.clear_height}'` : '—'}</div></div>
+                  <div><div className="bld-stat-label">Dock / GL</div><div className="bld-stat-val">{b.dock_doors || 0}D · {b.grade_doors || 0}GL</div></div>
+                  <div><div className="bld-stat-label">Year Built</div><div className="bld-stat-val">{b.year_built || '—'}</div></div>
+                </div>
+                <button onClick={() => handleRemoveBldg(b)} style={{ marginTop: '8px', background: 'none', border: 'none', color: 'var(--ink4)', fontSize: '11px', cursor: 'pointer' }}>Remove</button>
               </div>
-            </div>))}
-          </div>):!showBldgForm&&<div style={{fontSize:'13px',color:'var(--text-muted)'}}>No buildings — add one above</div>}
+            )) : (
+              <div className="bld-card">
+                <div className="bld-name">Building 1 — {p.prop_type || 'Industrial'}</div>
+                <div className="bld-stats">
+                  <div><div className="bld-stat-label">Square Feet</div><div className="bld-stat-val">{p.building_sf ? Number(p.building_sf).toLocaleString() : '—'}</div></div>
+                  <div><div className="bld-stat-label">Clear Height</div><div className="bld-stat-val">{p.clear_height ? `${p.clear_height}'` : '—'}</div></div>
+                  <div><div className="bld-stat-label">Dock / GL</div><div className="bld-stat-val">{p.dock_doors || 0}D · {p.grade_doors || 0}GL</div></div>
+                  <div><div className="bld-stat-label">Year Built</div><div className="bld-stat-val">{p.year_built || '—'}</div></div>
+                </div>
+              </div>
+            )}
+            <button className="btn btn-sm" style={{ marginBottom: '20px' }} onClick={() => setShowBldgForm(!showBldgForm)}>{showBldgForm ? 'Cancel' : '+ Building'}</button>
+            {showBldgForm && (
+              <div style={{ padding: '14px', background: 'var(--bg)', borderRadius: '10px', marginBottom: '20px', border: '1px solid var(--line)' }}>
+                <div className="form-row">
+                  <div className="form-group"><label className="form-label">Name</label><input className="input" value={bldgForm.building_name} onChange={e => setBldgForm({...bldgForm, building_name: e.target.value})} /></div>
+                  <div className="form-group"><label className="form-label">SF</label><input className="input" type="number" value={bldgForm.building_sf} onChange={e => setBldgForm({...bldgForm, building_sf: e.target.value})} /></div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group"><label className="form-label">Clear Height</label><input className="input" type="number" value={bldgForm.clear_height} onChange={e => setBldgForm({...bldgForm, clear_height: e.target.value})} /></div>
+                  <div className="form-group"><label className="form-label">Dock Doors</label><input className="input" type="number" value={bldgForm.dock_doors} onChange={e => setBldgForm({...bldgForm, dock_doors: e.target.value})} /></div>
+                </div>
+                <button className="btn btn-primary" onClick={handleAddBldg} disabled={savingBldg}>{savingBldg ? 'Saving...' : 'Add Building'}</button>
+              </div>
+            )}
 
-          {/* APNs section below buildings */}
-          <div style={{marginTop:'14px',paddingTop:'14px',borderTop:'1px solid var(--border-subtle)'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
-              <div style={{fontSize:'11px',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',color:'var(--text-muted)'}}>APNs {p.apns?.length>0&&<span style={{fontFamily:'var(--font-mono)'}}>({p.apns.length})</span>}</div>
-              <button className="btn btn-ghost btn-sm" style={{fontSize:'11px'}} onClick={()=>setShowApnForm(!showApnForm)}>{showApnForm?'Cancel':'+ APN'}</button>
+            {/* APNs */}
+            <div className="sec-head">Parcels / APNs</div>
+            {(p.apns||[]).length > 0 ? (p.apns||[]).map(a => (
+              <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: '1px solid var(--line3)' }}>
+                <span style={{ fontFamily: "'DM Mono',monospace", fontSize: '13px', color: 'var(--ink2)' }}>{a.apn}</span>
+                {a.acres && <span style={{ fontSize: '12px', color: 'var(--ink4)' }}>{a.acres} ac</span>}
+                <button onClick={() => handleRemoveApn(a)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--ink4)', fontSize: '11px', cursor: 'pointer' }}>×</button>
+              </div>
+            )) : <div style={{ fontSize: '13px', color: 'var(--ink4)', marginBottom: '8px' }}>No APNs</div>}
+            <button className="btn btn-sm" style={{ marginTop: '6px', marginBottom: '20px' }} onClick={() => setShowApnForm(!showApnForm)}>{showApnForm ? 'Cancel' : '+ APN'}</button>
+            {showApnForm && (
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                <input className="input" value={newApn} onChange={e => setNewApn(e.target.value)} placeholder="APN..." style={{ maxWidth: '180px' }} />
+                <input className="input" type="number" value={newApnAcres} onChange={e => setNewApnAcres(e.target.value)} placeholder="Acres" style={{ maxWidth: '100px' }} />
+                <button className="btn btn-primary btn-sm" onClick={handleAddApn} disabled={savingApn}>{savingApn ? '...' : 'Add'}</button>
+              </div>
+            )}
+          </div>
+
+          {/* ═══ RIGHT COLUMN ═══ */}
+          <div className="right-col">
+            {/* Aerial with parcel overlay */}
+            {p.address && (
+              <div style={{ marginBottom: '14px' }}>
+                <AerialThumbnail address={p.address} city={p.city} apns={p.apns} height={220} />
+              </div>
+            )}
+
+            {/* Owner & Tenant */}
+            <div className="info-card">
+              <div className="info-card-head">Owner & Tenant</div>
+              <div className="info-grid">
+                <div className="info-cell"><div className="i-label">Owner</div><div className="i-val">{p.owner || '—'}</div></div>
+                <div className="info-cell"><div className="i-label">Type</div><div className="i-val">{p.owner_type || '—'}</div></div>
+                <div className="info-cell"><div className="i-label">Tenant</div><div className="i-val">{p.tenant || '—'}</div></div>
+                <div className="info-cell"><div className="i-label">Vacancy</div><div className={`i-val ${p.vacancy_status === 'Occupied' ? 'success' : p.vacancy_status === 'Vacant' ? 'danger' : ''}`}>{p.vacancy_status || '—'}</div></div>
+              </div>
+              {p.lease_expiration && (
+                <div style={{ padding: '14px 16px', borderTop: '1px solid var(--line2)' }}>
+                  <div className="i-label">Lease Expiration</div>
+                  <div className="lease-val">{new Date(p.lease_expiration).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' }).replace(/\//g, ' / ')}</div>
+                  {leaseMonths != null && <div className="lease-note">← {leaseMonths} months remaining</div>}
+                </div>
+              )}
             </div>
-            {showApnForm&&(<div style={{display:'flex',gap:'6px',marginBottom:'8px',alignItems:'center'}}><input className="input" placeholder="XXXX-XXX-XXX" value={newApn} onChange={e=>setNewApn(e.target.value)} style={{flex:2,fontSize:'13px'}} /><input className="input" placeholder="Acres" type="number" step="0.01" value={newApnAcres} onChange={e=>setNewApnAcres(e.target.value)} style={{flex:1,fontSize:'13px'}} /><button className="btn btn-primary btn-sm" style={{fontSize:'11px',flexShrink:0}} onClick={handleAddApn} disabled={savingApn||!newApn.trim()}>{savingApn?'...':'Add'}</button></div>)}
-            {p.apns?.length>0?(<div style={{display:'flex',flexDirection:'column',gap:'4px'}}>{p.apns.map((a,i)=>(<div key={a.id||i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'4px 8px',background:'var(--bg-input)',borderRadius:'4px'}}><span style={{fontFamily:'var(--font-mono)',fontSize:'13px'}}>{a.apn}</span><div style={{display:'flex',gap:'8px',alignItems:'center'}}>{a.acres&&<span style={{fontSize:'12px',color:'var(--text-muted)'}}>{a.acres} ac</span>}{a.id&&<button onClick={()=>handleRemoveApn(a)} style={{background:'none',border:'none',cursor:'pointer',color:'var(--text-muted)',fontSize:'13px',padding:'0 2px'}}>×</button>}</div></div>))}</div>):!showApnForm&&<div style={{fontSize:'13px',color:'var(--text-muted)'}}>No APNs</div>}
+
+            {/* AI Opportunity Signal */}
+            {synth && (
+              <div className="opp-card">
+                <div className="opp-head">✦ AI Opportunity Signal</div>
+                <div className="opp-body">{synth.split('\n')[0]}</div>
+              </div>
+            )}
+
+            {/* Property Details */}
+            <div className="info-card">
+              <div className="info-card-head">Property Details</div>
+              <div className="info-grid">
+                <div className="info-cell"><div className="i-label">Market</div><div className="i-val">{p.market || '—'}</div></div>
+                <div className="info-cell"><div className="i-label">Submarket</div><div className="i-val">{p.submarket || p.city || '—'}</div></div>
+                <div className="info-cell"><div className="i-label">Type</div><div className="i-val">{p.prop_type || '—'}</div></div>
+                <div className="info-cell"><div className="i-label">Zoning</div><div className="i-val">{p.zoning || '—'}</div></div>
+                <div className="info-cell"><div className="i-label">APN</div><div className="i-val">{(p.apns||[]).length > 0 ? p.apns[0].apn : '—'}</div></div>
+                <div className="info-cell"><div className="i-label">Land SF</div><div className="i-val">{p.land_sf ? Number(p.land_sf).toLocaleString() : '—'}</div></div>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '14px' }}>
+              <button className="btn" style={{ width: '100%', justifyContent: 'center' }} onClick={handleAutoResearch} disabled={researching}>{researching ? '✦ Researching...' : '✦ Auto-Research'}</button>
+              <button className="btn" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setShowTagPicker(!showTagPicker)}>{showTagPicker ? 'Done Adding Tags' : '+ Add Catalyst Tag'}</button>
+              <button className="btn" style={{ width: '100%', justifyContent: 'center' }} onClick={handleAutoTag} disabled={autoTagLoading}>{autoTagLoading ? '✦ Analyzing...' : '✦ AI Auto-Tag'}</button>
+              {p.address && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address+', '+(p.city||'')+', CA')}`} target="_blank" rel="noopener noreferrer" className="btn" style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}>📍 Google Maps</a>}
+            </div>
+
+            {/* Tag picker */}
+            {showTagPicker && (
+              <div style={{ marginTop: '10px', padding: '12px', background: 'var(--bg)', borderRadius: '10px', border: '1px solid var(--line)', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                {CATALYST_TAGS.filter(t => !(p.catalyst_tags||[]).includes(t)).map(t => (
+                  <button key={t} onClick={() => addTag(t)} className={`tag ${urgBadge(t)}`} style={{ cursor: 'pointer', opacity: 0.7, border: '1px dashed var(--line)' }}>{t}</button>
+                ))}
+              </div>
+            )}
+
+            {/* Cadence */}
+            <div style={{ marginTop: '14px' }}>
+              <div className="i-label" style={{ marginBottom: '6px' }}>Follow-Up Cadence</div>
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                {CADENCE_OPTIONS.map(c => (
+                  <button key={c.label} className={`btn btn-sm ${p.follow_up_cadence === c.label ? 'btn-blue' : ''}`}
+                    onClick={async () => { try { await setCadence('properties', p.id, c.label, c.days); onRefresh?.(); showToast?.(`${c.label} set`); } catch(e) { console.error(e); } }}>
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
-        <div className="card">
-          <SH title="Owner & Tenant" />
-          <div style={{marginBottom:'16px'}}>
-            <div style={{fontSize:'12px',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:'8px',paddingBottom:'4px',borderBottom:'1px solid var(--border-subtle)'}}>Owner</div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
-              <Field label="Owner" value={p.owner} /><Field label="Owner Type" value={p.owner_type} />
-              <Field label="Last Transfer" value={p.last_transfer_date?fmt.date(p.last_transfer_date):null} mono />
-              <Field label="Last Sale" value={p.last_sale_price?fmt.price(p.last_sale_price):null} mono accent />
-              <Field label="$/SF" value={p.price_psf?'$'+Number(p.price_psf).toLocaleString()+'/SF':null} mono />
-            </div>
-          </div>
-          <div>
-            <div style={{fontSize:'12px',fontWeight:600,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:'8px',paddingBottom:'4px',borderBottom:'1px solid var(--border-subtle)'}}>Tenant</div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
-              <Field label="Tenant" value={p.tenant} /><Field label="Vacancy" value={p.vacancy_status} />
-              <Field label="Lease Type" value={p.lease_type} />
-              <Field label="In-Place Rent" value={p.in_place_rent?'$'+Number(p.in_place_rent).toFixed(2)+'/SF/Mo':null} mono accent />
-              <Field label="Market Rent" value={p.market_rent?'$'+Number(p.market_rent).toFixed(2)+'/SF/Mo':null} mono />
-              <Field label="Lease Exp." value={p.lease_expiration?fmt.date(p.lease_expiration):null} mono />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* AERIAL + QUICK INFO */}
-      {p.address && (
-        <div style={{display:'grid',gridTemplateColumns:'380px 1fr',gap:'16px',marginBottom:'16px'}}>
-          <AerialThumbnail address={p.address} city={p.city} size="600x400" zoom={17} />
-          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'16px',alignContent:'start',padding:'4px 0'}}>
-            {[['Total SF',(p.total_sf||p.building_sf)?Number(p.total_sf||p.building_sf).toLocaleString():'—'],['Acres',p.land_acres||p.total_acres||'—'],['Clear Height',p.clear_height||p.max_clear_height?`${p.clear_height||p.max_clear_height}'`:'—'],['Dock Doors',p.dock_doors??p.total_dock_doors??'—'],['Year Built',p.year_built||'—'],['Buildings',p.building_count||'1']].map(([label,val])=>(
-              <div key={label}><div style={{fontSize:'11px',fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase',color:'var(--ink3)',marginBottom:'6px'}}>{label}</div><div style={{fontFamily:"'Playfair Display',serif",fontSize:'26px',fontWeight:700,color:'var(--ink)',lineHeight:1,letterSpacing:'-0.01em'}}>{val}</div></div>
-            ))}
-          </div>
+      ) : (
+        /* ═══ TAB CONTENT (non-overview) ═══ */
+        <div style={{ padding: '28px 36px' }}>
+          {activeTab==='leads'&&(()=>{const rows=sortFilter(linkedLeads,['lead_name','address','decision_maker','tier','stage']);return(<div><SH title="Linked Leads — Signal Stack" count={linkedLeads.length} /><FB ph="Filter leads..." />{rows.length===0?<div style={{fontSize:'13px',color:'var(--ink4)',padding:'16px 0'}}>No leads linked to this property</div>:<div className="table-container"><table><thead><tr><Th field="lead_name">Lead</Th><Th field="stage">Stage</Th><Th field="tier">Tier</Th><Th field="score" align="right">Score</Th><th>Catalysts</th><Th field="next_action">Next Action</Th></tr></thead><tbody>{rows.map(l=>(<tr key={l.id} onClick={()=>onLeadClick?.(l)} style={{cursor:'pointer',opacity:l.stage==='Converted'?0.7:l.stage==='Dead'?0.4:1}}><td style={{fontWeight:500}}>{l.lead_name}</td><td><span className="badge" style={{background:(LEAD_STAGE_COLORS?.[l.stage]||'var(--ink3)')+'14',borderColor:(LEAD_STAGE_COLORS?.[l.stage]||'var(--ink3)')+'44',color:LEAD_STAGE_COLORS?.[l.stage]||'var(--ink3)'}}>{l.stage}</span></td><td>{l.tier&&<span style={{fontWeight:700,color:{'A+':'var(--green)',A:'var(--blue)',B:'var(--amber)',C:'var(--ink3)'}[l.tier]||'var(--ink3)'}}>{l.tier}</span>}</td><td style={{textAlign:'right',fontFamily:"'DM Mono',monospace",color:'var(--blue)'}}>{l.score??'—'}</td><td><div style={{display:'flex',gap:'3px',flexWrap:'wrap'}}>{(l.catalyst_tags||[]).slice(0,3).map(t=><span key={t} className="tag" style={{fontSize:'9px',padding:'1px 5px'}}>{t}</span>)}</div></td><td style={{color:'var(--amber)'}}>{l.next_action||'—'}</td></tr>))}</tbody></table></div>}</div>);})()}
+          {activeTab==='deals'&&(()=>{const rows=sortFilter(linkedDeals,['deal_name','deal_type','buyer','seller','stage']);return(<div><SH title="Deals" count={linkedDeals.length} /><FB ph="Filter deals..." />{rows.length===0?<div style={{fontSize:'13px',color:'var(--ink4)',padding:'16px 0'}}>None</div>:<div className="table-container"><table><thead><tr><Th field="deal_name">Deal</Th><Th field="stage">Stage</Th><Th field="deal_value" align="right">Value</Th><Th field="commission_est" align="right">Comm</Th></tr></thead><tbody>{rows.map(d=>(<tr key={d.id} onClick={()=>onDealClick?.(d)} style={{cursor:'pointer'}}><td style={{fontWeight:500}}>{d.deal_name}</td><td><span className="badge" style={{background:(STAGE_COLORS?.[d.stage]||'var(--ink3)')+'14',borderColor:(STAGE_COLORS?.[d.stage]||'var(--ink3)')+'44',color:STAGE_COLORS?.[d.stage]||'var(--ink3)'}}>{d.stage}</span></td><td style={{textAlign:'right',fontFamily:"'DM Mono',monospace",color:'var(--blue)',fontWeight:600}}>{d.deal_value?fmt.price(d.deal_value):'—'}</td><td style={{textAlign:'right',fontFamily:"'DM Mono',monospace",color:'var(--green)'}}>{d.commission_est?fmt.price(d.commission_est):'—'}</td></tr>))}</tbody></table></div>}</div>);})()}
+          {activeTab==='contacts'&&(()=>{const rows=sortFilter(linkedContacts,['name','company','title','contact_type','phone']);return(<div><SH title="Contacts" count={linkedContacts.length} /><FB ph="Filter contacts..." />{rows.length===0?<div style={{fontSize:'13px',color:'var(--ink4)',padding:'16px 0'}}>None</div>:<div className="table-container"><table><thead><tr><Th field="name">Name</Th><Th field="company">Company</Th><Th field="contact_type">Type</Th><Th field="phone">Phone</Th></tr></thead><tbody>{rows.map(c=>(<tr key={c.id} onClick={()=>onContactClick?.(c)} style={{cursor:'pointer'}}><td style={{fontWeight:500}}>{c.name}</td><td>{c.company||'—'}</td><td>{c.contact_type&&<span className="tag tag-blue">{c.contact_type}</span>}</td><td style={{fontFamily:"'DM Mono',monospace"}}>{c.phone||'—'}</td></tr>))}</tbody></table></div>}</div>);})()}
+          {activeTab==='comps'&&(()=>{const lr=sortFilter(displayLC,['address','tenant','lease_type']);const sr=sortFilter(displaySC,['address','buyer','sale_type']);return(<div><SH title="Lease Comps" count={displayLC.length} />{lr.length===0?<div style={{fontSize:'13px',color:'var(--ink4)'}}>None</div>:<div className="table-container"><table><thead><tr><Th field="address">Address</Th><Th field="tenant">Tenant</Th><Th field="rsf" align="right">SF</Th><Th field="rate" align="right">Rate</Th><Th field="lease_type">Type</Th></tr></thead><tbody>{lr.map(c=>(<tr key={c.id} onClick={()=>onLeaseCompClick?.(c)} style={{cursor:'pointer'}}><td style={{fontWeight:500}}>{c.address}</td><td>{c.tenant||'—'}</td><td style={{textAlign:'right',fontFamily:"'DM Mono',monospace"}}>{c.rsf?c.rsf.toLocaleString():'—'}</td><td style={{textAlign:'right',fontFamily:"'DM Mono',monospace",color:'var(--blue)',fontWeight:600}}>${c.rate}/SF</td><td>{c.lease_type||'—'}</td></tr>))}</tbody></table></div>}<div style={{marginTop:'24px'}}><SH title="Sale Comps" count={displaySC.length} /></div>{sr.length===0?<div style={{fontSize:'13px',color:'var(--ink4)'}}>None</div>:<div className="table-container"><table><thead><tr><Th field="address">Address</Th><Th field="building_sf" align="right">SF</Th><Th field="sale_price" align="right">Price</Th><Th field="price_psf" align="right">$/SF</Th><Th field="cap_rate" align="right">Cap</Th></tr></thead><tbody>{sr.map(c=>(<tr key={c.id}><td style={{fontWeight:500}}>{c.address}</td><td style={{textAlign:'right',fontFamily:"'DM Mono',monospace"}}>{c.building_sf?c.building_sf.toLocaleString():'—'}</td><td style={{textAlign:'right',fontFamily:"'DM Mono',monospace"}}>{c.sale_price?fmt.price(c.sale_price):'—'}</td><td style={{textAlign:'right',fontFamily:"'DM Mono',monospace",color:'var(--blue)',fontWeight:600}}>{c.price_psf?'$'+Math.round(c.price_psf):'—'}</td><td style={{textAlign:'right',fontFamily:"'DM Mono',monospace"}}>{c.cap_rate?parseFloat(c.cap_rate).toFixed(2)+'%':'—'}</td></tr>))}</tbody></table></div>}</div>);})()}
+          {activeTab==='buyers'&&<BuyerMatching property={p} accounts={accounts||[]} onAccountClick={onAccountClick} />}
+          {activeTab==='files'&&<FilesLinks record={p} table="properties" onRefresh={onRefresh} showToast={showToast} />}
+          {activeTab==='tasks'&&(()=>{const rows=sortFilter(linkedTasks,['title','priority','due_date']);return(<div><SH title="Tasks" count={pendingTasks} onAdd={()=>onAddTask?.(p.id)} addLabel="+ Task" /><FB ph="Filter tasks..." />{rows.length===0?<div style={{fontSize:'13px',color:'var(--ink4)',padding:'16px 0'}}>None</div>:<div className="table-container"><table><thead><tr><Th field="title">Task</Th><Th field="priority">Priority</Th><Th field="due_date">Due</Th></tr></thead><tbody>{rows.map(t=>{const pc={High:'var(--rust)',Medium:'var(--amber)',Low:'var(--ink3)'}[t.priority]||'var(--ink3)';const od=!t.completed&&t.due_date&&new Date(t.due_date)<new Date();return(<tr key={t.id} style={{opacity:t.completed?0.6:1}}><td style={{fontWeight:500,textDecoration:t.completed?'line-through':'none'}}>{t.title}</td><td><span className="badge" style={{background:pc+'14',borderColor:pc+'44',color:pc}}>{t.priority}</span></td><td style={{fontFamily:"'DM Mono',monospace",color:od?'var(--rust)':'var(--ink4)'}}>{od?'OVERDUE · ':''}{t.due_date||'—'}</td></tr>);})}</tbody></table></div>}</div>);})()}
         </div>
       )}
-
-      {/* TABS */}
-      <div style={{display:'flex',gap:'2px',borderBottom:'1px solid var(--border)',marginBottom:'16px',overflowX:'auto'}}>
-        {tabs.map(tab=><button key={tab.id} onClick={()=>changeTab(tab.id)} style={{padding:'8px 16px',border:'none',cursor:'pointer',fontSize:'14px',fontWeight:500,whiteSpace:'nowrap',background:'transparent',color:activeTab===tab.id?'var(--accent)':'var(--text-muted)',borderBottom:activeTab===tab.id?'2px solid var(--accent)':'2px solid transparent',transition:'all 0.15s'}}>{tab.label}</button>)}
-      </div>
-
-      {activeTab==='overview'&&(<div className="card"><SH title="Linked Records" /><div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:'12px'}}>{[['Leads',linkedLeads.length,'leads','var(--purple)'],['Deals',linkedDeals.length,'deals','var(--amber)'],['Contacts',linkedContacts.length,'contacts','var(--blue)'],['Lease',displayLC.length,'comps','var(--green)'],['Sale',displaySC.length,'comps','var(--green)'],['Tasks',pendingTasks,'tasks','var(--rust)']].map(([l,c,t,col])=>(<div key={l} onClick={()=>changeTab(t)} style={{padding:'12px',background:'var(--bg-input)',borderRadius:'6px',cursor:'pointer',textAlign:'center',border:'1px solid transparent',transition:'border-color 0.15s'}} onMouseEnter={e=>e.currentTarget.style.borderColor=col} onMouseLeave={e=>e.currentTarget.style.borderColor='transparent'}><div style={{fontSize:'22px',fontWeight:700,color:c>0?col:'var(--text-muted)'}}>{c}</div><div style={{fontSize:'13px',color:'var(--text-muted)'}}>{l}</div></div>))}</div></div>)}
-
-      {activeTab==='leads'&&(()=>{const rows=sortFilter(linkedLeads,['lead_name','address','decision_maker','tier','stage']);return(<div className="card"><SH title="Linked Leads — Signal Stack" count={linkedLeads.length} /><FB ph="Filter leads..." />{rows.length===0?<div style={{fontSize:'14px',color:'var(--text-muted)',padding:'16px 0'}}>No leads linked to this property</div>:<div className="table-container" style={{overflowX:'auto'}}><table><thead><tr><Th field="lead_name">Lead</Th><Th field="stage">Stage</Th><Th field="tier">Tier</Th><Th field="score" align="right">Score</Th><th style={{fontSize:'12px',color:'var(--text-muted)',padding:'6px 10px'}}>Catalysts</th><Th field="next_action">Next Action</Th></tr></thead><tbody>{rows.map(l=>(<tr key={l.id} onClick={()=>onLeadClick?.(l)} style={{cursor:'pointer',opacity:l.stage==='Converted'?0.7:l.stage==='Dead'?0.4:1}}><td style={{fontWeight:500,fontSize:'14px'}}>{l.lead_name}</td><td><span style={{fontSize:'12px',padding:'2px 7px',borderRadius:'4px',background:(LEAD_STAGE_COLORS?.[l.stage]||'var(--ink3)')+'22',color:LEAD_STAGE_COLORS?.[l.stage]||'var(--ink3)',fontWeight:600}}>{l.stage}</span></td><td>{l.tier&&<span style={{fontWeight:700,color:{'A+':'var(--green)',A:'var(--blue)',B:'var(--amber)',C:'var(--ink3)'}[l.tier]||'var(--ink3)'}}>{l.tier}</span>}</td><td style={{textAlign:'right',fontFamily:'var(--font-mono)',fontSize:'13px',color:'var(--accent)'}}>{l.score??'—'}</td><td style={{maxWidth:'200px'}}><div style={{display:'flex',gap:'3px',flexWrap:'wrap'}}>{(l.catalyst_tags||[]).slice(0,3).map(t=><span key={t} className="tag" style={{fontSize:'8px',padding:'1px 5px'}}>{t}</span>)}{(l.catalyst_tags||[]).length>3&&<span style={{fontSize:'9px',color:'var(--text-muted)'}}>+{(l.catalyst_tags||[]).length-3}</span>}</div></td><td style={{fontSize:'13px',color:'var(--amber)'}}>{l.next_action||'—'}</td></tr>))}</tbody></table></div>}</div>);})()}
-
-      {activeTab==='deals'&&(()=>{const rows=sortFilter(linkedDeals,['deal_name','deal_type','buyer','seller','stage']);return(<div className="card"><SH title="Deals" count={linkedDeals.length} /><FB ph="Filter deals..." />{rows.length===0?<div style={{fontSize:'14px',color:'var(--text-muted)',padding:'16px 0'}}>None</div>:<div className="table-container" style={{overflowX:'auto'}}><table><thead><tr><Th field="deal_name">Deal</Th><Th field="stage">Stage</Th><Th field="deal_value" align="right">Value</Th><Th field="commission_est" align="right">Comm</Th></tr></thead><tbody>{rows.map(d=>(<tr key={d.id} onClick={()=>onDealClick?.(d)} style={{cursor:'pointer'}}><td style={{fontWeight:500,fontSize:'14px'}}>{d.deal_name}</td><td><span style={{fontSize:'12px',padding:'2px 7px',borderRadius:'4px',background:(STAGE_COLORS?.[d.stage]||'var(--ink3)')+'22',color:STAGE_COLORS?.[d.stage]||'var(--ink3)',fontWeight:600}}>{d.stage}</span></td><td style={{textAlign:'right',fontFamily:'var(--font-mono)',fontSize:'13px',color:'var(--accent)',fontWeight:600}}>{d.deal_value?fmt.price(d.deal_value):'—'}</td><td style={{textAlign:'right',fontFamily:'var(--font-mono)',fontSize:'13px',color:'var(--green)'}}>{d.commission_est?fmt.price(d.commission_est):'—'}</td></tr>))}</tbody></table></div>}</div>);})()}
-
-      {activeTab==='contacts'&&(()=>{const rows=sortFilter(linkedContacts,['name','company','title','contact_type','phone']);return(<div className="card"><SH title="Contacts" count={linkedContacts.length} /><FB ph="Filter contacts..." />{rows.length===0?<div style={{fontSize:'14px',color:'var(--text-muted)',padding:'16px 0'}}>None</div>:<div className="table-container" style={{overflowX:'auto'}}><table><thead><tr><Th field="name">Name</Th><Th field="company">Company</Th><Th field="contact_type">Type</Th><Th field="phone">Phone</Th></tr></thead><tbody>{rows.map(c=>(<tr key={c.id} onClick={()=>onContactClick?.(c)} style={{cursor:'pointer'}}><td style={{fontWeight:500,fontSize:'14px'}}>{c.name}</td><td style={{fontSize:'13px'}}>{c.company||'—'}</td><td>{c.contact_type&&<span className="tag tag-blue" style={{fontSize:'11px'}}>{c.contact_type}</span>}</td><td style={{fontFamily:'var(--font-mono)',fontSize:'13px'}}>{c.phone||'—'}</td></tr>))}</tbody></table></div>}</div>);})()}
-
-      {activeTab==='comps'&&(()=>{const lr=sortFilter(displayLC,['address','tenant','lease_type']);const sr=sortFilter(displaySC,['address','buyer','sale_type']);return(<div style={{display:'flex',flexDirection:'column',gap:'16px'}}><div className="card"><SH title="Lease Comps" count={displayLC.length} /><FB ph="Filter..." />{lr.length===0?<div style={{fontSize:'14px',color:'var(--text-muted)'}}>None</div>:<div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse'}}><thead><tr><Th field="address">Address</Th><Th field="tenant">Tenant</Th><Th field="rsf" align="right">SF</Th><Th field="rate" align="right">Rate</Th><Th field="lease_type">Type</Th><Th field="term_months" align="right">Term</Th></tr></thead><tbody>{lr.map(c=>(<tr key={c.id} onClick={()=>onLeaseCompClick?.(c)} style={{borderBottom:'1px solid var(--border-subtle)',cursor:'pointer'}}><td style={{padding:'8px 10px',fontSize:'14px',fontWeight:500}}>{c.address}</td><td style={{padding:'8px 10px',fontSize:'13px',color:'var(--text-muted)'}}>{c.tenant||'—'}</td><td style={{padding:'8px 10px',fontFamily:'var(--font-mono)',fontSize:'13px',textAlign:'right'}}>{c.rsf?c.rsf.toLocaleString():'—'}</td><td style={{padding:'8px 10px',fontFamily:'var(--font-mono)',fontSize:'13px',textAlign:'right',color:'var(--accent)',fontWeight:600}}>${c.rate}/SF</td><td style={{padding:'8px 10px',fontSize:'13px'}}>{c.lease_type||'—'}</td><td style={{padding:'8px 10px',fontFamily:'var(--font-mono)',fontSize:'13px',textAlign:'right'}}>{c.term_months?c.term_months+'mo':'—'}</td></tr>))}</tbody></table></div>}</div><div className="card"><SH title="Sale Comps" count={displaySC.length} />{sr.length===0?<div style={{fontSize:'14px',color:'var(--text-muted)'}}>None</div>:<div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse'}}><thead><tr><Th field="address">Address</Th><Th field="building_sf" align="right">SF</Th><Th field="sale_price" align="right">Price</Th><Th field="price_psf" align="right">$/SF</Th><Th field="cap_rate" align="right">Cap</Th><Th field="buyer">Buyer</Th></tr></thead><tbody>{sr.map(c=>(<tr key={c.id} style={{borderBottom:'1px solid var(--border-subtle)'}}><td style={{padding:'8px 10px',fontSize:'14px',fontWeight:500}}>{c.address}</td><td style={{padding:'8px 10px',fontFamily:'var(--font-mono)',fontSize:'13px',textAlign:'right'}}>{c.building_sf?c.building_sf.toLocaleString():'—'}</td><td style={{padding:'8px 10px',fontFamily:'var(--font-mono)',fontSize:'13px',textAlign:'right'}}>{c.sale_price?fmt.price(c.sale_price):'—'}</td><td style={{padding:'8px 10px',fontFamily:'var(--font-mono)',fontSize:'13px',textAlign:'right',color:'var(--accent)',fontWeight:600}}>{c.price_psf?'$'+Math.round(c.price_psf):'—'}</td><td style={{padding:'8px 10px',fontFamily:'var(--font-mono)',fontSize:'13px',textAlign:'right'}}>{c.cap_rate?parseFloat(c.cap_rate).toFixed(2)+'%':'—'}</td><td style={{padding:'8px 10px',fontSize:'13px'}}>{c.buyer||'—'}</td></tr>))}</tbody></table></div>}</div></div>);})()}
-
-      {activeTab==='buyers'&&<div className="card"><BuyerMatching property={p} accounts={accounts||[]} onAccountClick={onAccountClick} /></div>}
-
-      {activeTab==='files'&&<div className="card"><FilesLinks record={p} table="properties" onRefresh={onRefresh} showToast={showToast} /></div>}
-
-      {activeTab==='tasks'&&(()=>{const rows=sortFilter(linkedTasks,['title','priority','due_date']);return(<div className="card"><SH title="Tasks" count={pendingTasks} onAdd={()=>onAddTask?.(p.id)} addLabel="+ Task" /><FB ph="Filter tasks..." />{rows.length===0?<div style={{fontSize:'14px',color:'var(--text-muted)',padding:'16px 0'}}>None</div>:<div className="table-container" style={{overflowX:'auto'}}><table><thead><tr><Th field="completed">✓</Th><Th field="title">Task</Th><Th field="priority">Priority</Th><Th field="due_date">Due</Th></tr></thead><tbody>{rows.map(t=>{const pc={High:'var(--rust)',Medium:'var(--amber)',Low:'var(--ink3)'}[t.priority]||'var(--ink3)';const od=!t.completed&&t.due_date&&new Date(t.due_date)<new Date();return(<tr key={t.id} style={{opacity:t.completed?0.6:1}}><td style={{width:'40px',textAlign:'center'}}><div style={{width:'14px',height:'14px',borderRadius:'3px',margin:'0 auto',border:'2px solid',borderColor:t.completed?'var(--accent)':pc,background:t.completed?'var(--accent)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:'10px'}}>{t.completed?'✓':''}</div></td><td style={{fontSize:'14px',fontWeight:500,textDecoration:t.completed?'line-through':'none'}}>{t.title}</td><td><span style={{fontSize:'12px',padding:'1px 6px',borderRadius:'3px',background:pc+'22',color:pc,fontWeight:600}}>{t.priority}</span></td><td style={{fontFamily:'var(--font-mono)',fontSize:'13px',color:od?'var(--red)':'var(--text-muted)'}}>{od?'⚠ ':''}{t.due_date||'—'}</td></tr>);})}</tbody></table></div>}</div>);})()}
-
-      {editing&&<EditPropertyModal property={p} onClose={()=>setEditing(false)} onSave={()=>{setEditing(false);showToast?.('Updated');onRefresh?.();}} />}
     </div>
   );
 }

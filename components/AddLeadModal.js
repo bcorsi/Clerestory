@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { LEAD_STAGES, LEAD_TIERS, PRIORITIES, CATALYST_TAGS, SUBMARKETS } from '../lib/constants';
-import { insertRow } from '../lib/db';
+import { insertRow, autoResearch } from '../lib/db';
 
 export default function AddLeadModal({ onClose, onSave }) {
   const [form, setForm] = useState({
@@ -37,6 +37,10 @@ export default function AddLeadModal({ onClose, onSave }) {
         building_sf: form.building_sf ? parseInt(form.building_sf) : null,
       };
       await insertRow('leads', payload);
+      // Fire auto-research in background (don't block save)
+      if (payload.lead_name || payload.address) {
+        autoResearch('lead', payload).catch(() => {});
+      }
       onSave();
     } catch (err) {
       console.error(err);

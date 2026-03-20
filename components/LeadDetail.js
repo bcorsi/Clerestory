@@ -234,319 +234,266 @@ export default function LeadDetail({
     </div>
   );
 
+
+  const probColor = v => v >= 75 ? 'var(--green)' : v >= 50 ? 'var(--amber)' : 'var(--ink3)';
+
+  const handleCreateProperty = async () => {
+    try { await convertLeadToProperty(lead); onRefresh(); showToast((lead.address || 'Lead') + ' added to Properties'); }
+    catch (e) { console.error(e); showToast?.('Error creating property'); }
+  };
+
+  const handleConvertDeal = async () => {
+    try { await convertLeadToDeal(lead); onRefresh(); showToast(`${lead.lead_name} converted to Deal`); onConverted?.(); }
+    catch (e) { console.error(e); showToast?.('Error converting to deal'); }
+  };
+
+  const handleStageChange = async (newStage) => {
+    try { await updateRow('leads', lead.id, { stage: newStage }); onRefresh(); showToast?.(`Stage → ${newStage}`); }
+    catch (e) { console.error(e); }
+  };
+
+  const setShowEdit = (v) => setEditing(v);
+
+
+  const LEAD_SUBSTEP_MAP = {
+    'New': ['Review lead source', 'Verify property data', 'Check for duplicates'],
+    'Researching': ['Research ownership records', 'Identify decision maker', 'Pull comps / market data'],
+    'Contacted': ['Initial outreach call', 'Send intro email', 'Follow up (2nd touch)'],
+    'Engaged': ['Schedule meeting / tour', 'Present market data', 'Discuss motivation / timeline'],
+    'Qualified': ['Confirm deal parameters', 'Verify financials', 'Introduce to buyer/tenant pool'],
+    'Proposal': ['Prepare proposal / BOV', 'Present proposal', 'Address objections'],
+    'Negotiating': ['Draft LOI', 'Negotiate terms', 'Finalize agreement'],
+  };
+
   return (
-    <div style={{ maxWidth: '900px' }}>
-      {/* HEADER */}
-      <div className="card" style={{ marginBottom: '16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+    <div>
+      {/* ═══ LEAD HEADER ═══ */}
+      <div className="lead-header" style={{ padding: '24px 36px 16px', background: 'var(--card)', borderBottom: '1px solid var(--line)' }}>
+        <div className="lead-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '6px' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: 700 }}>{lead.lead_name}</h2>
-              {lead.tier && <span style={{ fontSize: '13px', fontWeight: 700, padding: '3px 8px', borderRadius: '5px', background: tierColor(lead.tier) + '22', color: tierColor(lead.tier) }}>{lead.tier}</span>}
-              <span style={{ padding: '3px 10px', borderRadius: '5px', fontSize: '13px', fontWeight: 600, background: stageColor + '22', color: stageColor }}>{lead.stage}</span>
-              {lead.score != null && <span style={{ fontSize: '14px', fontFamily: 'var(--font-mono)', color: 'var(--accent)', fontWeight: 700 }}>Score: {lead.score}</span>}
-              {lead.follow_up_cadence && <span className="tag tag-blue" style={{ fontSize: '11px' }}>🔄 {lead.follow_up_cadence}</span>}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>{[lead.address, lead.city, lead.submarket].filter(Boolean).join(' · ')}</span>
-              {mapsUrl && <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: 'var(--accent)', textDecoration: 'none', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-input)' }}>📍 Maps ↗</a>}
-              {lead.onedrive_url && <a href={lead.onedrive_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', color: 'var(--accent)', textDecoration: 'none', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-input)' }}>📁 OneDrive ↗</a>}
+            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: '28px', fontWeight: 700, color: 'var(--ink)', marginBottom: '8px' }}>{lead.lead_name}</div>
+            <div className="badges-row" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {(lead.catalyst_tags||[]).map(tag => (
+                <span key={tag} className={`badge ${catalystTagClass(tag)}`}>{tag}</span>
+              ))}
+              {lead.tier && <span className="badge badge-blue">Tier {lead.tier}</span>}
+              <span className="badge badge-blue">{lead.stage || 'New'}</span>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-            <button className="btn btn-ghost btn-sm" onClick={() => setEditing(!editing)}>{editing ? 'Cancel' : 'Edit'}</button>
-            <div style={{position:'relative'}}>
-              <button className="btn btn-ghost btn-sm" onClick={()=>{const dd=document.getElementById('lead-cadence-dd');dd.style.display=dd.style.display==='block'?'none':'block';}}>🔄 Cadence</button>
-              <div id="lead-cadence-dd" style={{position:'absolute',right:0,top:'100%',marginTop:'4px',background:'var(--card)',border:'1px solid var(--border)',borderRadius:'8px',padding:'4px',zIndex:10,display:'none',minWidth:'140px',boxShadow:'0 4px 12px rgba(0,0,0,0.2)'}}>
-                {CADENCE_OPTIONS.map(c=><div key={c.label} onClick={async()=>{try{await setCadence('leads',lead.id,c.label,c.days);onRefresh?.();showToast?.(`${c.label} follow-up set`);}catch(e){console.error(e);}document.getElementById('lead-cadence-dd').style.display='none';}} style={{padding:'6px 12px',fontSize:'13px',cursor:'pointer',borderRadius:'4px',whiteSpace:'nowrap'}} onMouseEnter={e=>e.currentTarget.style.background='var(--bg-input)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>{c.label}</div>)}
-              </div>
-            </div>
-            {lead.stage !== 'Converted' && <button className="btn btn-primary btn-sm" onClick={handleConvert} disabled={converting}>{converting ? '...' : '⚡ Convert to Deal'}</button>}
-            {!linkedProperty && <button className="btn btn-ghost btn-sm" onClick={handleConvertToProperty} disabled={convertingProp}>{convertingProp ? '...' : 'Create Property'}</button>}
-            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--purple)', borderColor: 'var(--purple)44' }} onClick={handleAutoResearch} disabled={researching}>{researching ? '✦ Researching...' : '✦ Research'}</button>
+          <div className="action-row" style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+            <button className="btn" onClick={() => setShowEdit(true)}>Edit</button>
+            {onAddActivity && <button className="btn" onClick={() => onAddActivity(lead.id)}>+ Activity</button>}
+            {onAddTask && <button className="btn" onClick={() => onAddTask(lead.id)}>+ Task</button>}
+            <button className="btn btn-blue" onClick={handleCreateProperty}>Create Property</button>
+            <button className="btn btn-primary" onClick={handleConvertDeal}>⚡ Convert to Deal</button>
           </div>
-        </div>
-        {/* CATALYST TAGS — clickable + add/remove + auto-suggest */}
-        <div style={{ marginTop: '10px' }}>
-          <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
-            {(lead.catalyst_tags || []).map(tag => <span key={tag} className={`tag ${catalystTagClass(tag)}`} style={{ fontSize: '12px', cursor: 'pointer' }} onClick={() => onCatalystClick?.(tag)}>{tag}<span onClick={e => { e.stopPropagation(); removeTag(tag); }} style={{ marginLeft: '4px', cursor: 'pointer', opacity: 0.6, fontSize: '11px' }}>×</span></span>)}
-            <button className="btn btn-ghost btn-sm" style={{ fontSize: '11px', padding: '2px 8px' }} onClick={() => setShowTagPicker(!showTagPicker)}>{showTagPicker ? 'Done' : '+ Tag'}</button>
-            <button className="btn btn-ghost btn-sm" style={{ fontSize: '11px', padding: '2px 8px', color: 'var(--purple)', borderColor: 'var(--purple)44' }} onClick={handleAutoTag} disabled={autoTagLoading}>{autoTagLoading ? '✦ Analyzing...' : '✦ Auto-Tag'}</button>
-          </div>
-          {showTagPicker && (<div style={{ marginTop: '8px', padding: '10px', background: 'var(--bg-input)', borderRadius: '6px', border: '1px solid var(--border)', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>{CATALYST_TAGS.filter(t => !(lead.catalyst_tags || []).includes(t)).map(t => <button key={t} onClick={() => addTag(t)} className={`tag ${catalystTagClass(t)}`} style={{ fontSize: '11px', cursor: 'pointer', opacity: 0.7, border: '1px dashed var(--border)' }}>{t}</button>)}</div>)}
         </div>
         {lead.next_action && (
-          <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Next:</span>
-            <span style={{ fontSize: '14px', color: 'var(--amber)', fontWeight: 500 }}>{lead.next_action}</span>
-            {lead.next_action_date && <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>· {lead.next_action_date}</span>}
+          <div className="next-bar" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'var(--bg)', borderRadius: '9px' }}>
+            <span style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: '14px', fontStyle: 'italic', color: 'var(--ink4)' }}>Next action</span>
+            <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--amber)' }}>{lead.next_action}</span>
+            {lead.next_action_date && <><span style={{ color: 'var(--ink4)', opacity: 0.4 }}>·</span><span style={{ fontFamily: "'DM Mono',monospace", fontSize: '12px', color: 'var(--ink4)' }}>{lead.next_action_date}</span></>}
           </div>
         )}
       </div>
 
-      {/* TIMELINE */}
-      <div className="card" style={{ marginBottom: '16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Timeline</h3>
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px', color: 'var(--purple)', borderColor: 'var(--purple)44' }} onClick={handleSynthesize} disabled={synthLoading}>{synthLoading ? '✦ Synthesizing...' : '✦ Synthesize'}</button>
-            <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px' }} onClick={() => { closeAll(); setShowLogForm(!showLogForm); }}>{showLogForm ? 'Cancel' : '+ Log Call/Email'}</button>
-            <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px' }} onClick={() => { closeAll(); setShowNoteForm(!showNoteForm); }}>{showNoteForm ? 'Cancel' : '+ Note'}</button>
-            <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px' }} onClick={() => { closeAll(); setShowFuForm(!showFuForm); }}>{showFuForm ? 'Cancel' : '+ Follow-Up'}</button>
-          </div>
-        </div>
+      {/* ═══ PAGE LAYOUT ═══ */}
+      <div className="page-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 290px', gap: '24px', padding: '28px 36px 48px' }}>
+        <div>
+          {/* Aerial */}
+          {/* Aerial with parcel overlay */}
+          {lead.address && (
+            <div style={{ marginBottom: '20px' }}>
+              <AerialThumbnail address={lead.address} city={lead.city} apns={lead.apns} height={240} />
+            </div>
+          )}
 
-        {synth && (
-          <div style={{ padding: '14px', background: 'var(--purple)11', border: '1px solid var(--purple)33', borderRadius: '8px', marginBottom: '14px', fontSize: '14px', lineHeight: 1.7, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--purple)', textTransform: 'uppercase' }}>✦ AI Synthesis (Opus)</span>
-              {lead.ai_synthesis_at && <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{new Date(lead.ai_synthesis_at).toLocaleString()}</span>}
+          {/* Timeline */}
+          <div className="timeline-card">
+            <div className="tl-head">
+              <span className="tl-title">Timeline</span>
+              <div className="tl-btns" style={{ display: 'flex', gap: '6px' }}>
+                <button className="tl-btn accent" onClick={handleSynthesize} disabled={synthLoading}>{synthLoading ? '✦ Synthesizing...' : '✦ Synthesize'}</button>
+                <button className="tl-btn" onClick={() => { closeAll(); setShowLogForm(!showLogForm); }}>{showLogForm ? 'Cancel' : '+ Log Call'}</button>
+                <button className="tl-btn" onClick={() => { closeAll(); setShowNoteForm(!showNoteForm); }}>{showNoteForm ? 'Cancel' : '+ Note'}</button>
+                <button className="tl-btn" onClick={() => { closeAll(); setShowFuForm(!showFuForm); }}>{showFuForm ? 'Cancel' : '+ Follow-Up'}</button>
+              </div>
             </div>
-            {synth}
-          </div>
-        )}
 
-        {showLogForm && (
-          <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: '6px', marginBottom: '12px', border: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-              {LOG_TYPES.map(t => <button key={t} onClick={() => setLogType(t)} style={{ padding: '3px 10px', borderRadius: '4px', border: '1px solid', fontSize: '12px', cursor: 'pointer', borderColor: logType === t ? 'var(--accent)' : 'var(--border)', background: logType === t ? 'var(--accent-soft)' : 'transparent', color: logType === t ? 'var(--accent)' : 'var(--text-muted)' }}>{t === 'Call' ? '📞 Call' : t === 'Email' ? '✉️ Email' : '🤝 Meeting'}</button>)}
-            </div>
-            <input className="input" placeholder="Subject..." value={logSubject} onChange={e => setLogSubject(e.target.value)} style={{ marginBottom: '6px', fontSize: '14px' }} />
-            {linkedContacts.length > 0 && <select className="select" value={logContactId} onChange={e => setLogContactId(e.target.value)} style={{ marginBottom: '6px', fontSize: '13px' }}><option value="">Link to contact (optional)</option>{linkedContacts.map(c => <option key={c.id} value={c.id}>{c.name}{c.company ? ` — ${c.company}` : ''}</option>)}</select>}
-            <textarea className="textarea" rows={2} value={logNotes} onChange={e => setLogNotes(e.target.value)} placeholder="Notes..." style={{ marginBottom: '8px', fontSize: '13px' }} />
-            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-              <button className="btn btn-ghost btn-sm" onClick={() => setShowLogForm(false)}>Cancel</button>
-              <button className="btn btn-primary btn-sm" onClick={handleLogActivity} disabled={savingLog || !logSubject.trim()}>{savingLog ? '...' : `Log ${logType}`}</button>
-            </div>
-          </div>
-        )}
+            {showNoteForm && (
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)' }}>
+                <select className="select" value={noteType} onChange={e => setNoteType(e.target.value)} style={{ marginBottom: '8px', maxWidth: '180px' }}>
+                  {NOTE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <textarea className="textarea" value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Add note..." rows={3} />
+                <button className="btn btn-primary" style={{ marginTop: '8px' }} onClick={handleAddNote} disabled={savingNote}>{savingNote ? 'Saving...' : 'Save Note'}</button>
+              </div>
+            )}
 
-        {showNoteForm && (
-          <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: '6px', marginBottom: '12px', border: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
-              {NOTE_TYPES.map(t => <button key={t} onClick={() => setNoteType(t)} style={{ padding: '3px 10px', borderRadius: '4px', border: '1px solid', fontSize: '12px', cursor: 'pointer', borderColor: noteType === t ? 'var(--accent)' : 'var(--border)', background: noteType === t ? 'var(--accent-soft)' : 'transparent', color: noteType === t ? 'var(--accent)' : 'var(--text-muted)' }}>{t}</button>)}
-            </div>
-            <textarea className="textarea" rows={3} value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Add a note..." style={{ marginBottom: '8px', fontSize: '14px' }} />
-            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-              <button className="btn btn-ghost btn-sm" onClick={() => setShowNoteForm(false)}>Cancel</button>
-              <button className="btn btn-primary btn-sm" onClick={handleAddNote} disabled={savingNote || !noteText.trim()}>{savingNote ? '...' : 'Save'}</button>
-            </div>
-          </div>
-        )}
+            {showLogForm && (
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)' }}>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                  {LOG_TYPES.map(t => <button key={t} className={`btn btn-sm ${logType === t ? 'btn-blue' : ''}`} onClick={() => setLogType(t)}>{t}</button>)}
+                </div>
+                <input className="input" value={logSubject} onChange={e => setLogSubject(e.target.value)} placeholder="Subject..." style={{ marginBottom: '8px' }} />
+                <textarea className="textarea" value={logNotes} onChange={e => setLogNotes(e.target.value)} placeholder="Notes..." rows={2} />
+                <button className="btn btn-primary" style={{ marginTop: '8px' }} onClick={handleLogAct} disabled={savingLog}>{savingLog ? 'Saving...' : 'Log Activity'}</button>
+              </div>
+            )}
 
-        {showFuForm && (
-          <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: '6px', marginBottom: '12px', border: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-              <input className="input" style={{ flex: 1, fontSize: '14px' }} placeholder="Follow-up reason..." value={fuReason} onChange={e => setFuReason(e.target.value)} />
-              <input className="input" type="date" style={{ width: '160px', fontSize: '14px' }} value={fuDate} onChange={e => setFuDate(e.target.value)} />
-            </div>
-            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-              <button className="btn btn-ghost btn-sm" onClick={() => setShowFuForm(false)}>Cancel</button>
-              <button className="btn btn-primary btn-sm" onClick={handleAddFu} disabled={savingFu || !fuReason.trim() || !fuDate}>{savingFu ? '...' : 'Set Follow-Up'}</button>
-            </div>
-          </div>
-        )}
+            {showFuForm && (
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)' }}>
+                <input className="input" value={fuReason} onChange={e => setFuReason(e.target.value)} placeholder="Follow-up reason..." style={{ marginBottom: '8px' }} />
+                <input className="input" type="date" value={fuDate} onChange={e => setFuDate(e.target.value)} style={{ marginBottom: '8px', maxWidth: '200px' }} />
+                <button className="btn btn-primary" onClick={handleAddFu} disabled={savingFu}>{savingFu ? 'Saving...' : 'Set Follow-Up'}</button>
+              </div>
+            )}
 
-        {linkedFollowUps.filter(f => !f.completed).length > 0 && (
-          <div style={{ marginBottom: '12px' }}>
-            {linkedFollowUps.filter(f => !f.completed).sort((a, b) => new Date(a.due_date) - new Date(b.due_date)).map(fu => {
-              const od = new Date(fu.due_date) < new Date(new Date().toDateString());
-              return (<div key={fu.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', marginBottom: '4px', borderRadius: '6px', background: od ? 'var(--red-soft)' : 'var(--amber-bg)', border: `1px solid ${od ? 'var(--red)' : 'var(--amber)'}33` }}>
-                <span>{od ? '⚠' : '🔔'}</span>
-                <div style={{ flex: 1 }}><span style={{ fontSize: '14px', fontWeight: 500, color: od ? 'var(--red)' : 'var(--amber)' }}>{fu.reason}</span><span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: '8px', fontFamily: 'var(--font-mono)' }}>{od ? 'OVERDUE · ' : ''}{fu.due_date}</span></div>
-                <button className="btn btn-ghost btn-sm" style={{ fontSize: '11px' }} onClick={() => handleCompleteFu(fu)}>✓</button>
-              </div>);
-            })}
-          </div>
-        )}
+            {synth && (
+              <div style={{ padding: '16px 20px', background: 'var(--purple-bg)', borderBottom: '1px solid rgba(96,64,168,0.2)' }}>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--purple)', textTransform: 'uppercase', marginBottom: '6px' }}>✦ AI Synthesis</div>
+                <div style={{ fontSize: '14px', lineHeight: 1.7, color: 'var(--ink2)', whiteSpace: 'pre-wrap' }}>{synth}</div>
+              </div>
+            )}
 
-        {timeline.length === 0 && !lead.notes ? (
-          <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>No activity yet</div>
-        ) : (
-          <div style={{ position: 'relative', paddingLeft: '24px' }}>
-            <div style={{ position: 'absolute', left: '7px', top: '4px', bottom: '4px', width: '2px', background: 'var(--border)' }} />
-            {lead.notes && linkedNotes.length === 0 && (
-              <div style={{ position: 'relative', paddingBottom: '14px' }}>
-                <div style={{ position: 'absolute', left: '-24px', top: '3px', width: '16px', height: '16px', borderRadius: '50%', background: 'var(--card)', border: '2px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px' }}>📝</div>
-                <div style={{ padding: '10px 12px', background: 'var(--bg-input)', borderRadius: '6px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Intel / Notes</div>
-                  <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{lead.notes}</div>
+            {/* WARN Dossier if source is WARN */}
+            {(lead.source === 'WARN' || (lead.catalyst_tags||[]).includes('WARN Notice')) && (
+              <div className="tl-entry">
+                <div className="tl-dot-warn" style={{ width: '9px', height: '9px', borderRadius: '50%', background: 'var(--rust)', boxShadow: '0 0 0 3px var(--bg)', flexShrink: 0, marginTop: '5px' }} />
+                <div style={{ flex: 1 }}>
+                  <div className="entry-date" style={{ fontFamily: "'DM Mono',monospace", fontSize: '11px', color: 'var(--ink4)', letterSpacing: '0.06em', marginBottom: '6px' }}>
+                    {lead.warn_effective_date ? new Date(lead.warn_effective_date).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}).toUpperCase() : 'WARN NOTICE'}
+                  </div>
+                  <div className="dossier" style={{ background: 'var(--bg)', borderRadius: '9px', padding: '16px', borderLeft: '3px solid var(--rust)', position: 'relative' }}>
+                    <div style={{ position: 'absolute', right: '14px', top: '12px', fontFamily: "'DM Mono',monospace", fontSize: '9px', letterSpacing: '0.3em', color: 'var(--rust)', opacity: 0.4 }}>FILED</div>
+                    {[
+                      ['Company', lead.warn_company || lead.lead_name],
+                      ['Address', lead.address],
+                      ['County', lead.warn_county || 'Los Angeles County'],
+                      ['Type', lead.warn_type || '—'],
+                      ['Employees', lead.warn_employees || '—'],
+                      ['Effective', lead.warn_effective_date || '—'],
+                      ['Filed', lead.warn_notice_date || lead.created_at?.split('T')[0] || '—'],
+                    ].map(([k, v]) => (
+                      <div key={k} style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--ink4)', minWidth: '80px' }}>{k}</span>
+                        <span style={{ fontSize: '14px', fontWeight: 500, color: (k === 'Type' || k === 'Effective') ? 'var(--rust)' : 'var(--ink2)' }}>{v || '—'}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
-            {timeline.map(item => (
-              <div key={item.id} style={{ position: 'relative', paddingBottom: '14px' }}>
-                <div style={{ position: 'absolute', left: '-24px', top: '3px', width: '16px', height: '16px', borderRadius: '50%', background: 'var(--card)', border: '2px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px' }}>{item.icon}</div>
-                <div style={{ padding: '10px 12px', background: 'var(--bg-input)', borderRadius: '6px' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: item.detail ? '4px' : 0, flexWrap: 'wrap' }}>
-                    <span className={`tag ${item.kind === 'note' ? 'tag-purple' : 'tag-blue'}`} style={{ fontSize: '11px' }}>{item.label}</span>
-                    {item.subject && <span style={{ fontSize: '14px', fontWeight: 500 }}>{item.subject}</span>}
-                    {item.outcome && <span className="tag tag-ghost" style={{ fontSize: '11px' }}>{item.outcome}</span>}
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: 'auto', fontFamily: 'var(--font-mono)' }}>{fmtAgo(item.date)}</span>
+
+            {/* Follow-ups */}
+            {linkedFU.filter(f => !f.completed).map(fu => {
+              const od = new Date(fu.due_date) < new Date(new Date().toDateString());
+              return (
+                <div key={fu.id} style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid var(--line2)' }}>
+                  <span>{od ? '⚠' : '🔔'}</span>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: '14px', fontWeight: 500, color: od ? 'var(--rust)' : 'var(--amber)' }}>{fu.reason}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--ink4)', marginLeft: '8px', fontFamily: "'DM Mono',monospace" }}>{od ? 'OVERDUE · ' : ''}{fu.due_date}</span>
                   </div>
-                  {item.detail && <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{item.detail}</div>}
+                  <button className="btn btn-sm" onClick={() => handleCompleteFu(fu)}>✓</button>
+                </div>
+              );
+            })}
+
+            {/* Timeline entries */}
+            {timeline.length === 0 && !(lead.source === 'WARN') ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--ink4)', fontSize: '13px' }}>No activity yet</div>
+            ) : timeline.slice(0, 20).map(e => (
+              <div key={`${e.kind}-${e.id}`} className="tl-entry">
+                <div className="tl-dot" style={e.kind === 'activity' ? { background: 'var(--amber)', boxShadow: '0 0 0 3px rgba(184,122,16,0.08)' } : {}} />
+                <div>
+                  <div className="entry-date" style={{ fontFamily: "'DM Mono',monospace", fontSize: '11px', color: 'var(--ink4)', letterSpacing: '0.06em', marginBottom: '6px' }}>{e.date ? new Date(e.date).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}).toUpperCase() : ''}</div>
+                  <div className="entry-text" style={{ fontSize: '14px', color: 'var(--ink2)', lineHeight: 1.72 }}>{e.subject && <strong>{e.subject}. </strong>}{e.detail || ''}{e.outcome && <span style={{ color: 'var(--green)' }}> → {e.outcome}</span>}</div>
                 </div>
               </div>
             ))}
           </div>
-        )}
-      </div>
 
-      {/* EDIT or DETAIL CARDS */}
-      {editing ? (
-        <div className="card" style={{ marginBottom: '16px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '10px' }}>Lead Info</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div className="form-group" style={{ gridColumn: '1/-1' }}><label className="form-label">Lead Name</label><input className="input" value={form.lead_name || ''} onChange={e => set('lead_name', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">Stage</label><select className="select" value={form.stage} onChange={e => set('stage', e.target.value)}>{LEAD_STAGES.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-            <div className="form-group"><label className="form-label">Priority</label><select className="select" value={form.priority || ''} onChange={e => set('priority', e.target.value)}>{PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}</select></div>
-            <div className="form-group"><label className="form-label">Decision Maker</label><input className="input" value={form.decision_maker || ''} onChange={e => set('decision_maker', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">Company</label><input className="input" value={form.company || ''} onChange={e => set('company', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">Owner</label><input className="input" value={form.owner || ''} onChange={e => set('owner', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">Owner Type</label><select className="select" value={form.owner_type || ''} onChange={e => set('owner_type', e.target.value)}><option value="">Select</option>{OWNER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
-            <div className="form-group"><label className="form-label">Phone</label><input className="input" value={form.phone || ''} onChange={e => set('phone', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">Email</label><input className="input" value={form.email || ''} onChange={e => set('email', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">Score</label><input className="input" type="number" value={form.score || ''} onChange={e => set('score', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">Tier</label><select className="select" value={form.tier || ''} onChange={e => set('tier', e.target.value)}><option value="">Select</option>{LEAD_TIERS.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
-            <div className="form-group"><label className="form-label">Est. Value ($)</label><input className="input" type="number" value={form.est_value || ''} onChange={e => set('est_value', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">Next Action</label><input className="input" value={form.next_action || ''} onChange={e => set('next_action', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">Next Action Date</label><input className="input" type="date" value={form.next_action_date || ''} onChange={e => set('next_action_date', e.target.value)} /></div>
+          {/* Contact & Property Info */}
+          <div className="info-card" style={{ marginTop: '20px' }}>
+            <div className="info-card-head">Contact & Property Info</div>
+            <div className="info-grid">
+              <div className="info-cell"><div className="i-label">Decision Maker</div><div className={`i-val ${lead.decision_maker ? '' : ''}`} style={!lead.decision_maker ? { fontStyle: 'italic', color: 'var(--ink4)' } : {}}>{lead.decision_maker || 'Not yet identified'}</div></div>
+              <div className="info-cell"><div className="i-label">Owner</div><div className="i-val" style={!lead.owner ? { fontStyle: 'italic', color: 'var(--ink4)' } : {}}>{lead.owner || 'Research needed'}</div></div>
+              <div className="info-cell"><div className="i-label">Est. Value</div><div className="i-val">{lead.estimated_value ? fmt.price(lead.estimated_value) : '—'}</div></div>
+              <div className="info-cell"><div className="i-label">Priority</div><div className="i-val" style={{ color: lead.priority === 'High' ? 'var(--rust)' : lead.priority === 'Medium' ? 'var(--amber)' : 'var(--ink3)', fontWeight: 600 }}>{lead.priority || '—'}</div></div>
+              <div className="info-cell"><div className="i-label">Market</div><div className="i-val">{[lead.market, lead.submarket || lead.city].filter(Boolean).join(' · ') || '—'}</div></div>
+              <div className="info-cell"><div className="i-label">Site Size</div><div className="i-val">{lead.building_sf ? Number(lead.building_sf).toLocaleString() + ' SF' : lead.land_acres ? lead.land_acres + ' acres' : '—'}</div></div>
+            </div>
           </div>
-
-          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginTop: '16px', marginBottom: '10px' }}>Property Details</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-            <div className="form-group"><label className="form-label">Address</label><input className="input" value={form.address || ''} onChange={e => set('address', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">City</label><input className="input" value={form.city || ''} onChange={e => set('city', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">ZIP</label><input className="input" value={form.zip || ''} onChange={e => set('zip', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">Market</label><select className="select" value={form.market || ''} onChange={e => { set('market', e.target.value); set('submarket', ''); }}><option value="">Select</option>{MARKETS.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
-            <div className="form-group"><label className="form-label">Submarket</label><select className="select" value={form.submarket || ''} onChange={e => set('submarket', e.target.value)}><option value="">Select</option>{availSubs.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-            <div className="form-group"><label className="form-label">Prop Type</label><select className="select" value={form.prop_type || ''} onChange={e => set('prop_type', e.target.value)}><option value="">Select</option>{PROP_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
-            <div className="form-group"><label className="form-label">Building SF</label><input className="input" type="number" value={form.building_sf || ''} onChange={e => set('building_sf', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">Land (acres)</label><input className="input" type="number" step="0.01" value={form.land_acres || ''} onChange={e => set('land_acres', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">Year Built</label><input className="input" type="number" value={form.year_built || ''} onChange={e => set('year_built', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">Clear Height</label><input className="input" type="number" value={form.clear_height || ''} onChange={e => set('clear_height', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">Dock Doors</label><input className="input" type="number" value={form.dock_doors ?? ''} onChange={e => set('dock_doors', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">Grade Doors</label><input className="input" type="number" value={form.grade_doors ?? ''} onChange={e => set('grade_doors', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">Vacancy</label><select className="select" value={form.vacancy_status || ''} onChange={e => set('vacancy_status', e.target.value)}><option value="">Select</option>{VACANCY_STATUS.map(v => <option key={v} value={v}>{v}</option>)}</select></div>
-            <div className="form-group"><label className="form-label">Lease Type</label><select className="select" value={form.lease_type || ''} onChange={e => set('lease_type', e.target.value)}><option value="">Select</option>{LEASE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
-            <div className="form-group"><label className="form-label">Lease Exp.</label><input className="input" type="date" value={form.lease_expiration || ''} onChange={e => set('lease_expiration', e.target.value)} /></div>
-            <div className="form-group"><label className="form-label">In-Place Rent</label><input className="input" type="number" step="0.01" value={form.in_place_rent || ''} onChange={e => set('in_place_rent', e.target.value)} /></div>
-          </div>
-
-          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginTop: '16px', marginBottom: '10px' }}>Catalysts</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
-            {CATALYST_TAGS.map(tag => <button key={tag} type="button" className={`tag ${(form.catalyst_tags || []).includes(tag) ? 'tag-amber' : 'tag-ghost'}`} style={{ cursor: 'pointer', border: 'none', fontSize: '12px' }} onClick={() => toggleCatalyst(tag)}>{tag}</button>)}
-          </div>
-
-          <div className="form-group"><label className="form-label">OneDrive Link</label><input className="input" placeholder="https://..." value={form.onedrive_url || ''} onChange={e => set('onedrive_url', e.target.value)} /></div>
-          <div className="form-group" style={{ marginTop: '8px' }}><label className="form-label">Notes / Intel</label><textarea className="textarea" rows={4} value={form.notes || ''} onChange={e => set('notes', e.target.value)} /></div>
-          <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}><button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button><button className="btn btn-ghost" onClick={() => setEditing(false)}>Cancel</button></div>
         </div>
-      ) : (
-        <>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            <div className="card">
-              <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '14px' }}>Contact Info</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <Field label="Decision Maker" value={lead.decision_maker} />
-                <Field label="Company" value={lead.company} />
-                <Field label="Owner" value={lead.owner} />
-                <Field label="Owner Type" value={lead.owner_type} />
-                <Field label="Phone" value={lead.phone} mono />
-                <Field label="Email" value={lead.email} />
-                <Field label="Est. Value" value={lead.est_value ? fmt.price(lead.est_value) : null} mono accent />
-                <Field label="Priority" value={lead.priority} />
-              </div>
-              {lead.phone && <a href={`tel:${lead.phone}`} style={{ display: 'block', textAlign: 'center', marginTop: '12px', padding: '8px', borderRadius: '6px', background: 'var(--accent-soft)', color: 'var(--accent)', textDecoration: 'none', fontWeight: 600, fontSize: '14px', border: '1px solid var(--accent)' }}>📞 Call {lead.decision_maker || 'Contact'}</a>}
-            </div>
-            <div className="card">
-              <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '14px' }}>Property Details</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <Field label="Address" value={lead.address} />
-                <Field label="City" value={lead.city} />
-                <Field label="Market" value={lead.market} />
-                <Field label="Submarket" value={lead.submarket} />
-                <Field label="Property Type" value={lead.prop_type} />
-                <Field label="Building SF" value={lead.building_sf ? Number(lead.building_sf).toLocaleString() + ' SF' : null} mono accent />
-                <Field label="Land" value={lead.land_acres ? lead.land_acres + ' acres' : null} mono />
-                <Field label="Year Built" value={lead.year_built} mono />
-                <Field label="Clear Height" value={lead.clear_height ? lead.clear_height + "'" : null} mono />
-                <Field label="Dock Doors" value={lead.dock_doors != null && lead.dock_doors !== '' ? String(lead.dock_doors) : null} mono />
-                <Field label="Grade Doors" value={lead.grade_doors != null && lead.grade_doors !== '' ? String(lead.grade_doors) : null} mono />
-                <Field label="Vacancy" value={lead.vacancy_status} />
-                <Field label="Lease Type" value={lead.lease_type} />
-                <Field label="In-Place Rent" value={lead.in_place_rent ? '$' + Number(lead.in_place_rent).toFixed(2) + '/SF/Mo' : null} mono accent />
-                <Field label="Lease Exp." value={lead.lease_expiration ? fmt.date(lead.lease_expiration) : null} mono />
-              </div>
-              {!lead.building_sf && !lead.prop_type && !lead.land_acres && <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>No property details yet — click Edit to add</div>}
+
+        {/* ═══ RIGHT COLUMN ═══ */}
+        <div className="right-col">
+          {/* Opportunity Stages */}
+          <div className="side-card" style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: '10px', overflow: 'hidden', marginBottom: '14px' }}>
+            <div className="side-head" style={{ padding: '13px 18px', background: 'var(--bg)', fontSize: '13px', fontWeight: 600, color: 'var(--ink2)', borderBottom: '1px solid var(--line)' }}>Opportunity Stages</div>
+            <div style={{ padding: '10px 8px' }}>
+              {(LEAD_SUBSTEP_MAP[lead.stage] ? LEAD_STAGES.filter(s => s !== 'Dead') : LEAD_STAGES.filter(s => !['Converted','Dead'].includes(s))).map(stage => {
+                const idx = LEAD_STAGES.indexOf(stage);
+                const curIdx = LEAD_STAGES.indexOf(lead.stage);
+                const isDone = idx < curIdx;
+                const isCurrent = idx === curIdx;
+                return (
+                  <div key={stage} className={`stage-row ${isCurrent ? 'current' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', borderRadius: '7px', cursor: 'pointer' }} onClick={() => handleStageChange(stage)}>
+                    <div className={`stage-icon ${isDone ? 'si-done' : isCurrent ? 'si-active' : 'si-pending'}`} style={{
+                      width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700,
+                      background: isDone ? 'var(--green-bg)' : isCurrent ? 'var(--amber-bg)' : 'var(--bg2)',
+                      color: isDone ? 'var(--green)' : isCurrent ? 'var(--amber)' : 'var(--ink4)',
+                      border: `1px solid ${isDone ? 'rgba(26,122,72,0.2)' : isCurrent ? 'rgba(184,122,16,0.22)' : 'var(--line)'}`,
+                      animation: isCurrent ? 'blink 1.5s infinite' : 'none'
+                    }}>{isDone ? '✓' : isCurrent ? '◉' : '○'}</div>
+                    <span style={{ fontSize: '13px', color: isCurrent ? 'var(--amber)' : 'var(--ink3)', fontWeight: 500 }}>{stage}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          {/* OWNER OUTREACH LOG + AI */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            <div className="card">
-              <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Owner Outreach — {lead.stage} ({subsDone}/{subs.length})</h3>
-              {subs.length > 0 ? (<>
-                <div style={{ height: '4px', background: 'var(--border)', borderRadius: '2px', overflow: 'hidden', marginBottom: '10px' }}><div style={{ width: `${subs.length > 0 ? Math.round(subsDone / subs.length * 100) : 0}%`, height: '100%', background: 'var(--accent)', transition: 'width 0.3s' }} /></div>
-                {subs.map(step => {
-                  const entry = substeps[step];
-                  const logged = entry && entry.done;
-                  return (
-                    <div key={step} style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border-subtle)' }}>
-                      <div onClick={() => {
-                        if (logged) { const updated = { ...substeps }; delete updated[step]; setSubsteps(updated); updateRow('leads', lead.id, { substeps: updated }).catch(console.error); }
-                        else { const updated = { ...substeps, [step]: { done: true, at: new Date().toISOString() } }; setSubsteps(updated); updateRow('leads', lead.id, { substeps: updated }).catch(console.error); }
-                      }} style={{ width: '16px', height: '16px', borderRadius: '3px', flexShrink: 0, border: '2px solid', borderColor: logged ? 'var(--accent)' : 'var(--border)', background: logged ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px', cursor: 'pointer' }}>{logged ? '✓' : ''}</div>
-                      <div style={{ flex: 1 }}>
-                        <span style={{ fontSize: '13px', color: logged ? 'var(--text-muted)' : 'var(--text-primary)', fontWeight: logged ? 400 : 500 }}>{step}</span>
-                        {logged && entry.at && <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '8px', fontFamily: 'var(--font-mono)' }}>{new Date(entry.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {new Date(entry.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </>) : <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No outreach steps for this stage</div>}
+          {/* AI Signal Card */}
+          {synth && (
+            <div className="signal-card" style={{ background: 'var(--blue-bg)', border: '1px solid var(--blue-bdr)', borderRadius: '10px', overflow: 'hidden', marginBottom: '14px' }}>
+              <div className="signal-head" style={{ padding: '12px 18px', background: 'rgba(85,119,160,0.12)', borderBottom: '1px solid var(--blue-bdr)', fontSize: '12px', fontWeight: 700, color: 'var(--blue)', letterSpacing: '0.04em' }}>✦ AI Signal</div>
+              <div className="signal-body" style={{ padding: '14px 18px', fontSize: '14px', lineHeight: 1.75, color: 'var(--ink2)' }}>{synth.split('\n')[0]}</div>
             </div>
-            <div className="card">
-              <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>AI Next Step</h3>
-              <button className="btn btn-ghost" onClick={handleAI} disabled={aiLoading} style={{ width: '100%', marginBottom: '12px', color: 'var(--amber)', borderColor: 'var(--amber)' }}>{aiLoading ? 'Thinking...' : '✦ Get AI Recommendation'}</button>
-              {aiStep && <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: '8px', borderLeft: '3px solid var(--amber)' }}><div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--amber)' }}>{aiStep}</div></div>}
-            </div>
-          </div>
+          )}
 
-          {/* AERIAL MAP */}
-          {lead.address && <AerialThumbnail address={lead.address} city={lead.city} size="500x300" zoom={17} />}
-
-          {linkedProperty && (
-            <div className="card" style={{ marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Linked Property</h3>
-              <div onClick={() => onPropertyClick?.(linkedProperty)} style={{ padding: '10px', background: 'var(--bg-input)', borderRadius: '6px', cursor: 'pointer', border: '1px solid transparent', transition: 'border-color 0.15s' }} onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'} onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
-                <div style={{ fontSize: '14px', fontWeight: 600 }}>{linkedProperty.address}</div>
-                <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>{linkedProperty.submarket} · {linkedProperty.building_sf ? linkedProperty.building_sf.toLocaleString() + ' SF' : ''}</div>
+          {/* Score */}
+          {(lead.score || lead.probability) && (
+            <div className="info-card" style={{ marginBottom: '14px' }}>
+              <div className="info-card-head">Score</div>
+              <div style={{ padding: '14px 16px', display: 'flex', gap: '20px' }}>
+                {lead.score != null && <div><div className="i-label">AI Score</div><div style={{ fontFamily: "'Playfair Display',serif", fontSize: '28px', fontWeight: 700, color: 'var(--blue)', lineHeight: 1 }}>{lead.score}</div></div>}
+                {lead.probability != null && <div><div className="i-label">Probability</div><div style={{ fontFamily: "'Playfair Display',serif", fontSize: '28px', fontWeight: 700, color: probColor(lead.probability), lineHeight: 1 }}>{lead.probability}%</div></div>}
               </div>
             </div>
           )}
-        </>
-      )}
 
-      {/* TASKS */}
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tasks {pendingTasks > 0 && <span style={{ color: 'var(--rust)' }}>({pendingTasks})</span>}</h3>
-          <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px' }} onClick={() => onAddTask?.(lead.id)}>+ Task</button>
-        </div>
-        {linkedTasks.length === 0 ? <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No tasks</div> : (
+          {/* Quick Actions */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {linkedTasks.sort((a, b) => a.completed - b.completed).map(t => {
-              const pc = { High: 'var(--rust)', Medium: 'var(--amber)', Low: 'var(--ink3)' }[t.priority] || 'var(--ink3)';
-              const od = !t.completed && t.due_date && new Date(t.due_date) < new Date();
-              return (<div key={t.id} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '8px 10px', background: 'var(--bg-input)', borderRadius: '6px', borderLeft: `3px solid ${t.completed ? 'var(--border)' : pc}`, opacity: t.completed ? 0.6 : 1 }}>
-                <div style={{ width: '14px', height: '14px', borderRadius: '3px', flexShrink: 0, marginTop: '2px', border: '2px solid', borderColor: t.completed ? 'var(--accent)' : pc, background: t.completed ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px' }}>{t.completed ? '✓' : ''}</div>
-                <div style={{ flex: 1 }}><div style={{ fontSize: '14px', fontWeight: 500, textDecoration: t.completed ? 'line-through' : 'none' }}>{t.title}</div>{t.due_date && <div style={{ fontSize: '12px', color: od ? 'var(--red)' : 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>{od ? '⚠ ' : ''}{t.due_date}</div>}</div>
-                <span style={{ fontSize: '12px', padding: '1px 5px', borderRadius: '3px', background: pc + '22', color: pc }}>{t.priority}</span>
-              </div>);
-            })}
+            <button className="quick-btn" onClick={handleAutoResearch} disabled={researching} style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '11px 16px', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: '9px', cursor: 'pointer', fontSize: '13px', fontWeight: 500, color: 'var(--ink3)', fontFamily: "'Instrument Sans',sans-serif" }}>{researching ? '✦ Researching...' : '✦ Auto-Research'}</button>
+            <button className="quick-btn" onClick={handleCreateProperty} style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '11px 16px', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: '9px', cursor: 'pointer', fontSize: '13px', fontWeight: 500, color: 'var(--ink3)', fontFamily: "'Instrument Sans',sans-serif" }}>Create property record</button>
+            <button className="quick-btn" onClick={handleConvertDeal} style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '11px 16px', background: 'var(--blue-bg)', border: '1px solid var(--blue-bdr)', borderRadius: '9px', cursor: 'pointer', fontSize: '13px', fontWeight: 500, color: 'var(--blue)', fontFamily: "'Instrument Sans',sans-serif" }}>⚡ Convert to active deal</button>
           </div>
-        )}
+
+          {/* Cadence */}
+          <div style={{ marginTop: '14px' }}>
+            <div className="i-label" style={{ marginBottom: '6px' }}>Follow-Up Cadence</div>
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              {CADENCE_OPTIONS.map(c => (
+                <button key={c.label} className={`btn btn-sm ${lead.follow_up_cadence === c.label ? 'btn-blue' : ''}`}
+                  onClick={async () => { try { await setCadence('leads', lead.id, c.label, c.days); onRefresh?.(); showToast?.(`${c.label} set`); } catch(e) { console.error(e); } }}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

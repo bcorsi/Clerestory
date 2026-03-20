@@ -121,7 +121,7 @@ export default function AuthGate({ onAuth }) {
             {error && (
               <div style={{
                 padding: '10px 14px', borderRadius: 'var(--radius-sm)',
-                background: 'var(--red-soft)', color: 'var(--red)',
+                background: 'var(--bg)', color: 'var(--red)',
                  marginBottom: '16px',
               }}>
                 {error}

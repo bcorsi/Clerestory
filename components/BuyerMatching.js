@@ -145,10 +145,10 @@ export default function BuyerMatching({ property, accounts, onAccountClick }) {
   }, [property, accounts, minScore, showAll]);
 
   const tier = (score) => {
-    if (score >= 80) return { label: 'A', color: '#22c55e', bg: '#22c55e22' };
-    if (score >= 60) return { label: 'B', color: '#3b82f6', bg: '#3b82f622' };
-    if (score >= 40) return { label: 'C', color: '#f59e0b', bg: '#f59e0b22' };
-    return { label: 'D', color: '#6b7280', bg: '#6b728022' };
+    if (score >= 80) return { label: 'A', color: 'var(--green)', bg: 'var(--green)22' };
+    if (score >= 60) return { label: 'B', color: 'var(--blue)', bg: 'var(--blue)22' };
+    if (score >= 40) return { label: 'C', color: 'var(--amber)', bg: 'var(--amber)22' };
+    return { label: 'D', color: 'var(--ink3)', bg: 'var(--ink3)22' };
   };
 
   const hot = matches.filter(m => m.score >= 80).length;
@@ -160,24 +160,24 @@ export default function BuyerMatching({ property, accounts, onAccountClick }) {
       <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ display: 'flex', gap: '12px' }}>
           {hot > 0 && (
-            <div style={{ padding: '6px 14px', background: '#22c55e18', border: '1px solid #22c55e44', borderRadius: '8px' }}>
-              <span style={{ fontSize: '18px', fontWeight: 700, color: '#22c55e' }}>{hot}</span>
-              <span style={{ fontSize: '15px', color: '#22c55e', marginLeft: '6px' }}>hot matches (80+)</span>
+            <div style={{ padding: '6px 14px', background: 'var(--green)18', border: '1px solid var(--green)44', borderRadius: '8px' }}>
+              <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green)' }}>{hot}</span>
+              <span style={{  color: 'var(--green)', marginLeft: '6px' }}>hot matches (80+)</span>
             </div>
           )}
           {strong > 0 && (
-            <div style={{ padding: '6px 14px', background: '#3b82f618', border: '1px solid #3b82f644', borderRadius: '8px' }}>
-              <span style={{ fontSize: '18px', fontWeight: 700, color: '#3b82f6' }}>{strong}</span>
-              <span style={{ fontSize: '15px', color: '#3b82f6', marginLeft: '6px' }}>strong (60+)</span>
+            <div style={{ padding: '6px 14px', background: 'var(--blue)18', border: '1px solid var(--blue)44', borderRadius: '8px' }}>
+              <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--blue)' }}>{strong}</span>
+              <span style={{  color: 'var(--blue)', marginLeft: '6px' }}>strong (60+)</span>
             </div>
           )}
           <div style={{ padding: '6px 14px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '8px' }}>
             <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>{matches.length}</span>
-            <span style={{ fontSize: '15px', color: 'var(--text-muted)', marginLeft: '6px' }}>total</span>
+            <span style={{  color: 'var(--text-muted)', marginLeft: '6px' }}>total</span>
           </div>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <label style={{ fontSize: '15px', color: 'var(--text-muted)' }}>Min score:</label>
+          <label style={{  color: 'var(--text-muted)' }}>Min score:</label>
           <select className="select" value={minScore} onChange={e => { setMinScore(+e.target.value); setShowAll(false); }} style={{ width: '80px' }}>
             <option value={80}>80+</option>
             <option value={60}>60+</option>
@@ -202,18 +202,18 @@ export default function BuyerMatching({ property, accounts, onAccountClick }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-                      <span onClick={() => onAccountClick?.(a)} style={{ fontSize: '15px', fontWeight: 700, cursor: onAccountClick ? 'pointer' : 'default', color: 'var(--text-primary)', borderBottom: onAccountClick ? '1px dashed var(--accent)' : 'none' }}>{a.name}</span>
-                      <span style={{ fontSize: '15px', padding: '2px 8px', borderRadius: '4px', background: t.bg, color: t.color, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                      <span onClick={() => onAccountClick?.(a)} style={{  fontWeight: 700, cursor: onAccountClick ? 'pointer' : 'default', color: 'var(--text-primary)', borderBottom: onAccountClick ? '1px dashed var(--accent)' : 'none' }}>{a.name}</span>
+                      <span style={{  padding: '2px 8px', borderRadius: '4px', background: t.bg, color: t.color, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
                         {score}/100 ({t.label})
                       </span>
                       {a.buyer_type && (
-                        <span className="tag tag-ghost" style={{ fontSize: '15px' }}>{a.buyer_type}</span>
+                        <span className="tag tag-ghost" style={{  }}>{a.buyer_type}</span>
                       )}
                       {a.acquisition_timing === 'Actively Buying Now' && (
-                        <span className="tag tag-green" style={{ fontSize: '15px' }}>Active</span>
+                        <span className="tag tag-green" style={{  }}>Active</span>
                       )}
                     </div>
-                    <div style={{ fontSize: '15px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                    <div style={{  color: 'var(--text-muted)', marginBottom: '6px' }}>
                       {[
                         a.city && a.hq_state ? `${a.city}, ${a.hq_state}` : a.city,
                         a.preferred_markets?.join(', '),
@@ -226,15 +226,15 @@ export default function BuyerMatching({ property, accounts, onAccountClick }) {
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                       {reasons.map((r, i) => (
                         <span key={i} style={{
-                          fontSize: '15px', padding: '2px 6px', borderRadius: '3px',
-                          background: r.includes('✓') ? '#22c55e15' : '#f59e0b15',
-                          color: r.includes('✓') ? '#22c55e' : '#f59e0b',
+                           padding: '2px 6px', borderRadius: '3px',
+                          background: r.includes('✓') ? 'var(--green)15' : 'var(--amber)15',
+                          color: r.includes('✓') ? 'var(--green)' : 'var(--amber)',
                           fontFamily: 'var(--font-mono)',
                         }}>{r}</span>
                       ))}
                     </div>
                     {a.notes && (
-                      <div style={{ fontSize: '15px', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: 1.5 }}>
+                      <div style={{  color: 'var(--text-secondary)', marginTop: '6px', lineHeight: 1.5 }}>
                         {a.notes.length > 200 ? a.notes.slice(0, 200) + '...' : a.notes}
                       </div>
                     )}
@@ -245,10 +245,10 @@ export default function BuyerMatching({ property, accounts, onAccountClick }) {
                       <div style={{ width: `${score}%`, height: '100%', background: t.color, borderRadius: '3px' }} />
                     </div>
                     {a.phone && (
-                      <a href={`tel:${a.phone}`} style={{ fontSize: '15px', fontFamily: 'var(--font-mono)', color: 'var(--accent)', textDecoration: 'none' }}>{a.phone}</a>
+                      <a href={`tel:${a.phone}`} style={{  fontFamily: 'var(--font-mono)', color: 'var(--accent)', textDecoration: 'none' }}>{a.phone}</a>
                     )}
                     {a.deal_count && (
-                      <span style={{ fontSize: '15px', color: 'var(--text-muted)' }}>{a.deal_count} deals</span>
+                      <span style={{  color: 'var(--text-muted)' }}>{a.deal_count} deals</span>
                     )}
                   </div>
                 </div>
@@ -259,7 +259,7 @@ export default function BuyerMatching({ property, accounts, onAccountClick }) {
       )}
 
       {/* Scoring methodology */}
-      <div style={{ marginTop: '16px', padding: '14px', background: 'var(--bg-input)', borderRadius: '8px', fontSize: '15px', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+      <div style={{ marginTop: '16px', padding: '14px', background: 'var(--bg-input)', borderRadius: '8px',  color: 'var(--text-muted)', lineHeight: 1.6 }}>
         <strong style={{ color: 'var(--text-secondary)' }}>Match Score Formula:</strong> Market (+20) · Deal Type (+20) · SF Fit (+15) · Price Fit (+15) · SLB Bonus (+10) · Clear Height (+5) · Power (+5) · Buyer Timing (+10) = 100 max.
         Tier A = 80+, B = 60+, C = 40+.
       </div>

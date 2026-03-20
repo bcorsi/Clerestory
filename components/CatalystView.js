@@ -24,7 +24,7 @@ export default function CatalystView({
 
   const total = matchedProperties.length + matchedLeads.length + matchedDeals.length;
   const urgency = CATALYST_URGENCY[tag] || 'medium';
-  const urgColor = { immediate: '#ef4444', high: '#f59e0b', medium: '#3b82f6', low: '#6b7280' }[urgency];
+  const urgColor = { immediate: 'var(--rust)', high: 'var(--amber)', medium: 'var(--blue)', low: 'var(--ink3)' }[urgency];
 
   return (
     <div>
@@ -87,8 +87,8 @@ export default function CatalystView({
               {matchedLeads.sort((a, b) => (b.score || 0) - (a.score || 0)).map(l => (
                 <tr key={l.id} onClick={() => onLeadClick?.(l)} style={{ cursor: 'pointer', borderBottom: '1px solid var(--border-subtle)' }}>
                   <td style={{ padding: '8px 10px', fontSize: '14px', fontWeight: 500 }}>{l.lead_name}</td>
-                  <td style={{ padding: '8px 10px' }}><span style={{ fontSize: '12px', padding: '2px 7px', borderRadius: '4px', background: (LEAD_STAGE_COLORS[l.stage] || '#6b7280') + '22', color: LEAD_STAGE_COLORS[l.stage] || '#6b7280', fontWeight: 600 }}>{l.stage}</span></td>
-                  <td style={{ padding: '8px 10px' }}>{l.tier && <span style={{ fontWeight: 700, color: { 'A+': '#22c55e', A: '#3b82f6', B: '#f59e0b', C: '#6b7280' }[l.tier] || '#6b7280' }}>{l.tier}</span>}</td>
+                  <td style={{ padding: '8px 10px' }}><span style={{ fontSize: '12px', padding: '2px 7px', borderRadius: '4px', background: (LEAD_STAGE_COLORS[l.stage] || 'var(--ink3)') + '22', color: LEAD_STAGE_COLORS[l.stage] || 'var(--ink3)', fontWeight: 600 }}>{l.stage}</span></td>
+                  <td style={{ padding: '8px 10px' }}>{l.tier && <span style={{ fontWeight: 700, color: { 'A+': 'var(--green)', A: 'var(--blue)', B: 'var(--amber)', C: 'var(--ink3)' }[l.tier] || 'var(--ink3)' }}>{l.tier}</span>}</td>
                   <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', fontSize: '13px', textAlign: 'right', color: 'var(--accent)', fontWeight: 600 }}>{l.score ?? '—'}</td>
                   <td style={{ padding: '8px 10px', fontSize: '13px', color: 'var(--amber)' }}>{l.next_action || '—'}</td>
                 </tr>
@@ -112,9 +112,9 @@ export default function CatalystView({
               {matchedDeals.map(d => (
                 <tr key={d.id} onClick={() => onDealClick?.(d)} style={{ cursor: 'pointer', borderBottom: '1px solid var(--border-subtle)' }}>
                   <td style={{ padding: '8px 10px', fontSize: '14px', fontWeight: 500 }}>{d.deal_name}</td>
-                  <td style={{ padding: '8px 10px' }}><span style={{ fontSize: '12px', padding: '2px 7px', borderRadius: '4px', background: (STAGE_COLORS[d.stage] || '#6b7280') + '22', color: STAGE_COLORS[d.stage] || '#6b7280', fontWeight: 600 }}>{d.stage}</span></td>
+                  <td style={{ padding: '8px 10px' }}><span style={{ fontSize: '12px', padding: '2px 7px', borderRadius: '4px', background: (STAGE_COLORS[d.stage] || 'var(--ink3)') + '22', color: STAGE_COLORS[d.stage] || 'var(--ink3)', fontWeight: 600 }}>{d.stage}</span></td>
                   <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', fontSize: '13px', textAlign: 'right', color: 'var(--accent)', fontWeight: 600 }}>{d.deal_value ? fmt.price(d.deal_value) : '—'}</td>
-                  <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', fontSize: '13px', textAlign: 'right', color: '#22c55e' }}>{d.commission_est ? fmt.price(d.commission_est) : '—'}</td>
+                  <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', fontSize: '13px', textAlign: 'right', color: 'var(--green)' }}>{d.commission_est ? fmt.price(d.commission_est) : '—'}</td>
                 </tr>
               ))}
             </tbody></table>

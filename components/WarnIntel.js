@@ -192,8 +192,8 @@ export default function WarnIntel({ properties, leads, onRefresh, showToast }) {
   const statCards = [
     { label: 'Total loaded', value: rawData.length, color: 'var(--text-primary)' },
     { label: 'Industrial (SGV/IE)', value: rawData.filter(r => isIndustrial(r) && isInMarket(r)).length, color: 'var(--accent)' },
-    { label: 'New (14d)', value: newCount, color: '#22c55e' },
-    { label: 'Tenant matches', value: tenantMatches.length, color: '#ef4444' },
+    { label: 'New (14d)', value: newCount, color: 'var(--green)' },
+    { label: 'Tenant matches', value: tenantMatches.length, color: 'var(--rust)' },
   ];
 
   return (
@@ -232,8 +232,8 @@ export default function WarnIntel({ properties, leads, onRefresh, showToast }) {
 
       {/* TENANT MATCH ALERTS */}
       {tenantMatches.length > 0 && (
-        <div className="card" style={{ marginBottom: '16px', borderLeft: '3px solid #ef4444' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#ef4444', marginBottom: '10px' }}>⚠ Tenant Matches — Your Properties</h3>
+        <div className="card" style={{ marginBottom: '16px', borderLeft: '3px solid var(--rust)' }}>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rust)', marginBottom: '10px' }}>⚠ Tenant Matches — Your Properties</h3>
           {tenantMatches.map(r => (
             <div key={r.id} style={{ padding: '10px 12px', background: 'var(--red-soft)', borderRadius: '6px', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
@@ -283,14 +283,14 @@ export default function WarnIntel({ properties, leads, onRefresh, showToast }) {
                     <tr key={r.id} style={{ borderBottom: '1px solid var(--border-subtle)', background: isMatch ? 'var(--red-soft)' : isRecent ? 'var(--accent-soft)' : 'transparent' }}>
                       <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', fontSize: '13px', whiteSpace: 'nowrap' }}>
                         {r.noticeDate}
-                        {isRecent && <span style={{ marginLeft: '6px', fontSize: '10px', padding: '1px 5px', borderRadius: '3px', background: '#22c55e22', color: '#22c55e', fontWeight: 700 }}>NEW</span>}
+                        {isRecent && <span style={{ marginLeft: '6px', fontSize: '10px', padding: '1px 5px', borderRadius: '3px', background: 'var(--green)22', color: 'var(--green)', fontWeight: 700 }}>NEW</span>}
                       </td>
                       <td style={{ padding: '8px 10px', fontSize: '14px', fontWeight: 500 }}>
                         {r.company}
-                        {isMatch && <span style={{ marginLeft: '6px', fontSize: '10px', padding: '1px 5px', borderRadius: '3px', background: '#ef444422', color: '#ef4444', fontWeight: 700 }}>MATCH</span>}
+                        {isMatch && <span style={{ marginLeft: '6px', fontSize: '10px', padding: '1px 5px', borderRadius: '3px', background: 'var(--rust)22', color: 'var(--rust)', fontWeight: 700 }}>MATCH</span>}
                       </td>
                       <td style={{ padding: '8px 10px', fontSize: '12px', color: 'var(--text-muted)' }}>{bizType}</td>
-                      <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, textAlign: 'right', color: r.employees >= 200 ? '#ef4444' : r.employees >= 50 ? '#f59e0b' : 'var(--text-primary)' }}>{r.employees.toLocaleString()}</td>
+                      <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, textAlign: 'right', color: r.employees >= 200 ? 'var(--rust)' : r.employees >= 50 ? 'var(--amber)' : 'var(--text-primary)' }}>{r.employees.toLocaleString()}</td>
                       <td style={{ padding: '8px 10px', fontSize: '13px' }}>{r.eventType}</td>
                       <td style={{ padding: '8px 10px', fontSize: '13px', color: 'var(--text-muted)' }}>{r.county}</td>
                       <td style={{ padding: '8px 10px', fontSize: '13px', color: 'var(--text-muted)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.address}</td>
@@ -317,7 +317,7 @@ export default function WarnIntel({ properties, leads, onRefresh, showToast }) {
                 const row = rawData.find(r => r.id === id);
                 const maTags = enrichedTags[id] || [];
                 return (
-                  <div key={id} style={{ padding: '14px', background: '#8b5cf611', border: '1px solid #8b5cf633', borderRadius: '8px', marginBottom: '10px' }}>
+                  <div key={id} style={{ padding: '14px', background: 'var(--purple)11', border: '1px solid var(--purple)33', borderRadius: '8px', marginBottom: '10px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '14px', fontWeight: 600 }}>{row?.company || id}</span>

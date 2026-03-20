@@ -104,7 +104,7 @@ export default function DealDetail({
     ...linkedNotes.map(n => ({ kind: 'note', id: n.id, date: n.created_at, icon: '📝', label: n.note_type || 'Note', subject: null, detail: n.content, pinned: n.pinned })),
   ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  const stageColor = STAGE_COLORS[deal.stage] || '#6b7280';
+  const stageColor = STAGE_COLORS[deal.stage] || 'var(--ink3)';
   const fmtAgo = d => { if (!d) return ''; const dt = new Date(d); const time = dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); const x = Math.floor((Date.now() - dt) / 86400000); if (x === 0) return 'Today ' + time; if (x === 1) return 'Yesterday ' + time; if (x < 7) return x + 'd ago ' + time; return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + time; };
   const closeAll = () => { setShowNoteForm(false); setShowLogForm(false); setShowFuForm(false); };
 
@@ -226,7 +226,7 @@ export default function DealDetail({
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
             <div style={{ position: 'relative' }}>
               <button className="btn btn-ghost btn-sm" onClick={() => document.getElementById('cadence-dd').classList.toggle('show-dd')}>🔄 Cadence</button>
-              <div id="cadence-dd" style={{ position: 'absolute', right: 0, top: '100%', marginTop: '4px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '4px', zIndex: 10, display: 'none', minWidth: '140px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+              <div id="cadence-dd" style={{ position: 'absolute', right: 0, top: '100%', marginTop: '4px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '4px', zIndex: 10, display: 'none', minWidth: '140px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
                 {CADENCE_OPTIONS.map(c => <div key={c.label} onClick={() => { handleSetCadence(c); document.getElementById('cadence-dd').classList.remove('show-dd'); }} style={{ padding: '6px 12px', fontSize: '13px', cursor: 'pointer', borderRadius: '4px', whiteSpace: 'nowrap' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-input)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>{c.label}</div>)}
               </div>
             </div>
@@ -235,7 +235,7 @@ export default function DealDetail({
         </div>
         <div style={{ display: 'flex', gap: '24px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
           {deal.deal_value && <div><div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Deal Value</div><div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent)' }}>{fmt.price(deal.deal_value)}</div></div>}
-          {deal.commission_est && <div><div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Commission</div><div style={{ fontSize: '18px', fontWeight: 700, color: '#22c55e' }}>{fmt.price(deal.commission_est)}</div></div>}
+          {deal.commission_est && <div><div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Commission</div><div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green)' }}>{fmt.price(deal.commission_est)}</div></div>}
           {deal.probability != null && <div><div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Probability</div><div style={{ fontSize: '18px', fontWeight: 700 }}>{deal.probability}%</div></div>}
           {deal.close_date && <div><div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Est. Close</div><div style={{ fontSize: '18px', fontWeight: 700 }}>{deal.close_date}</div></div>}
         </div>
@@ -263,7 +263,7 @@ export default function DealDetail({
               </div>
             );
           })}
-          <div onClick={() => handleStageChange('Dead')} style={{ padding: '4px 10px', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', background: deal.stage === 'Dead' ? '#374151' : 'transparent', color: deal.stage === 'Dead' ? 'white' : 'var(--text-muted)', border: '1px solid var(--border)', marginLeft: '8px' }}>Dead</div>
+          <div onClick={() => handleStageChange('Dead')} style={{ padding: '4px 10px', borderRadius: '4px', fontSize: '13px', cursor: 'pointer', background: deal.stage === 'Dead' ? var(--ink3) : 'transparent', color: deal.stage === 'Dead' ? 'white' : 'var(--text-muted)', border: '1px solid var(--border)', marginLeft: '8px' }}>Dead</div>
         </div>
       </div>
 
@@ -278,7 +278,7 @@ export default function DealDetail({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '6px' }}>
             <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Timeline</h3>
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-              <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px', color: '#8b5cf6', borderColor: '#8b5cf644' }} onClick={handleSynthesize} disabled={synthLoading}>{synthLoading ? '✦ Synthesizing...' : '✦ Synthesize'}</button>
+              <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px', color: 'var(--purple)', borderColor: 'var(--purple)44' }} onClick={handleSynthesize} disabled={synthLoading}>{synthLoading ? '✦ Synthesizing...' : '✦ Synthesize'}</button>
               <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px' }} onClick={() => { closeAll(); setShowLogForm(!showLogForm); }}>{showLogForm ? 'Cancel' : '+ Log Call/Email'}</button>
               <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px' }} onClick={() => { closeAll(); setShowNoteForm(!showNoteForm); }}>{showNoteForm ? 'Cancel' : '+ Note'}</button>
               <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px' }} onClick={() => { closeAll(); setShowFuForm(!showFuForm); }}>{showFuForm ? 'Cancel' : '+ Follow-Up'}</button>
@@ -287,9 +287,9 @@ export default function DealDetail({
 
           {/* AI Synthesis result */}
           {synth && (
-            <div style={{ padding: '14px', background: '#8b5cf611', border: '1px solid #8b5cf633', borderRadius: '8px', marginBottom: '14px', fontSize: '14px', lineHeight: 1.7, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
+            <div style={{ padding: '14px', background: 'var(--purple)11', border: '1px solid var(--purple)33', borderRadius: '8px', marginBottom: '14px', fontSize: '14px', lineHeight: 1.7, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: '#8b5cf6', textTransform: 'uppercase' }}>✦ AI Synthesis (Opus)</span>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--purple)', textTransform: 'uppercase' }}>✦ AI Synthesis (Opus)</span>
                 {deal.ai_synthesis_at && <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{new Date(deal.ai_synthesis_at).toLocaleString()}</span>}
               </div>
               {synth}
@@ -344,7 +344,7 @@ export default function DealDetail({
             <div style={{ marginBottom: '12px' }}>
               {linkedFollowUps.filter(f => !f.completed).sort((a, b) => new Date(a.due_date) - new Date(b.due_date)).map(fu => {
                 const od = new Date(fu.due_date) < new Date(new Date().toDateString());
-                return (<div key={fu.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', marginBottom: '4px', borderRadius: '6px', background: od ? 'var(--red-soft)' : 'var(--amber-soft)', border: `1px solid ${od ? 'var(--red)' : 'var(--amber)'}33` }}>
+                return (<div key={fu.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', marginBottom: '4px', borderRadius: '6px', background: od ? 'var(--red-soft)' : 'var(--amber-bg)', border: `1px solid ${od ? 'var(--red)' : 'var(--amber)'}33` }}>
                   <span>{od ? '⚠' : '🔔'}</span>
                   <div style={{ flex: 1 }}><span style={{ fontSize: '14px', fontWeight: 500, color: od ? 'var(--red)' : 'var(--amber)' }}>{fu.reason}</span><span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: '8px', fontFamily: 'var(--font-mono)' }}>{od ? 'OVERDUE · ' : ''}{fu.due_date}</span></div>
                   <button className="btn btn-ghost btn-sm" style={{ fontSize: '11px' }} onClick={() => handleCompleteFu(fu)}>✓</button>
@@ -360,7 +360,7 @@ export default function DealDetail({
               <div style={{ position: 'absolute', left: '7px', top: '4px', bottom: '4px', width: '2px', background: 'var(--border)' }} />
               {timeline.map(item => (
                 <div key={item.id} style={{ position: 'relative', paddingBottom: '14px' }}>
-                  <div style={{ position: 'absolute', left: '-24px', top: '3px', width: '16px', height: '16px', borderRadius: '50%', background: 'var(--bg-card)', border: '2px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px' }}>{item.icon}</div>
+                  <div style={{ position: 'absolute', left: '-24px', top: '3px', width: '16px', height: '16px', borderRadius: '50%', background: 'var(--card)', border: '2px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px' }}>{item.icon}</div>
                   <div style={{ padding: '10px 12px', background: 'var(--bg-input)', borderRadius: '6px' }}>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: item.detail ? '4px' : 0, flexWrap: 'wrap' }}>
                       <span className={`tag ${item.kind === 'note' ? 'tag-purple' : 'tag-blue'}`} style={{ fontSize: '11px' }}>{item.label}</span>
@@ -492,7 +492,7 @@ export default function DealDetail({
                 <th style={{ textAlign: 'left', fontSize: '12px', padding: '8px 10px', color: 'var(--text-muted)' }}>Notes</th>
               </tr></thead><tbody>
                 {outreachLog.map(o => {
-                  const outcomeColor = { 'Interested': '#22c55e', 'Offer Coming': '#3b82f6', 'Passed': '#ef4444', 'No Response': '#6b7280' }[o.outcome] || '#f59e0b';
+                  const outcomeColor = { 'Interested': 'var(--green)', 'Offer Coming': 'var(--blue)', 'Passed': 'var(--rust)', 'No Response': 'var(--ink3)' }[o.outcome] || 'var(--amber)';
                   return (
                     <tr key={o.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                       <td style={{ padding: '8px 10px', fontFamily: 'var(--font-mono)', fontSize: '13px' }}>{o.outreach_date}</td>
@@ -521,13 +521,13 @@ export default function DealDetail({
       {activeTab === 'tasks' && (
         <div className="card" style={{ marginBottom: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tasks {pendingTasks > 0 && <span style={{ color: '#ef4444' }}>({pendingTasks})</span>}</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tasks {pendingTasks > 0 && <span style={{ color: 'var(--rust)' }}>({pendingTasks})</span>}</h3>
             <button className="btn btn-ghost btn-sm" style={{ fontSize: '12px' }} onClick={() => onAddTask?.(deal.id)}>+ Task</button>
           </div>
           {linkedTasks.length === 0 ? <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No tasks</div> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {linkedTasks.sort((a, b) => a.completed - b.completed).map(t => {
-                const pc = { High: '#ef4444', Medium: '#f59e0b', Low: '#6b7280' }[t.priority] || '#6b7280';
+                const pc = { High: 'var(--rust)', Medium: 'var(--amber)', Low: 'var(--ink3)' }[t.priority] || 'var(--ink3)';
                 const od = !t.completed && t.due_date && new Date(t.due_date) < new Date();
                 return (<div key={t.id} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '8px 10px', background: 'var(--bg-input)', borderRadius: '6px', borderLeft: `3px solid ${t.completed ? 'var(--border)' : pc}`, opacity: t.completed ? 0.6 : 1 }}>
                   <div style={{ width: '14px', height: '14px', borderRadius: '3px', flexShrink: 0, marginTop: '2px', border: '2px solid', borderColor: t.completed ? 'var(--accent)' : pc, background: t.completed ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px' }}>{t.completed ? '✓' : ''}</div>

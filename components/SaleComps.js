@@ -62,16 +62,16 @@ export default function SaleComps({ comps, onCompClick }) {
       {/* Stats */}
       {filtered.length > 0 && (
         <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
-          <div style={{ fontSize: '15px', color: 'var(--text-muted)' }}>
+          <div style={{  color: 'var(--text-muted)' }}>
             <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', fontWeight: 600 }}>{filtered.length}</span> comps
           </div>
           {avgPsf > 0 && (
-            <div style={{ fontSize: '15px', color: 'var(--text-muted)' }}>
+            <div style={{  color: 'var(--text-muted)' }}>
               Avg <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)', fontWeight: 600 }}>${avgPsf}/SF</span>
             </div>
           )}
           {avgCap && (
-            <div style={{ fontSize: '15px', color: 'var(--text-muted)' }}>
+            <div style={{  color: 'var(--text-muted)' }}>
               Avg Cap <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)', fontWeight: 600 }}>{avgCap}%</span>
             </div>
           )}
@@ -91,7 +91,7 @@ export default function SaleComps({ comps, onCompClick }) {
             {submarkets.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         )}
-        <span style={{ marginLeft: 'auto', fontSize: '15px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+        <span style={{ marginLeft: 'auto',  color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
           {filtered.length} comps
         </span>
       </div>
@@ -117,35 +117,35 @@ export default function SaleComps({ comps, onCompClick }) {
               <React.Fragment key={c.id}>
                 <tr
                   onClick={() => setExpanded(expanded === c.id ? null : c.id)}
-                  style={{ background: expanded === c.id ? 'var(--bg-card-hover)' : undefined, cursor: 'pointer' }}
+                  style={{ background: expanded === c.id ? 'var(--bg)' : undefined, cursor: 'pointer' }}
                 >
                   <td className="text-primary" style={{ fontWeight: 500 }}>{c.address || '—'}</td>
                   <td>{c.submarket || c.city || '—'}</td>
-                  <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: '15px' }}>
+                  <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)',  }}>
                     {c.building_sf ? fmt.sf(c.building_sf) : '—'}
                   </td>
-                  <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: '15px' }}>
+                  <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)',  }}>
                     {c.sale_price ? fmt.price(c.sale_price) : '—'}
                   </td>
-                  <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: '15px', color: 'var(--accent)', fontWeight: 600 }}>
+                  <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)',  color: 'var(--accent)', fontWeight: 600 }}>
                     {c.price_psf ? `$${parseFloat(c.price_psf).toFixed(0)}` : '—'}
                   </td>
-                  <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: '15px' }}>
+                  <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)',  }}>
                     {c.cap_rate ? `${parseFloat(c.cap_rate).toFixed(2)}%` : '—'}
                   </td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '15px' }}>
+                  <td style={{ fontFamily: 'var(--font-mono)',  }}>
                     {c.sale_date ? c.sale_date.slice(0, 7) : '—'}
                   </td>
                   <td>
-                    {c.sale_type && <span className={`tag ${saleTypeColor(c.sale_type)}`} style={{ fontSize: '15px' }}>{c.sale_type}</span>}
+                    {c.sale_type && <span className={`tag ${saleTypeColor(c.sale_type)}`} style={{  }}>{c.sale_type}</span>}
                   </td>
-                  <td style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '15px' }}>
+                  <td style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',  }}>
                     {c.buyer || '—'}
                   </td>
                 </tr>
                 {expanded === c.id && (
                   <tr>
-                    <td colSpan={9} style={{ padding: 0, background: 'var(--bg-card-hover)' }}>
+                    <td colSpan={9} style={{ padding: 0, background: 'var(--bg)' }}>
                       <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border-subtle)' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: c.notes ? '12px' : 0 }}>
                           {[
@@ -165,19 +165,19 @@ export default function SaleComps({ comps, onCompClick }) {
                             ['Seller', c.seller],
                           ].map(([label, val, mono, tagVal]) => (
                             <div key={label}>
-                              <div style={{ fontSize: '15px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '4px' }}>{label}</div>
+                              <div style={{  fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '4px' }}>{label}</div>
                               {tagVal ? (
                                 <span className={`tag ${saleTypeColor(tagVal)}`}>{tagVal}</span>
                               ) : (
-                                <div style={{ fontSize: '15px', color: val ? 'var(--text-primary)' : 'var(--text-muted)' }}>{val || '—'}</div>
+                                <div style={{  color: val ? 'var(--text-primary)' : 'var(--text-muted)' }}>{val || '—'}</div>
                               )}
                             </div>
                           ))}
                         </div>
                         {c.notes && (
                           <div>
-                            <div style={{ fontSize: '15px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '4px' }}>Notes</div>
-                            <div style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{c.notes}</div>
+                            <div style={{  fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '4px' }}>Notes</div>
+                            <div style={{  color: 'var(--text-secondary)', lineHeight: 1.6 }}>{c.notes}</div>
                           </div>
                         )}
                       </div>

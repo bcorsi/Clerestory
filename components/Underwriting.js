@@ -170,13 +170,13 @@ export default function Underwriting({ deal, property, leaseComps, saleComps, on
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '16px' }}>
         <Metric label="Purchase Price" value={computed.pp ? '$' + computed.pp.toLocaleString() : '—'} color="var(--accent)" />
         <Metric label="Price / SF" value={computed.pricePsf ? '$' + computed.pricePsf.toLocaleString() : '—'} sub={computed.sf ? computed.sf.toLocaleString() + ' SF' : ''} />
-        <Metric label="Going-In Cap" value={computed.goingInCap ? computed.goingInCap.toFixed(2) + '%' : '—'} color={computed.goingInCap >= 5 ? '#22c55e' : '#f59e0b'} />
-        <Metric label="NOI" value={computed.noi ? '$' + Math.round(computed.noi).toLocaleString() : '—'} color="#22c55e" />
+        <Metric label="Going-In Cap" value={computed.goingInCap ? computed.goingInCap.toFixed(2) + '%' : '—'} color={computed.goingInCap >= 5 ? 'var(--green)' : 'var(--amber)'} />
+        <Metric label="NOI" value={computed.noi ? '$' + Math.round(computed.noi).toLocaleString() : '—'} color="var(--green)" />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '16px' }}>
-        <Metric label="DSCR" value={computed.dscr ? computed.dscr.toFixed(2) + 'x' : '—'} color={computed.dscr >= 1.25 ? '#22c55e' : '#ef4444'} />
+        <Metric label="DSCR" value={computed.dscr ? computed.dscr.toFixed(2) + 'x' : '—'} color={computed.dscr >= 1.25 ? 'var(--green)' : 'var(--rust)'} />
         <Metric label="Unlevered IRR" value={computed.unleveredIRR ? computed.unleveredIRR.toFixed(1) + '%' : '—'} color="var(--accent)" />
-        <Metric label="Levered IRR" value={computed.leveredIRR ? computed.leveredIRR.toFixed(1) + '%' : '—'} color={computed.leveredIRR >= 15 ? '#22c55e' : '#f59e0b'} />
+        <Metric label="Levered IRR" value={computed.leveredIRR ? computed.leveredIRR.toFixed(1) + '%' : '—'} color={computed.leveredIRR >= 15 ? 'var(--green)' : 'var(--amber)'} />
         <Metric label="Equity Multiple" value={computed.equityMultiple ? computed.equityMultiple.toFixed(2) + 'x' : '—'} sub={computed.equity ? 'Equity: $' + Math.round(computed.equity).toLocaleString() : ''} />
       </div>
 
@@ -186,7 +186,7 @@ export default function Underwriting({ deal, property, leaseComps, saleComps, on
           <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assumptions</h3>
           <div style={{ display: 'flex', gap: '6px' }}>
             <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving}>{saving ? '...' : 'Save'}</button>
-            <button className="btn btn-ghost btn-sm" style={{ color: '#8b5cf6', borderColor: '#8b5cf644' }} onClick={handleGenerateMemo} disabled={memoLoading}>{memoLoading ? '✦ Generating...' : '✦ Generate Memo'}</button>
+            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--purple)', borderColor: 'var(--purple)44' }} onClick={handleGenerateMemo} disabled={memoLoading}>{memoLoading ? '✦ Generating...' : '✦ Generate Memo'}</button>
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
@@ -209,7 +209,7 @@ export default function Underwriting({ deal, property, leaseComps, saleComps, on
       {memoText && (
         <div className="card" style={{ marginBottom: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>✦ Investment Memo (Opus)</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--purple)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>✦ Investment Memo (Opus)</h3>
           </div>
           <div style={{ fontSize: '14px', lineHeight: 1.7, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{memoText}</div>
         </div>

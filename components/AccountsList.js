@@ -49,21 +49,21 @@ export default function AccountsList({ accounts, onAccountClick }) {
   };
 
   const timingColor = (t) => {
-    if (t === 'Actively Buying Now') return { bg: '#22c55e18', color: '#22c55e', border: '#22c55e44' };
-    if (t === 'Buying Selectively') return { bg: '#3b82f618', color: '#3b82f6', border: '#3b82f644' };
-    if (t === 'Paused') return { bg: '#f59e0b18', color: '#f59e0b', border: '#f59e0b44' };
+    if (t === 'Actively Buying Now') return { bg: 'var(--green)18', color: 'var(--green)', border: 'var(--green)44' };
+    if (t === 'Buying Selectively') return { bg: 'var(--blue)18', color: 'var(--blue)', border: 'var(--blue)44' };
+    if (t === 'Paused') return { bg: 'var(--amber)18', color: 'var(--amber)', border: 'var(--amber)44' };
     return { bg: 'var(--bg-input)', color: 'var(--text-muted)', border: 'var(--border)' };
   };
 
   const MarketPills = ({ markets }) => {
-    if (!markets?.length) return <span style={{ color: 'var(--text-muted)', fontSize: '15px' }}>—</span>;
-    const mColors = { SGV: '#8b5cf6', IE: '#f97316', LA: '#3b82f6', OC: '#06b6d4', 'San Diego': '#10b981', Ventura: '#ec4899' };
+    if (!markets?.length) return <span style={{ color: 'var(--text-muted)',  }}>—</span>;
+    const mColors = { SGV: 'var(--purple)', IE: 'var(--amber)', LA: 'var(--blue)', OC: var(--blue3), 'San Diego': 'var(--green)', Ventura: var(--purple) };
     return (
       <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
         {markets.map(m => (
           <span key={m} style={{
-            fontSize: '15px', fontWeight: 600, padding: '1px 5px', borderRadius: '3px',
-            background: (mColors[m] || '#6b7280') + '18', color: mColors[m] || '#6b7280',
+             fontWeight: 600, padding: '1px 5px', borderRadius: '3px',
+            background: (mColors[m] || 'var(--ink3)') + '18', color: mColors[m] || 'var(--ink3)',
           }}>{m}</span>
         ))}
       </div>
@@ -71,7 +71,7 @@ export default function AccountsList({ accounts, onAccountClick }) {
   };
 
   const DetailPanel = ({ a }) => (
-    <tr><td colSpan={8} style={{ padding: 0, background: 'var(--bg-card-hover)' }}>
+    <tr><td colSpan={8} style={{ padding: 0, background: 'var(--bg)' }}>
       <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border-subtle)' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '14px', marginBottom: '12px' }}>
           {[
@@ -92,15 +92,15 @@ export default function AccountsList({ accounts, onAccountClick }) {
             ['Source', a.source],
           ].map(([label, val, mono]) => val ? (
             <div key={label}>
-              <div style={{ fontSize: '15px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '3px' }}>{label}</div>
-              <div style={{ fontSize: '15px', color: 'var(--text-primary)', fontFamily: mono ? 'var(--font-mono)' : 'inherit' }}>{val}</div>
+              <div style={{  fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '3px' }}>{label}</div>
+              <div style={{  color: 'var(--text-primary)', fontFamily: mono ? 'var(--font-mono)' : 'inherit' }}>{val}</div>
             </div>
           ) : null)}
         </div>
         {(a.known_acquisitions || a.notes) && (
           <div style={{ marginTop: '8px', paddingTop: '10px', borderTop: '1px solid var(--border-subtle)' }}>
-            <div style={{ fontSize: '15px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '4px' }}>Intel / Notes</div>
-            <div style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{a.notes || a.known_acquisitions}</div>
+            <div style={{  fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '4px' }}>Intel / Notes</div>
+            <div style={{  color: 'var(--text-secondary)', lineHeight: 1.6 }}>{a.notes || a.known_acquisitions}</div>
           </div>
         )}
       </div>
@@ -125,7 +125,7 @@ export default function AccountsList({ accounts, onAccountClick }) {
           <option value="name">By Name</option>
           <option value="deals">By Deals</option>
         </select>
-        <span style={{ marginLeft: 'auto', fontSize: '15px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+        <span style={{ marginLeft: 'auto',  color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
           {filtered.length} account{filtered.length !== 1 ? 's' : ''}
         </span>
       </div>
@@ -152,31 +152,31 @@ export default function AccountsList({ accounts, onAccountClick }) {
                   <tr
                     onClick={() => setExpanded(expanded === a.id ? null : a.id)}
                     onDoubleClick={() => onAccountClick?.(a)}
-                    style={{ background: expanded === a.id ? 'var(--bg-card-hover)' : undefined, cursor: 'pointer' }}
+                    style={{ background: expanded === a.id ? 'var(--bg)' : undefined, cursor: 'pointer' }}
                   >
                     <td className="text-primary" style={{ fontWeight: 600 }}>
                       {a.name}
-                      {a.city && <span style={{ fontSize: '15px', color: 'var(--text-muted)', marginLeft: '6px' }}>{a.city}{a.hq_state ? `, ${a.hq_state}` : ''}</span>}
+                      {a.city && <span style={{  color: 'var(--text-muted)', marginLeft: '6px' }}>{a.city}{a.hq_state ? `, ${a.hq_state}` : ''}</span>}
                     </td>
-                    <td><span className={`tag ${typeColor(a.account_type)}`} style={{ fontSize: '15px' }}>{a.buyer_type || a.account_type || '—'}</span></td>
+                    <td><span className={`tag ${typeColor(a.account_type)}`} style={{  }}>{a.buyer_type || a.account_type || '—'}</span></td>
                     <td><MarketPills markets={a.preferred_markets} /></td>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '15px', whiteSpace: 'nowrap' }}>
+                    <td style={{ fontFamily: 'var(--font-mono)',  whiteSpace: 'nowrap' }}>
                       {a.min_sf && a.max_sf ? `${(a.min_sf/1000).toFixed(0)}K–${(a.max_sf/1000).toFixed(0)}K` : '—'}
                     </td>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '15px', whiteSpace: 'nowrap' }}>
+                    <td style={{ fontFamily: 'var(--font-mono)',  whiteSpace: 'nowrap' }}>
                       {a.min_price_psf && a.max_price_psf ? `$${Math.round(a.min_price_psf)}–$${Math.round(a.max_price_psf)}` : '—'}
                     </td>
                     <td>
                       {a.acquisition_timing ? (
-                        <span style={{ fontSize: '15px', padding: '2px 6px', borderRadius: '4px', background: tc.bg, color: tc.color, border: `1px solid ${tc.border}`, whiteSpace: 'nowrap' }}>
+                        <span style={{  padding: '2px 6px', borderRadius: '4px', background: tc.bg, color: tc.color, border: `1px solid ${tc.border}`, whiteSpace: 'nowrap' }}>
                           {a.acquisition_timing === 'Actively Buying Now' ? 'Active' : a.acquisition_timing === 'Buying Selectively' ? 'Selective' : a.acquisition_timing}
                         </span>
                       ) : '—'}
                     </td>
-                    <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: '15px' }}>{a.total_deals_closed || a.deal_count || '—'}</td>
+                    <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)',  }}>{a.total_deals_closed || a.deal_count || '—'}</td>
                     <td style={{ textAlign: 'right' }}>
                       {a.buyer_activity_score ? (
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '15px', fontWeight: 600, color: a.buyer_activity_score >= 80 ? '#22c55e' : a.buyer_activity_score >= 50 ? '#3b82f6' : 'var(--text-muted)' }}>
+                        <span style={{ fontFamily: 'var(--font-mono)',  fontWeight: 600, color: a.buyer_activity_score >= 80 ? 'var(--green)' : a.buyer_activity_score >= 50 ? 'var(--blue)' : 'var(--text-muted)' }}>
                           {a.buyer_activity_score}
                         </span>
                       ) : '—'}

@@ -68,10 +68,10 @@ export default function AccountDetail({ account, contacts, deals, properties, ac
   }, [properties, account, minScore, isBuyer]);
 
   const tier = (score) => {
-    if (score >= 80) return { label: 'A', color: '#22c55e' };
-    if (score >= 60) return { label: 'B', color: '#3b82f6' };
-    if (score >= 40) return { label: 'C', color: '#f59e0b' };
-    return { label: 'D', color: '#6b7280' };
+    if (score >= 80) return { label: 'A', color: 'var(--green)' };
+    if (score >= 60) return { label: 'B', color: 'var(--blue)' };
+    if (score >= 40) return { label: 'C', color: 'var(--amber)' };
+    return { label: 'D', color: 'var(--ink3)' };
   };
 
   const typeColor = (type) => ({ 'Owner': 'tag-amber', 'Institutional Buyer': 'tag-green', 'Private Buyer': 'tag-green', 'Tenant': 'tag-blue', 'Investor': 'tag-green', 'Developer': 'tag-purple' }[type] || 'tag-ghost');
@@ -175,14 +175,14 @@ export default function AccountDetail({ account, contacts, deals, properties, ac
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                          <span style={{ fontSize: '15px', fontWeight: 700 }}>{p.address}</span>
+                          <span style={{  fontWeight: 700 }}>{p.address}</span>
                           <span style={{ fontSize: '13px', padding: '2px 8px', borderRadius: '4px', background: t.color + '22', color: t.color, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{p.matchScore}/100 ({t.label})</span>
                         </div>
                         <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '6px' }}>
                           {[p.city || p.submarket, (p.total_sf || p.building_sf) ? Number(p.total_sf || p.building_sf).toLocaleString() + ' SF' : null, p.owner, p.vacancy_status].filter(Boolean).join(' · ')}
                         </div>
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                          {p.matchReasons.map((r, i) => <span key={i} style={{ fontSize: '12px', padding: '2px 6px', borderRadius: '3px', background: r.includes('✓') ? '#22c55e15' : '#f59e0b15', color: r.includes('✓') ? '#22c55e' : '#f59e0b', fontFamily: 'var(--font-mono)' }}>{r}</span>)}
+                          {p.matchReasons.map((r, i) => <span key={i} style={{ fontSize: '12px', padding: '2px 6px', borderRadius: '3px', background: r.includes('✓') ? 'var(--green)15' : 'var(--amber)15', color: r.includes('✓') ? 'var(--green)' : 'var(--amber)', fontFamily: 'var(--font-mono)' }}>{r}</span>)}
                         </div>
                         {(p.catalyst_tags || []).length > 0 && (
                           <div style={{ display: 'flex', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>

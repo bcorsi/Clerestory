@@ -40,7 +40,7 @@ export default function ContactsList({ contacts, onContactClick }) {
 
   const DetailPanel = ({ c }) => (
     <tr>
-      <td colSpan={6} style={{ padding: 0, background: 'var(--bg-card-hover)' }}>
+      <td colSpan={6} style={{ padding: 0, background: 'var(--bg)' }}>
         <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border-subtle)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: c.notes ? '12px' : 0 }}>
             {[
@@ -48,19 +48,19 @@ export default function ContactsList({ contacts, onContactClick }) {
               ['Phone', c.phone, true], ['Email', c.email], ['Type', null, false, c.contact_type],
             ].map(([label, val, mono, tagVal]) => (
               <div key={label}>
-                <div style={{ fontSize: '15px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '4px' }}>{label}</div>
+                <div style={{  fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '4px' }}>{label}</div>
                 {tagVal ? (
                   <span className={`tag ${typeColor(tagVal)}`}>{tagVal}</span>
                 ) : (
-                  <div style={{ fontSize: '15px', color: 'var(--text-primary)', fontFamily: mono ? 'var(--font-mono)' : 'inherit' }}>{val || '—'}</div>
+                  <div style={{  color: 'var(--text-primary)', fontFamily: mono ? 'var(--font-mono)' : 'inherit' }}>{val || '—'}</div>
                 )}
               </div>
             ))}
           </div>
           {c.notes && (
             <div>
-              <div style={{ fontSize: '15px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '4px' }}>Notes</div>
-              <div style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>{c.notes}</div>
+              <div style={{  fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '4px' }}>Notes</div>
+              <div style={{  color: 'var(--text-secondary)', lineHeight: '1.6' }}>{c.notes}</div>
             </div>
           )}
         </div>
@@ -76,7 +76,7 @@ export default function ContactsList({ contacts, onContactClick }) {
           <option value="">All Types</option>
           {CONTACT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
-        <span style={{ marginLeft: 'auto', fontSize: '15px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+        <span style={{ marginLeft: 'auto',  color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
           {filtered.length} contacts
         </span>
       </div>
@@ -94,13 +94,13 @@ export default function ContactsList({ contacts, onContactClick }) {
                 <tr
                   onClick={() => setExpanded(expanded === c.id ? null : c.id)}
                   onDoubleClick={() => onContactClick && onContactClick(c)}
-                  style={{ background: expanded === c.id ? 'var(--bg-card-hover)' : undefined, cursor: 'pointer' }}
+                  style={{ background: expanded === c.id ? 'var(--bg)' : undefined, cursor: 'pointer' }}
                 >
                   <td className="text-primary">{c.name}</td>
                   <td>{c.company || '—'}</td>
                   <td><span className={`tag ${typeColor(c.contact_type)}`}>{c.contact_type}</span></td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '15px' }}>{c.phone || '—'}</td>
-                  <td style={{ fontSize: '15px' }}>{c.email || '—'}</td>
+                  <td style={{ fontFamily: 'var(--font-mono)',  }}>{c.phone || '—'}</td>
+                  <td style={{  }}>{c.email || '—'}</td>
                   <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.notes || '—'}</td>
                 </tr>
                 {expanded === c.id && <DetailPanel c={c} />}

@@ -49,7 +49,7 @@ export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
   const convertedLeads = leads.filter((l) => l.stage === 'Converted');
   const deadLeads = leads.filter((l) => l.stage === 'Dead');
   const byStage = LEAD_STAGES.reduce((acc, s) => { acc[s] = active.filter((l) => l.stage === s); return acc; }, {});
-  const tierColor = (t) => ({ 'A+': '#22c55e', A: '#3b82f6', B: '#f59e0b', C: '#6b7280' }[t] || '#6b7280');
+  const tierColor = (t) => ({ 'A+': 'var(--green)', A: 'var(--blue)', B: 'var(--amber)', C: 'var(--ink3)' }[t] || 'var(--ink3)');
 
   const statusLeads = statusFilter === 'all' ? leads : statusFilter === 'converted' ? convertedLeads : statusFilter === 'dead' ? deadLeads : active;
 
@@ -133,7 +133,7 @@ export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
   const ViewToggle = () => (
     <div style={{ display: 'flex', gap: '2px', background: 'var(--bg-input)', borderRadius: '6px', padding: '2px' }}>
       {[['kanban', '⊞'], ['list', '☰']].map(([v, icon]) => (
-        <button key={v} onClick={() => setView(v)} style={{ padding: '4px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '15px', background: view === v ? 'var(--bg-card)' : 'transparent', color: view === v ? 'var(--text-primary)' : 'var(--text-muted)', transition: 'all 0.15s' }}>{icon}</button>
+        <button key={v} onClick={() => setView(v)} style={{ padding: '4px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer',  background: view === v ? 'var(--bg-card)' : 'transparent', color: view === v ? 'var(--text-primary)' : 'var(--text-muted)', transition: 'all 0.15s' }}>{icon}</button>
       ))}
     </div>
   );
@@ -145,34 +145,34 @@ export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
 
     return (
       <div onClick={() => setExpanded(open ? null : lead.id)} onDoubleClick={() => onLeadClick?.(lead)}
-        style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderLeft: `3px solid ${tierColor(lead.tier)}`, borderRadius: 'var(--radius)', padding: '12px', cursor: 'pointer', marginBottom: '8px' }}>
+        style={{ background: 'var(--card)', border: '1px solid var(--border)', borderLeft: `3px solid ${tierColor(lead.tier)}`, borderRadius: 'var(--radius)', padding: '12px', cursor: 'pointer', marginBottom: '8px' }}>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-          <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', flex: 1, marginRight: '8px' }}>{lead.lead_name}</span>
+          <span style={{  fontWeight: 600, color: 'var(--text-primary)', flex: 1, marginRight: '8px' }}>{lead.lead_name}</span>
           <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
-            {lead.tier && <span style={{ fontSize: '15px', fontWeight: 700, padding: '2px 5px', borderRadius: '3px', background: tierColor(lead.tier) + '22', color: tierColor(lead.tier) }}>{lead.tier}</span>}
-            {lead.score != null && <span style={{ fontSize: '15px', fontFamily: 'var(--font-mono)', color: 'var(--accent)', background: 'var(--accent-soft)', padding: '2px 5px', borderRadius: '3px' }}>{lead.score}</span>}
+            {lead.tier && <span style={{  fontWeight: 700, padding: '2px 5px', borderRadius: '3px', background: tierColor(lead.tier) + '22', color: tierColor(lead.tier) }}>{lead.tier}</span>}
+            {lead.score != null && <span style={{  fontFamily: 'var(--font-mono)', color: 'var(--accent)', background: 'var(--accent-soft)', padding: '2px 5px', borderRadius: '3px' }}>{lead.score}</span>}
           </div>
         </div>
 
-        {lead.address && <div style={{ fontSize: '15px', color: 'var(--text-muted)', marginBottom: '5px' }}>{lead.address}{lead.submarket ? ` · ${lead.submarket}` : ''}</div>}
+        {lead.address && <div style={{  color: 'var(--text-muted)', marginBottom: '5px' }}>{lead.address}{lead.submarket ? ` · ${lead.submarket}` : ''}</div>}
 
         {subs.length > 0 && (
           <div style={{ marginBottom: '6px' }}>
             <div style={{ height: '3px', background: 'var(--border)', borderRadius: '2px', overflow: 'hidden' }}>
               <div style={{ width: `${subs.length > 0 ? Math.round(done / subs.length * 100) : 0}%`, height: '100%', background: tierColor(lead.tier), transition: 'width 0.3s' }} />
             </div>
-            <div style={{ fontSize: '15px', color: 'var(--text-muted)', marginTop: '2px' }}>{done}/{subs.length} steps</div>
+            <div style={{  color: 'var(--text-muted)', marginTop: '2px' }}>{done}/{subs.length} steps</div>
           </div>
         )}
 
         {aiStep[lead.id]
-          ? <div style={{ fontSize: '15px', color: 'var(--amber)', fontWeight: 500, marginBottom: '5px' }}>✦ {aiStep[lead.id]}</div>
-          : lead.next_action && <div style={{ fontSize: '15px', color: 'var(--text-secondary)', marginBottom: '5px' }}>→ {lead.next_action}</div>}
+          ? <div style={{  color: 'var(--amber)', fontWeight: 500, marginBottom: '5px' }}>✦ {aiStep[lead.id]}</div>
+          : lead.next_action && <div style={{  color: 'var(--text-secondary)', marginBottom: '5px' }}>→ {lead.next_action}</div>}
 
         {lead.catalyst_tags?.length > 0 && (
           <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
-            {lead.catalyst_tags.slice(0, 2).map((t) => <span key={t} className={`tag ${catalystTagClass(t)}`} style={{ fontSize: '15px' }}>{t}</span>)}
+            {lead.catalyst_tags.slice(0, 2).map((t) => <span key={t} className={`tag ${catalystTagClass(t)}`} style={{  }}>{t}</span>)}
           </div>
         )}
 
@@ -180,22 +180,22 @@ export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
           <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '10px', marginTop: '8px' }} onClick={(e) => e.stopPropagation()}>
             {subs.length > 0 && (
               <div style={{ marginBottom: '12px' }}>
-                <div style={{ fontSize: '15px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '6px' }}>Substeps</div>
+                <div style={{  fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '6px' }}>Substeps</div>
                 {subs.map((step) => {
                   const checked = (lead.substeps || {})[step] || false;
                   return (
                     <div key={step} onClick={() => toggleSub(lead.id, step)} style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '3px 0', cursor: 'pointer' }}>
-                      <div style={{ width: '14px', height: '14px', borderRadius: '3px', flexShrink: 0, border: '2px solid', borderColor: checked ? 'var(--accent)' : 'var(--border)', background: checked ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '15px', fontWeight: 700 }}>{checked ? '✓' : ''}</div>
-                      <span style={{ fontSize: '15px', color: checked ? 'var(--text-muted)' : 'var(--text-secondary)', textDecoration: checked ? 'line-through' : 'none' }}>{step}</span>
+                      <div style={{ width: '14px', height: '14px', borderRadius: '3px', flexShrink: 0, border: '2px solid', borderColor: checked ? 'var(--accent)' : 'var(--border)', background: checked ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white',  fontWeight: 700 }}>{checked ? '✓' : ''}</div>
+                      <span style={{  color: checked ? 'var(--text-muted)' : 'var(--text-secondary)', textDecoration: checked ? 'line-through' : 'none' }}>{step}</span>
                     </div>
                   );
                 })}
               </div>
             )}
 
-            {lead.decision_maker && <div style={{ fontSize: '15px', marginBottom: '2px' }}><span style={{ color: 'var(--text-muted)' }}>DM: </span>{lead.decision_maker}</div>}
-            {lead.phone && <div style={{ fontSize: '15px', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', marginBottom: '2px' }}>{lead.phone}</div>}
-            {lead.notes && <div style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: 1.5, margin: '6px 0 10px' }}>{lead.notes.slice(0, 180)}{lead.notes.length > 180 ? '...' : ''}</div>}
+            {lead.decision_maker && <div style={{  marginBottom: '2px' }}><span style={{ color: 'var(--text-muted)' }}>DM: </span>{lead.decision_maker}</div>}
+            {lead.phone && <div style={{  fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', marginBottom: '2px' }}>{lead.phone}</div>}
+            {lead.notes && <div style={{  color: 'var(--text-secondary)', lineHeight: 1.5, margin: '6px 0 10px' }}>{lead.notes.slice(0, 180)}{lead.notes.length > 180 ? '...' : ''}</div>}
 
             <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '6px' }}>
               <button className="btn btn-ghost btn-sm" style={{ fontSize: '13px', color: 'var(--amber)', borderColor: 'var(--amber)' }} onClick={(e) => handleAI(lead, e)} disabled={aiLoading === lead.id}>
@@ -243,7 +243,7 @@ export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
           {deadLeads.length > 0 && (
             <button onClick={() => setShowDead(!showDead)}
               style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '14px', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#374151' }} />
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: var(--ink3) }} />
               <span>Dead</span>
               <span style={{ fontFamily: 'var(--font-mono)', color: showDead ? 'var(--red)' : 'var(--text-muted)', fontWeight: 600 }}>{deadLeads.length}</span>
             </button>
@@ -288,16 +288,16 @@ export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
               {filteredActive.map((lead) => (
                 <tr key={lead.id} onClick={() => onLeadClick?.(lead)} style={{ cursor: 'pointer' }}>
                   <td><div style={{ fontWeight: 500 }}>{lead.lead_name}</div>{lead.address && <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{lead.address}</div>}</td>
-                  <td><span style={{ fontSize: '15px', padding: '2px 7px', borderRadius: '4px', background: (LEAD_STAGE_COLORS[lead.stage] || '#6b7280') + '22', color: LEAD_STAGE_COLORS[lead.stage] || '#6b7280', fontWeight: 600 }}>{lead.stage}</span></td>
+                  <td><span style={{  padding: '2px 7px', borderRadius: '4px', background: (LEAD_STAGE_COLORS[lead.stage] || 'var(--ink3)') + '22', color: LEAD_STAGE_COLORS[lead.stage] || 'var(--ink3)', fontWeight: 600 }}>{lead.stage}</span></td>
                   <td>{lead.tier && <span style={{ fontWeight: 700, color: tierColor(lead.tier) }}>{lead.tier}</span>}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '15px', color: 'var(--accent)' }}>{lead.score ?? '—'}</td>
+                  <td style={{ fontFamily: 'var(--font-mono)',  color: 'var(--accent)' }}>{lead.score ?? '—'}</td>
                   <td style={{ fontSize: '13px' }}>{lead.prop_type || '—'}</td>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', textAlign: 'right' }}>{lead.building_sf ? Number(lead.building_sf).toLocaleString() : '—'}</td>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', textAlign: 'right' }}>{lead.land_acres || '—'}</td>
-                  <td style={{ fontSize: '15px' }}>{lead.decision_maker || '—'}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '15px' }}>{lead.phone || '—'}</td>
-                  <td style={{ fontSize: '15px', color: 'var(--amber)' }}>{lead.next_action || '—'}</td>
-                  <td>{lead.priority && <span className={`tag ${lead.priority === 'High' ? 'tag-amber' : 'tag-ghost'}`} style={{ fontSize: '15px' }}>{lead.priority}</span>}</td>
+                  <td style={{  }}>{lead.decision_maker || '—'}</td>
+                  <td style={{ fontFamily: 'var(--font-mono)',  }}>{lead.phone || '—'}</td>
+                  <td style={{  color: 'var(--amber)' }}>{lead.next_action || '—'}</td>
+                  <td>{lead.priority && <span className={`tag ${lead.priority === 'High' ? 'tag-amber' : 'tag-ghost'}`} style={{  }}>{lead.priority}</span>}</td>
                 </tr>
               ))}
               {filteredActive.length === 0 && <tr><td colSpan={11} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No leads match filters</td></tr>}
@@ -309,12 +309,12 @@ export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${LEAD_STAGES.length}, 1fr)`, gap: '12px', alignItems: 'start' }}>
           {LEAD_STAGES.map((stage) => (
             <div key={stage}>
-              <div style={{ padding: '8px 12px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-card)', borderTop: `3px solid ${LEAD_STAGE_COLORS[stage]}`, marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '15px', fontWeight: 600 }}>{stage}</span>
-                <span style={{ fontSize: '15px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{byStage[stage]?.length || 0}</span>
+              <div style={{ padding: '8px 12px', borderRadius: 'var(--radius-sm)', background: 'var(--card)', borderTop: `3px solid ${LEAD_STAGE_COLORS[stage]}`, marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{  fontWeight: 600 }}>{stage}</span>
+                <span style={{  fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{byStage[stage]?.length || 0}</span>
               </div>
               {(byStage[stage] || []).map((lead) => <Card key={lead.id} lead={lead} />)}
-              {!(byStage[stage]?.length) && <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '15px', border: '1px dashed var(--border)', borderRadius: 'var(--radius)' }}>Empty</div>}
+              {!(byStage[stage]?.length) && <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)',  border: '1px dashed var(--border)', borderRadius: 'var(--radius)' }}>Empty</div>}
             </div>
           ))}
         </div>
@@ -323,7 +323,7 @@ export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
       {/* Dead Leads Section */}
       {showDead && deadLeads.length > 0 && (
         <div style={{ marginTop: '24px' }}>
-          <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-card)', borderTop: '3px solid #374151', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--card)', borderTop: '3px solid #374151', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)' }}>Dead Leads</span>
             <span style={{ fontSize: '13px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{deadLeads.length}</span>
           </div>

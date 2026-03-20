@@ -183,7 +183,7 @@ export default function Dashboard({
 
   // ─── HELPERS ──────────────────────────────────────────────
   const priorityColor = (p) => ({ Urgent: 'var(--red)', High: 'var(--amber)', Medium: 'var(--accent)', Low: 'var(--text-muted)' }[p] || 'var(--text-muted)');
-  const tierColor = (t) => ({ 'A+': '#22c55e', A: '#3b82f6', B: '#f59e0b', C: '#6b7280' }[t] || '#6b7280');
+  const tierColor = (t) => ({ 'A+': 'var(--green)', A: 'var(--blue)', B: 'var(--amber)', C: 'var(--ink3)' }[t] || 'var(--ink3)');
   const activityIcon = (type) => ({ Call: '📞', Email: '✉', Meeting: '🤝', 'To-Do': '☐' }[type] || '•');
 
   const findLinkedName = (act) => {
@@ -293,11 +293,11 @@ export default function Dashboard({
 
             {upcomingTasks.length > 0 && (
               <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
-                <div style={{ fontSize: '15px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: '8px' }}>This Week</div>
+                <div style={{  fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: '8px' }}>This Week</div>
                 {upcomingTasks.slice(0, 4).map(task => (
                   <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
-                    <span style={{ fontSize: '15px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', minWidth: '56px' }}>{new Date(task.due_date + 'T12:00').toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' })}</span>
-                    <span style={{ fontSize: '15px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
+                    <span style={{  fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', minWidth: '56px' }}>{new Date(task.due_date + 'T12:00').toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' })}</span>
+                    <span style={{  color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
                   </div>
                 ))}
               </div>
@@ -307,21 +307,21 @@ export default function Dashboard({
           {/* Catalyst Alerts */}
           {urgentCatalysts.length > 0 && (
             <div className="card">
-              <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>⚡ Catalyst Alerts</h3>
+              <h3 style={{  fontWeight: 600, marginBottom: '12px' }}>⚡ Catalyst Alerts</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {urgentCatalysts.map((sig, i) => (
                   <div key={i} onClick={() => sig.type === 'lead' ? onLeadClick?.(sig.record) : onPropertyClick?.(sig.record)}
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', borderRadius: '5px', cursor: 'pointer', transition: 'all 0.15s', background: sig.urgency === 'immediate' ? 'var(--red-soft)' : 'var(--amber-soft)' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', borderRadius: '5px', cursor: 'pointer', transition: 'all 0.15s', background: sig.urgency === 'immediate' ? 'var(--red-soft)' : 'var(--amber-bg)' }}
                     onMouseEnter={e => e.currentTarget.style.transform = 'translateX(3px)'}
                     onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
-                    <span style={{ fontSize: '15px', fontWeight: 700, color: sig.urgency === 'immediate' ? 'var(--red)' : 'var(--amber)', flexShrink: 0 }}>
+                    <span style={{  fontWeight: 700, color: sig.urgency === 'immediate' ? 'var(--red)' : 'var(--amber)', flexShrink: 0 }}>
                       {sig.urgency === 'immediate' ? '!!!' : '!!'}
                     </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sig.label}</div>
-                      <div style={{ fontSize: '15px', color: sig.urgency === 'immediate' ? 'var(--red)' : 'var(--amber)' }}>{sig.tag}</div>
+                      <div style={{  fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sig.label}</div>
+                      <div style={{  color: sig.urgency === 'immediate' ? 'var(--red)' : 'var(--amber)' }}>{sig.tag}</div>
                     </div>
-                    <span style={{ fontSize: '15px', color: 'var(--text-muted)', flexShrink: 0 }}>{sig.type === 'lead' ? '◎' : '⌂'}</span>
+                    <span style={{  color: 'var(--text-muted)', flexShrink: 0 }}>{sig.type === 'lead' ? '◎' : '⌂'}</span>
                   </div>
                 ))}
               </div>

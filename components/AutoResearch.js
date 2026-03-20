@@ -130,11 +130,11 @@ export default function AutoResearchButton({ record, table, field, onRefresh, sh
   return (
     <div>
       <button className="btn btn-ghost btn-sm" onClick={handleResearch} disabled={loading}
-        style={{ fontSize: '11px', color: '#8b5cf6', borderColor: '#8b5cf644' }}>
+        style={{ fontSize: '11px', color: 'var(--purple)', borderColor: 'var(--purple)44' }}>
         {loading ? '✦ Researching...' : '✦ Auto-Research'}
       </button>
       {result && !result.error && (
-        <div style={{ marginTop: '8px', padding: '10px', background: '#8b5cf611', border: '1px solid #8b5cf633', borderRadius: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+        <div style={{ marginTop: '8px', padding: '10px', background: 'var(--purple)11', border: '1px solid var(--purple)33', borderRadius: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
           {result.fieldCount > 0 && <div>Updated {result.fieldCount} fields from web research</div>}
           {result.noteCount > 0 && <div>Added {result.noteCount} intel notes</div>}
           {result.propertyData?.summary && <div style={{ marginTop: '4px', fontSize: '11px', color: 'var(--text-muted)' }}>{result.propertyData.summary}</div>}

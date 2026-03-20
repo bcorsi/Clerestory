@@ -86,7 +86,7 @@ export default function PropertiesList({ properties, onPropertyClick }) {
           {CATALYST_TAGS.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
 
-        <span style={{ marginLeft: 'auto', fontSize: '15px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+        <span className="fc-count">
           {filtered.length} results
         </span>
       </div>
@@ -127,10 +127,10 @@ export default function PropertiesList({ properties, onPropertyClick }) {
                 <td>
                   <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                     {(p.catalyst_tags || []).slice(0, 3).map((tag) => (
-                      <span key={tag} className={`tag ${catalystTagClass(tag)}`} style={{ fontSize: '15px' }}>{tag}</span>
+                      <span key={tag} className={`tag ${catalystTagClass(tag)}`}>{tag}</span>
                     ))}
                     {(p.catalyst_tags || []).length > 3 && (
-                      <span className="tag tag-ghost" style={{ fontSize: '15px' }}>+{p.catalyst_tags.length - 3}</span>
+                      <span className="tag tag-ghost">+{p.catalyst_tags.length - 3}</span>
                     )}
                   </div>
                 </td>

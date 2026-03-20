@@ -38,7 +38,7 @@ export default function TaskDetail({
     catch (e) { console.error(e); }
   };
 
-  const pc = { High: '#ef4444', Medium: '#f59e0b', Low: '#6b7280' }[task.priority] || '#6b7280';
+  const pc = { High: 'var(--rust)', Medium: 'var(--amber)', Low: 'var(--ink3)' }[task.priority] || 'var(--ink3)';
   const overdue = !task.completed && task.due_date && new Date(task.due_date) < new Date();
 
   // Find all linked records

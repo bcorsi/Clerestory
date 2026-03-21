@@ -23,8 +23,10 @@ import TaskDetail from '../components/TaskDetail';
 import LeaseComps from '../components/LeaseComps';
 import LeaseCompDetail from '../components/LeaseCompDetail';
 import SaleComps from '../components/SaleComps';
+import SaleCompDetail from '../components/SaleCompDetail';
 import CompDashboard from '../components/CompDashboard';
 import OwnerSearch from '../components/OwnerSearch';
+import Underwriting from '../components/Underwriting';
 import ProfileSettings from '../components/ProfileSettings';
 import CsvUpload from '../components/CsvUpload';
 import AddPropertyModal from '../components/AddPropertyModal';
@@ -61,6 +63,7 @@ export default function App() {
   const [selectedContact, setSelectedContact] = useState(null);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [selectedLeaseComp, setSelectedLeaseComp] = useState(null);
+  const [selectedSaleComp, setSelectedSaleComp] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState(null);
@@ -108,6 +111,7 @@ export default function App() {
       setSelectedContact((prev) => prev ? cts.find((c) => c.id === prev.id) || prev : prev);
       setSelectedAccount((prev) => prev ? accts.find((a) => a.id === prev.id) || prev : prev);
       setSelectedLeaseComp((prev) => prev ? lcs.find((c) => c.id === prev.id) || prev : prev);
+      setSelectedSaleComp((prev) => prev ? scs.find((c) => c.id === prev.id) || prev : prev);
       setSelectedTask((prev) => prev ? tks.find((t) => t.id === prev.id) || prev : prev);
     } catch (err) { console.error('Load error:', err); }
     finally { setLoading(false); }
@@ -146,6 +150,7 @@ export default function App() {
   const openAccount = (account) => { setSelectedAccount(account); setPage('account-detail'); };
   const openTask = (task) => { setSelectedTask(task); setPage('task-detail'); };
   const openLeaseComp = (comp) => { setSelectedLeaseComp(comp); setPage('lease-comp-detail'); };
+  const openSaleComp = (comp) => { setSelectedSaleComp(comp); setPage('sale-comp-detail'); };
   const openCatalyst = (tag) => { setCatalystFilter(tag); setPage('catalyst-view'); };
   const openMap = () => { setPage('map-view'); };
 
@@ -157,13 +162,15 @@ export default function App() {
       'contact-detail': 'contacts',
       'account-detail': 'accounts',
       'lease-comp-detail': 'lease-comps',
+      'sale-comp-detail': 'sale-comps',
+      'task-detail': 'tasks',
       'catalyst-view': 'dashboard',
     };
     const back = backMap[page];
     if (back) setPage(back);
     setSelectedProperty(null); setSelectedLead(null); setSelectedDeal(null);
     setSelectedContact(null); setSelectedAccount(null); setSelectedLeaseComp(null);
-    setCatalystFilter(null);
+    setSelectedSaleComp(null); setSelectedTask(null); setCatalystFilter(null);
   };
 
   const handleSearchClick = (type, item) => {
@@ -177,7 +184,7 @@ export default function App() {
 
   const onRecordAdded = (label) => { setModal(null); loadData(); showToast(`${label} added`); };
 
-  const isDetailPage = ['property-detail', 'lead-detail', 'deal-detail', 'contact-detail', 'account-detail', 'lease-comp-detail', 'catalyst-view'].includes(page);
+  const isDetailPage = ['property-detail', 'lead-detail', 'deal-detail', 'contact-detail', 'account-detail', 'lease-comp-detail', 'sale-comp-detail', 'task-detail', 'catalyst-view'].includes(page);
 
   if (authLoading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-root)' }}>
@@ -212,8 +219,9 @@ export default function App() {
     accounts: 'Accounts', 'account-detail': selectedAccount?.name || 'Account',
     activities: 'Activities', tasks: 'Tasks', 'task-detail': selectedTask?.title || 'Task',
     'lease-comps': 'Lease Comps', 'lease-comp-detail': selectedLeaseComp?.address || 'Lease Comp',
-    'sale-comps': 'Sale Comps', 'comp-dashboard': 'Comp Analytics',
-    'owner-search': 'Owner Search', 'warn-intel': 'WARN Intel',
+    'sale-comps': 'Sale Comps', 'sale-comp-detail': selectedSaleComp?.address || 'Sale Comp',
+    'comp-dashboard': 'Comp Analytics',
+    'owner-search': 'Owner Search', underwriting: 'Underwriting', 'warn-intel': 'WARN Intel',
     'catalyst-view': catalystFilter ? `Catalyst: ${catalystFilter}` : 'Catalyst View',
     'map-view': 'Map View',
     settings: 'Settings',
@@ -334,9 +342,11 @@ export default function App() {
             {page === 'task-detail' && selectedTask && <TaskDetail task={selectedTask} leads={leads} deals={deals} properties={properties} contacts={contacts} accounts={accounts} activities={activities} onRefresh={loadData} showToast={showToast} onLeadClick={openLead} onDealClick={openDeal} onPropertyClick={openProperty} onContactClick={openContact} onAccountClick={openAccount} onBack={() => setPage('tasks')} />}
             {page === 'lease-comps' && <LeaseComps comps={leaseComps} onCompClick={openLeaseComp} />}
             {page === 'lease-comp-detail' && selectedLeaseComp && <LeaseCompDetail comp={selectedLeaseComp} properties={properties} />}
-            {page === 'sale-comps' && <SaleComps comps={saleComps} />}
+            {page === 'sale-comps' && <SaleComps comps={saleComps} onCompClick={openSaleComp} />}
+            {page === 'sale-comp-detail' && selectedSaleComp && <SaleCompDetail comp={selectedSaleComp} properties={properties} />}
             {page === 'comp-dashboard' && <CompDashboard leaseComps={leaseComps} saleComps={saleComps} />}
             {page === 'owner-search' && <OwnerSearch properties={properties} leads={leads} onPropertyClick={openProperty} onLeadClick={openLead} showToast={showToast} />}
+            {page === 'underwriting' && <Underwriting standalone properties={properties} deals={deals} leaseComps={leaseComps} saleComps={saleComps} />}
             {page === 'warn-intel' && <WarnIntel properties={properties} leads={leads} onRefresh={loadData} showToast={showToast} />}
             {page === 'catalyst-view' && catalystFilter && <CatalystView tag={catalystFilter} properties={properties} leads={leads} deals={deals} onPropertyClick={openProperty} onLeadClick={openLead} onDealClick={openDeal} onClear={() => { setCatalystFilter(null); setPage('dashboard'); }} />}
             {page === 'map-view' && <MapView properties={properties} leads={leads} deals={deals} onPropertyClick={openProperty} onLeadClick={openLead} onDealClick={openDeal} />}

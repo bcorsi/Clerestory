@@ -278,16 +278,23 @@ export default function Dashboard({
               <div style={{ padding: '20px 22px', textAlign: 'center', color: 'var(--ink4)', fontSize: '13px' }}>No tasks due today</div>
             ) : (
               <div>
-                {[...overdueTasks.map(t => ({...t, _overdue: true})), ...todayTasks].slice(0, 8).map(task => (
+                {[...overdueTasks.map(t => ({...t, _overdue: true})), ...todayTasks].slice(0, 8).map(task => {
+                  const linkedProp = task.property_id && properties.find(p => p.id === task.property_id);
+                  const linkedLead = task.lead_id && leads.find(l => l.id === task.lead_id);
+                  const linkedDeal = task.deal_id && deals.find(d => d.id === task.deal_id);
+                  const linkedLabel = linkedDeal?.deal_name || linkedLead?.lead_name || linkedLead?.address || linkedProp?.address;
+                  return (
                   <div key={task.id} className={`task-item ${task._overdue ? 'overdue' : ''}`} onClick={() => onTaskClick?.(task)} style={{ cursor: 'pointer' }}>
                     <div className="t-dot" style={{ background: task._overdue ? 'var(--rust)' : priorityColor(task.priority) }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="t-name">{task.title}</div>
+                      {linkedLabel && <div style={{ fontSize: '11px', color: 'var(--ink4)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{linkedDeal ? '💰' : linkedLead ? '🎯' : '📍'} {linkedLabel}</div>}
                       {task._overdue && <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--rust)', letterSpacing: '0.1em', marginTop: '3px' }}>Overdue · {task.due_date}</div>}
                     </div>
                     <span className={`t-pri ${task.priority === 'High' ? 'h' : 'm'}`}>{task.priority}</span>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 

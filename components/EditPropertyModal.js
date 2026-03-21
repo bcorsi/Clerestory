@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { MARKETS, SUBMARKETS, RECORD_TYPES, PROP_TYPES, VACANCY_STATUS, OWNER_TYPES, LEASE_TYPES, CATALYST_TAGS } from '../lib/constants';
 import { updateRow } from '../lib/db';
 
-export default function EditPropertyModal({ property, onClose, onSave }) {
+export default function EditPropertyModal({ property, onClose, onSave, onRefresh, showToast }) {
   const [form, setForm] = useState({
     address: property.address || '',
     city: property.city || '',
@@ -81,7 +81,9 @@ export default function EditPropertyModal({ property, onClose, onSave }) {
         onedrive_url: form.onedrive_url || null,
       };
       await updateRow('properties', property.id, updates);
-      onSave();
+      if (onSave) onSave();
+      else if (onRefresh) { onRefresh(); onClose(); }
+      if (showToast) showToast('Property updated');
     } catch (err) {
       console.error('Save error:', err);
     } finally {

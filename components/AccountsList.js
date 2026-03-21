@@ -103,6 +103,9 @@ export default function AccountsList({ accounts, onAccountClick }) {
             <div style={{  color: 'var(--text-secondary)', lineHeight: 1.6 }}>{a.notes || a.known_acquisitions}</div>
           </div>
         )}
+        <div style={{ marginTop: '12px' }}>
+          <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); onAccountClick?.(a); }}>Open Full Detail →</button>
+        </div>
       </div>
     </td></tr>
   );

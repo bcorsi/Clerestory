@@ -63,6 +63,9 @@ export default function ContactsList({ contacts, onContactClick }) {
               <div style={{  color: 'var(--text-secondary)', lineHeight: '1.6' }}>{c.notes}</div>
             </div>
           )}
+          <div style={{ marginTop: '12px' }}>
+            <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); onContactClick?.(c); }}>Open Full Detail →</button>
+          </div>
         </div>
       </td>
     </tr>

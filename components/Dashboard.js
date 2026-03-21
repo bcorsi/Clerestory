@@ -425,7 +425,7 @@ function NewsFeed() {
     <div className="card" style={{ marginTop: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
         <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>SoCal Industrial News</h3>
-        <button className="btn btn-ghost btn-sm" onClick={fetchNews} disabled={loading} style={{ fontSize: '12px' }}>{loading ? '⟳ Searching...' : fetched ? '⟳ Refresh' : '🔍 Load News'}</button>
+        <button className="btn btn-sm" onClick={fetchNews} disabled={loading} style={{ fontSize: '13px', background: 'var(--accent)', color: '#fff', border: 'none' }}>{loading ? '⟳ Searching...' : fetched ? '⟳ Refresh' : '🔍 Load News'}</button>
       </div>
       {!fetched && !loading && <div style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '20px' }}>Click "Load News" to fetch latest SoCal industrial articles</div>}
       {articles.length > 0 && (

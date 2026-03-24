@@ -34,7 +34,8 @@ export default function ResearchCampaigns({ campaigns, leads, onRefresh, showToa
   const [showAddModal, setShowAddModal] = useState(false);
 
   // If a campaign is selected, show detail view
-  if (selectedCampaign) {
+  // Guard: ensure campaign has minimum required fields before rendering detail
+  if (selectedCampaign && selectedCampaign.id) {
     return <CampaignDetail campaign={selectedCampaign} leads={leads} onRefresh={onRefresh} showToast={showToast} onLeadClick={onLeadClick} onBack={() => onCampaignClick(null)} />;
   }
 
@@ -254,6 +255,17 @@ function CampaignDetail({ campaign, leads, onRefresh, showToast, onLeadClick, on
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ ...campaign });
   const [saving, setSaving] = useState(false);
+
+  // Safety guard — if campaign is malformed, bail gracefully
+  if (!campaign || !campaign.id) {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center', color: 'var(--ink4)' }}>
+        <div style={{ fontSize: '28px', marginBottom: '8px' }}>⚠️</div>
+        <div style={{ fontWeight: 600, marginBottom: '8px' }}>Campaign not found</div>
+        <button className="btn" onClick={onBack}>← Back to Campaigns</button>
+      </div>
+    );
+  }
 
   const cc = catColor(campaign.category);
   const sc = statusColor(campaign.status);

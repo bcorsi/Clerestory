@@ -7,7 +7,6 @@ import BuyerMatching from './BuyerMatching';
 import FilesLinks from './FilesLinks';
 import AerialThumbnail from './AerialThumbnail';
 import BuildingSpecs from './BuildingSpecs';
-import CampaignLayersPanel from './CampaignLayersPanel';
 
 const NOTE_TYPES = ['Note','Intel','Call Log','Meeting Note','Status Update'];
 const LOG_TYPES = ['Call','Email','Meeting'];
@@ -298,9 +297,6 @@ export default function PropertyDetail({
 
             {/* Building Specs + Score */}
             <BuildingSpecs record={p} recordType="properties" onRefresh={onRefresh} showToast={showToast} />
-
-            {/* Campaign Intel — nearby substations, BESS projects, prospect zones */}
-            <CampaignLayersPanel record={p} recordType="properties" />
 
             {/* Timeline */}
             <div className="timeline-card">

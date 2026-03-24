@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import AerialThumbnail from './AerialThumbnail';
 import BuildingSpecs from './BuildingSpecs';
+import CampaignLayersPanel from './CampaignLayersPanel';
 import { LEAD_STAGES, LEAD_STAGE_COLORS, LEAD_SUBSTEPS, LEAD_TIERS, PRIORITIES, PROP_TYPES, VACANCY_STATUS, LEASE_TYPES, OWNER_TYPES, MARKETS, SUBMARKETS, catalystTagClass, CATALYST_TAGS, CADENCE_OPTIONS, AI_MODEL_OPUS, AI_MODEL_SONNET, fmt } from '../lib/constants';
 import { updateRow, convertLeadToDeal, convertLeadToProperty, insertRow, calculateProbability, setCadence, autoResearch } from '../lib/db';
 
@@ -311,6 +312,9 @@ export default function LeadDetail({
 
           {/* Building Specs + Score */}
           <BuildingSpecs record={lead} recordType="leads" onRefresh={onRefresh} showToast={showToast} />
+
+          {/* Campaign Intel */}
+          <CampaignLayersPanel record={lead} recordType="leads" />
 
           {/* Timeline */}
           <div className="timeline-card">

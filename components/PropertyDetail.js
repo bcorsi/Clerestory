@@ -6,6 +6,7 @@ import EditPropertyModal from './EditPropertyModal';
 import BuyerMatching from './BuyerMatching';
 import FilesLinks from './FilesLinks';
 import AerialThumbnail from './AerialThumbnail';
+import BuildingSpecs from './BuildingSpecs';
 
 const NOTE_TYPES = ['Note','Intel','Call Log','Meeting Note','Status Update'];
 const LOG_TYPES = ['Call','Email','Meeting'];
@@ -293,6 +294,9 @@ export default function PropertyDetail({
                 </div>
               ))}
             </div>
+
+            {/* Building Specs + Score */}
+            <BuildingSpecs record={p} recordType="properties" onRefresh={onRefresh} showToast={showToast} />
 
             {/* Timeline */}
             <div className="timeline-card">

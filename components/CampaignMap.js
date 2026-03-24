@@ -26,11 +26,15 @@ export default function CampaignMap({ campaignId, campaignTitle }) {
     setLoading(true);
     fetchAll('campaign_layers', { order: 'created_at' })
       .then(all => {
-        const filtered = all.filter(l => l.campaign_id === campaignId);
+        const filtered = (all || []).filter(l => l.campaign_id === campaignId);
         setLayers(filtered);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(err => {
+        console.warn('Campaign layers not available:', err);
+        setLayers([]);
+        setLoading(false);
+      });
   }, [campaignId]);
 
   const featureTypes = useMemo(() => {
@@ -70,7 +74,7 @@ export default function CampaignMap({ campaignId, campaignTitle }) {
       const lng = parseFloat(l.longitude);
       const c = l.color || '#5577A0';
       const name = (l.name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-      const meta = l.metadata || {};
+      const meta = (l.metadata && typeof l.metadata === 'object') ? l.metadata : {};
 
       if (l.feature_type === 'zone' && l.radius_meters) {
         return `L.circle([${lat},${lng}],{radius:${l.radius_meters},color:'${c}',weight:1.5,dashArray:'7 4',fillColor:'${c}',fillOpacity:0.07}).bindTooltip('${name}',{sticky:true,direction:'top'}).addTo(map);`;

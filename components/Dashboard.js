@@ -89,33 +89,37 @@ export default function Dashboard({
 
   const urgentCatalysts = useMemo(() => {
     const signals = [];
-    const seen = new Set();
+    const seenRecords = new Set();
     // Track property addresses that are already represented by a lead
     const leadAddresses = new Set(activeLeads.map(l => l.address).filter(Boolean));
 
-    // Leads first (more actionable)
+    // Leads first (more actionable) — ONE row per lead, collect ALL urgent tags
     activeLeads.forEach(item => {
-      (item.catalyst_tags || []).forEach(tag => {
+      const key = 'lead::' + (item.id || item.lead_name);
+      if (seenRecords.has(key)) return;
+      const urgentTags = (item.catalyst_tags || []).filter(tag => {
         const urg = CATALYST_URGENCY[tag];
-        const key = (item.address || item.lead_name) + '::' + tag;
-        if ((urg === 'immediate' || urg === 'high') && !seen.has(key)) {
-          seen.add(key);
-          signals.push({ label: item.lead_name, tag, urgency: urg, type: 'lead', record: item });
-        }
+        return urg === 'immediate' || urg === 'high';
       });
+      if (urgentTags.length === 0) return;
+      seenRecords.add(key);
+      const topUrgency = urgentTags.some(t => CATALYST_URGENCY[t] === 'immediate') ? 'immediate' : 'high';
+      signals.push({ label: item.lead_name, tags: urgentTags, urgency: topUrgency, type: 'lead', record: item });
     });
 
-    // Properties — skip if a lead already covers this address
+    // Properties — skip if a lead already covers this address — ONE row per property
     properties.forEach(item => {
       if (leadAddresses.has(item.address)) return;
-      (item.catalyst_tags || []).forEach(tag => {
+      const key = 'prop::' + (item.id || item.address);
+      if (seenRecords.has(key)) return;
+      const urgentTags = (item.catalyst_tags || []).filter(tag => {
         const urg = CATALYST_URGENCY[tag];
-        const key = (item.address) + '::' + tag;
-        if ((urg === 'immediate' || urg === 'high') && !seen.has(key)) {
-          seen.add(key);
-          signals.push({ label: item.address, tag, urgency: urg, type: 'property', record: item });
-        }
+        return urg === 'immediate' || urg === 'high';
       });
+      if (urgentTags.length === 0) return;
+      seenRecords.add(key);
+      const topUrgency = urgentTags.some(t => CATALYST_URGENCY[t] === 'immediate') ? 'immediate' : 'high';
+      signals.push({ label: item.address, tags: urgentTags, urgency: topUrgency, type: 'property', record: item });
     });
 
     return signals.sort((a, b) => a.urgency === 'immediate' ? -1 : 1).slice(0, 6);
@@ -317,17 +321,23 @@ export default function Dashboard({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {urgentCatalysts.map((sig, i) => (
                   <div key={i} onClick={() => sig.type === 'lead' ? onLeadClick?.(sig.record) : onPropertyClick?.(sig.record)}
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', borderRadius: '5px', cursor: 'pointer', transition: 'all 0.15s', background: sig.urgency === 'immediate' ? 'var(--bg)' : 'var(--amber-bg)' }}
+                    style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px 10px', borderRadius: '5px', cursor: 'pointer', transition: 'all 0.15s', background: sig.urgency === 'immediate' ? 'var(--bg)' : 'var(--amber-bg)' }}
                     onMouseEnter={e => e.currentTarget.style.transform = 'translateX(3px)'}
                     onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
-                    <span style={{  fontWeight: 700, color: sig.urgency === 'immediate' ? 'var(--red)' : 'var(--amber)', flexShrink: 0 }}>
+                    <span style={{ fontWeight: 700, color: sig.urgency === 'immediate' ? 'var(--red)' : 'var(--amber)', flexShrink: 0, paddingTop: '2px' }}>
                       {sig.urgency === 'immediate' ? '!!!' : '!!'}
                     </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{  fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sig.label}</div>
-                      <div style={{  color: sig.urgency === 'immediate' ? 'var(--red)' : 'var(--amber)' }}>{sig.tag}</div>
+                      <div style={{ fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '4px' }}>{sig.label}</div>
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                        {sig.tags.map(tag => (
+                          <span key={tag} style={{ fontSize: '10px', fontWeight: 600, padding: '2px 6px', borderRadius: '3px', background: sig.urgency === 'immediate' ? 'rgba(180,50,50,0.12)' : 'rgba(184,122,16,0.12)', color: sig.urgency === 'immediate' ? 'var(--red)' : 'var(--amber)', border: `1px solid ${sig.urgency === 'immediate' ? 'rgba(180,50,50,0.2)' : 'rgba(184,122,16,0.2)'}` }}>
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                    <span style={{  color: 'var(--text-muted)', flexShrink: 0 }}>{sig.type === 'lead' ? '◎' : '⌂'}</span>
+                    <span style={{ color: 'var(--text-muted)', flexShrink: 0, paddingTop: '2px' }}>{sig.type === 'lead' ? '◎' : '⌂'}</span>
                   </div>
                 ))}
               </div>

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { fetchAll } from '../lib/db';
 
 function xirr(cashflows) {
   if (!cashflows || cashflows.length < 2) return null;
@@ -53,6 +54,106 @@ export default function Underwriting({ deal, property, leaseComps, saleComps, pr
   const p = standalone ? (properties||[]).find(pr=>pr.id===selectedPropId)||{} : (property||{});
   const d = standalone ? (deals||[]).find(dl=>dl.id===selectedDealId)||{} : (deal||{});
 
+  // ─── DB COMPS ─────────────────────────────────────────────
+  // Fetch comps from DB if not passed as props (i.e. when on DealDetail)
+  const [dbLeaseComps, setDbLeaseComps] = useState([]);
+  const [dbSaleComps, setDbSaleComps] = useState([]);
+  useEffect(() => {
+    if (!leaseComps && (p?.address || d?.address)) {
+      fetchAll('lease_comps', {}).then(all => {
+        const addr = p.address || d.address || '';
+        const mkt = p.submarket || p.market || d.submarket || '';
+        const sf = p.building_sf || d.building_sf;
+        const filtered = all.filter(c =>
+          (mkt && (c.submarket === mkt || c.market === mkt)) ||
+          (sf && c.building_sf && Math.abs(c.building_sf - sf) / sf < 0.5)
+        ).slice(0, 12);
+        setDbLeaseComps(filtered);
+      }).catch(() => {});
+    }
+    if (!saleComps && (p?.address || d?.address)) {
+      fetchAll('sale_comps', {}).then(all => {
+        const mkt = p.submarket || p.market || d.submarket || '';
+        const sf = p.building_sf || d.building_sf;
+        const filtered = all.filter(c =>
+          (mkt && (c.submarket === mkt || c.market === mkt)) ||
+          (sf && c.building_sf && Math.abs(c.building_sf - sf) / sf < 0.5)
+        ).slice(0, 12);
+        setDbSaleComps(filtered);
+      }).catch(() => {});
+    }
+  }, [p?.address, p?.submarket, p?.market, d?.address, d?.submarket, leaseComps, saleComps]);
+
+  const effectiveLeaseComps = leaseComps || dbLeaseComps;
+  const effectiveSaleComps = saleComps || dbSaleComps;
+
+  // ─── AI STRENGTHS / RISKS ─────────────────────────────────
+  const [aiStrengths, setAiStrengths] = useState(null);
+  const [aiRisks, setAiRisks] = useState(null);
+  const [editingStrengths, setEditingStrengths] = useState(false);
+  const [editingRisks, setEditingRisks] = useState(false);
+  const [strengthsDraft, setStrengthsDraft] = useState('');
+  const [risksDraft, setRisksDraft] = useState('');
+  const [srLoading, setSrLoading] = useState(false);
+
+  const generateStrengthsRisks = async (currentMetrics) => {
+    setSrLoading(true);
+    try {
+      const { goingInCap, levIRR, unlevIRR, eqMult, y1dscr, ppsf, avgSalePsf, avgLeaseRate, rent } = currentMetrics;
+      const res = await fetch('/api/ai', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514', max_tokens: 500,
+          system: 'You are a CRE investment analyst. Given underwriting metrics, identify the key investment strengths and risks. Be concise and specific. Return ONLY valid JSON with this exact format: {"strengths":[{"label":"string","level":"Strong|Good|Moderate"}],"risks":[{"label":"string","level":"High|Medium|Low"}]}. 3-5 items per category max.',
+          messages: [{ role: 'user', content: `Property: ${p.address || d.deal_name || 'Unknown'}\nBuilding SF: ${Number(sf).toLocaleString()}\nPurchase Price: $${(purchasePrice/1e6).toFixed(2)}M\nPrice/SF: $${Math.round(ppsf)}\nGoing-In Cap: ${goingInCap.toFixed(2)}%\nLevered IRR: ${levIRR != null ? (levIRR*100).toFixed(1)+'%' : 'N/A'}\nUnlevered IRR: ${unlevIRR != null ? (unlevIRR*100).toFixed(1)+'%' : 'N/A'}\nEquity Multiple: ${eqMult.toFixed(2)}x\nYear 1 DSCR: ${y1dscr ? y1dscr.toFixed(2)+'x' : 'N/A'}\nAvg Lease Comp Rate: ${avgLeaseRate ? '$'+avgLeaseRate.toFixed(2)+'/SF' : 'N/A'}\nAvg Sale Comp $/SF: ${avgSalePsf ? '$'+avgSalePsf : 'N/A'}\nIn-Place Rent: $${rent.toFixed(2)}/SF/mo\nYear Built: ${p.year_built || 'Unknown'}\nClear Height: ${p.clear_height || 'Unknown'}\nMarket: ${p.submarket || p.market || d.submarket || 'SoCal Industrial'}\nCatalyst Tags: ${(p.catalyst_tags || []).join(', ') || 'None'}\n\nIdentify investment strengths and risks. Return JSON only.` }],
+        }),
+      });
+      const data = await res.json();
+      const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+      const clean = text.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(clean);
+      setAiStrengths(parsed.strengths || []);
+      setAiRisks(parsed.risks || []);
+    } catch (e) {
+      console.error('Strengths/risks AI error:', e);
+    } finally { setSrLoading(false); }
+  };
+
+  // ─── MEMO EXPORT ──────────────────────────────────────────
+  const [exporting, setExporting] = useState(false);
+  const handleExportMemo = async (currentMetrics) => {
+    setExporting(true);
+    try {
+      const { goingInCap, levIRR, unlevIRR, eqMult, y1dscr } = currentMetrics;
+      const strengths = aiStrengths?.map(s => `${s.label} (${s.level})`).join('; ') || 'Auto-calculated from model';
+      const risks = aiRisks?.map(r => `${r.label} (${r.level})`).join('; ') || 'Auto-calculated from model';
+      const res = await fetch('/api/export-memo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address: p.address || d.address || d.deal_name || 'Unknown Property',
+          city: p.city || d.city || '',
+          building_sf: sf, purchase_price: purchasePrice,
+          going_in_cap: goingInCap.toFixed(2),
+          levered_irr: levIRR != null ? (levIRR*100).toFixed(1) : null,
+          unlevered_irr: unlevIRR != null ? (unlevIRR*100).toFixed(1) : null,
+          equity_multiple: eqMult.toFixed(2),
+          dscr: y1dscr ? y1dscr.toFixed(2) : null,
+          market_rent: rent, avg_lease_rate: effectiveLeaseComps.length ? effectiveLeaseComps.reduce((s,c)=>s+c.rate,0)/effectiveLeaseComps.length : null,
+          avg_sale_psf: effectiveSaleComps.length ? Math.round(effectiveSaleComps.reduce((s,c)=>s+c.price_psf,0)/effectiveSaleComps.length) : null,
+          strengths, risks,
+          deal_name: d.deal_name || null,
+          notes: d.notes || p.notes || null,
+        }),
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `${((p.address||d.deal_name||'Deal').replace(/[^a-zA-Z0-9]/g,'_'))}_Memo.docx`;
+      a.click(); URL.revokeObjectURL(url);
+    } catch (e) { console.error(e); }
+    finally { setExporting(false); }
+  };
+
   const defSf = d.building_sf||p.building_sf||p.total_sf||0;
   const defPrice = d.deal_value||d.purchase_price||0;
   const defRent = p.in_place_rent||p.market_rent||d.market_rent||1.25;
@@ -81,11 +182,11 @@ export default function Underwriting({ deal, property, leaseComps, saleComps, pr
 
   useMemo(() => { if(defSf>0) setSf(defSf); if(defPrice>0) setPP(defPrice); if(defRent>0) setMR(Math.round(defRent*100)); }, [defSf,defPrice,defRent]);
 
-  const avgLR = (leaseComps||[]).filter(c=>c.rate>0);
+  const avgLR = (effectiveLeaseComps||[]).filter(c=>c.rate>0);
   const avgLeaseRate = avgLR.length ? avgLR.reduce((s,c)=>s+c.rate,0)/avgLR.length : null;
-  const avgSR = (saleComps||[]).filter(c=>c.price_psf>0);
+  const avgSR = (effectiveSaleComps||[]).filter(c=>c.price_psf>0);
   const avgSalePsf = avgSR.length ? Math.round(avgSR.reduce((s,c)=>s+c.price_psf,0)/avgSR.length) : null;
-  const avgCR = (saleComps||[]).filter(c=>c.cap_rate>0);
+  const avgCR = (effectiveSaleComps||[]).filter(c=>c.cap_rate>0);
   const avgCapRate = avgCR.length ? avgCR.reduce((s,c)=>s+parseFloat(c.cap_rate),0)/avgCR.length : null;
 
   const rent = marketRent/100;
@@ -186,6 +287,18 @@ export default function Underwriting({ deal, property, leaseComps, saleComps, pr
           <div style={{ fontSize:'12px', color:'var(--ink4)' }}>or adjust inputs below</div>
         </div>
       )}
+
+      <div style={{ padding:'10px 36px 0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <div style={{ fontSize:'11px', color:'var(--ink4)' }}>
+          {(effectiveLeaseComps.length > 0 || effectiveSaleComps.length > 0) && (
+            <span>📊 {effectiveLeaseComps.length} lease comp{effectiveLeaseComps.length !== 1 ? 's' : ''} · {effectiveSaleComps.length} sale comp{effectiveSaleComps.length !== 1 ? 's' : ''} from database</span>
+          )}
+        </div>
+        <button onClick={() => handleExportMemo({ goingInCap, levIRR, unlevIRR, eqMult, y1dscr: y1.dscr })} disabled={exporting}
+          style={{ fontSize:'12px', fontWeight:600, padding:'6px 14px', background:'var(--card)', border:'1px solid var(--line)', borderRadius:'6px', color:'var(--ink2)', cursor:'pointer', display:'flex', alignItems:'center', gap:'6px' }}>
+          {exporting ? '↻ Exporting...' : '↓ Export Memo'}
+        </button>
+      </div>
 
       <div className="metrics-bar" style={{ gridTemplateColumns:'repeat(6,1fr)' }}>
         <MC label="Purchase Price" value={$(purchasePrice)} />
@@ -343,23 +456,87 @@ export default function Underwriting({ deal, property, leaseComps, saleComps, pr
             </div>
           </>)}
 
-          <div className="sec-head">Risk / Reward</div>
+          <div className="sec-head" style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <span>Risk / Reward</span>
+            <button
+              onClick={() => generateStrengthsRisks({ goingInCap, levIRR, unlevIRR, eqMult, y1dscr: y1.dscr, ppsf, avgSalePsf, avgLeaseRate, rent })}
+              disabled={srLoading}
+              style={{ fontSize:'11px', fontWeight:600, padding:'4px 10px', background:'var(--blue-bg)', border:'1px solid var(--blue-bdr)', borderRadius:'5px', color:'var(--blue)', cursor:'pointer', letterSpacing:'0.03em' }}>
+              {srLoading ? '✦ Generating...' : aiStrengths ? '✦ Regenerate' : '✦ AI Generate'}
+            </button>
+          </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px' }}>
+            {/* STRENGTHS */}
             <div style={{ background:'var(--card)', border:'1px solid var(--line)', borderRadius:'10px', padding:'16px' }}>
-              <div style={{ fontSize:'13px', fontWeight:600, color:'var(--green)', marginBottom:'8px' }}>Strengths</div>
-              {[ppsf>0&&avgSalePsf&&ppsf<avgSalePsf*0.9&&['Below-market basis','Strong'],goingInCap>=5.5&&['Strong yield','Strong'],(levIRR||0)>=0.12&&['Double-digit IRR','Strong'],(y1.dscr||0)>=1.5&&['Healthy DSCR','Good'],eqMult>=2&&['2x+ equity multiple','Strong'],rent>0&&avgLeaseRate&&rent<avgLeaseRate*0.95&&['Mark-to-market upside','Good']].filter(Boolean).map(([l,lv])=>(
-                <div key={l} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid var(--line3)', fontSize:'12px' }}>
-                  <span style={{ color:'var(--ink3)' }}>{l}</span><span className="badge badge-green" style={{ fontSize:'10px' }}>{lv}</span>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'8px' }}>
+                <div style={{ fontSize:'13px', fontWeight:600, color:'var(--green)' }}>Strengths</div>
+                {aiStrengths && (
+                  <button onClick={() => { setEditingStrengths(!editingStrengths); setStrengthsDraft(aiStrengths.map(s=>`${s.label} | ${s.level}`).join('\n')); }}
+                    style={{ fontSize:'10px', padding:'2px 7px', background:'transparent', border:'1px solid var(--line)', borderRadius:'4px', color:'var(--ink4)', cursor:'pointer' }}>
+                    {editingStrengths ? 'Done' : 'Edit'}
+                  </button>
+                )}
+              </div>
+              {editingStrengths ? (
+                <div>
+                  <div style={{ fontSize:'10px', color:'var(--ink4)', marginBottom:'4px' }}>One per line: Label | Level (Strong/Good/Moderate)</div>
+                  <textarea value={strengthsDraft} onChange={e => setStrengthsDraft(e.target.value)} rows={6}
+                    style={{ width:'100%', fontSize:'12px', padding:'6px', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:'6px', color:'var(--ink2)', resize:'vertical', fontFamily:'inherit', boxSizing:'border-box' }} />
+                  <button onClick={() => { const parsed = strengthsDraft.split('\n').filter(Boolean).map(line => { const [label,level]=line.split('|').map(s=>s.trim()); return {label:label||line.trim(),level:level||'Good'}; }); setAiStrengths(parsed); setEditingStrengths(false); }}
+                    style={{ marginTop:'6px', fontSize:'11px', padding:'4px 10px', background:'var(--green-bg)', border:'1px solid rgba(26,122,72,0.3)', borderRadius:'4px', color:'var(--green)', cursor:'pointer', fontWeight:600 }}>Save</button>
                 </div>
-              ))}
+              ) : aiStrengths ? (
+                aiStrengths.length === 0
+                  ? <div style={{ fontSize:'12px', color:'var(--ink4)', fontStyle:'italic' }}>No strengths identified</div>
+                  : aiStrengths.map((s,i) => (
+                    <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:'1px solid var(--line3)', fontSize:'12px' }}>
+                      <span style={{ color:'var(--ink3)' }}>{s.label}</span>
+                      <span className="badge badge-green" style={{ fontSize:'10px' }}>{s.level}</span>
+                    </div>
+                  ))
+              ) : (
+                [ppsf>0&&avgSalePsf&&ppsf<avgSalePsf*0.9&&['Below-market basis','Strong'],goingInCap>=5.5&&['Strong yield','Strong'],(levIRR||0)>=0.12&&['Double-digit IRR','Strong'],(y1.dscr||0)>=1.5&&['Healthy DSCR','Good'],eqMult>=2&&['2x+ equity multiple','Strong'],rent>0&&avgLeaseRate&&rent<avgLeaseRate*0.95&&['Mark-to-market upside','Good']].filter(Boolean).map(([l,lv])=>(
+                  <div key={l} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid var(--line3)', fontSize:'12px' }}>
+                    <span style={{ color:'var(--ink3)' }}>{l}</span><span className="badge badge-green" style={{ fontSize:'10px' }}>{lv}</span>
+                  </div>
+                ))
+              )}
             </div>
+            {/* RISKS */}
             <div style={{ background:'var(--card)', border:'1px solid var(--line)', borderRadius:'10px', padding:'16px' }}>
-              <div style={{ fontSize:'13px', fontWeight:600, color:'var(--rust)', marginBottom:'8px' }}>Risks</div>
-              {[goingInCap<4.5&&goingInCap>0&&['Low yield on cost','High'],(y1.dscr||99)<1.25&&useLev&&['Tight DSCR','High'],(levIRR||0)<0.08&&levIRR!=null&&['Below-threshold IRR','Medium'],vacMo>9&&['Extended vacancy','High'],ecPct>6.5&&['Aggressive exit cap','Medium'],p.year_built&&p.year_built<1990&&[`Vintage (${p.year_built})`,'Medium'],p.clear_height&&parseInt(p.clear_height)<28&&[`Low clear (${p.clear_height}')`,'Medium']].filter(Boolean).map(([l,lv])=>(
-                <div key={l} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid var(--line3)', fontSize:'12px' }}>
-                  <span style={{ color:'var(--ink3)' }}>{l}</span><span className={`badge ${lv==='High'?'badge-warn':'badge-amber'}`} style={{ fontSize:'10px' }}>{lv}</span>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'8px' }}>
+                <div style={{ fontSize:'13px', fontWeight:600, color:'var(--rust)' }}>Risks</div>
+                {aiRisks && (
+                  <button onClick={() => { setEditingRisks(!editingRisks); setRisksDraft(aiRisks.map(r=>`${r.label} | ${r.level}`).join('\n')); }}
+                    style={{ fontSize:'10px', padding:'2px 7px', background:'transparent', border:'1px solid var(--line)', borderRadius:'4px', color:'var(--ink4)', cursor:'pointer' }}>
+                    {editingRisks ? 'Done' : 'Edit'}
+                  </button>
+                )}
+              </div>
+              {editingRisks ? (
+                <div>
+                  <div style={{ fontSize:'10px', color:'var(--ink4)', marginBottom:'4px' }}>One per line: Label | Level (High/Medium/Low)</div>
+                  <textarea value={risksDraft} onChange={e => setRisksDraft(e.target.value)} rows={6}
+                    style={{ width:'100%', fontSize:'12px', padding:'6px', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:'6px', color:'var(--ink2)', resize:'vertical', fontFamily:'inherit', boxSizing:'border-box' }} />
+                  <button onClick={() => { const parsed = risksDraft.split('\n').filter(Boolean).map(line => { const [label,level]=line.split('|').map(s=>s.trim()); return {label:label||line.trim(),level:level||'Medium'}; }); setAiRisks(parsed); setEditingRisks(false); }}
+                    style={{ marginTop:'6px', fontSize:'11px', padding:'4px 10px', background:'rgba(180,50,50,0.08)', border:'1px solid rgba(180,50,50,0.2)', borderRadius:'4px', color:'var(--rust)', cursor:'pointer', fontWeight:600 }}>Save</button>
                 </div>
-              ))}
+              ) : aiRisks ? (
+                aiRisks.length === 0
+                  ? <div style={{ fontSize:'12px', color:'var(--ink4)', fontStyle:'italic' }}>No risks identified</div>
+                  : aiRisks.map((r,i) => (
+                    <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:'1px solid var(--line3)', fontSize:'12px' }}>
+                      <span style={{ color:'var(--ink3)' }}>{r.label}</span>
+                      <span className={`badge ${r.level==='High'?'badge-warn':'badge-amber'}`} style={{ fontSize:'10px' }}>{r.level}</span>
+                    </div>
+                  ))
+              ) : (
+                [goingInCap<4.5&&goingInCap>0&&['Low yield on cost','High'],(y1.dscr||99)<1.25&&useLev&&['Tight DSCR','High'],(levIRR||0)<0.08&&levIRR!=null&&['Below-threshold IRR','Medium'],vacMo>9&&['Extended vacancy','High'],ecPct>6.5&&['Aggressive exit cap','Medium'],p.year_built&&p.year_built<1990&&[`Vintage (${p.year_built})`,'Medium'],p.clear_height&&parseInt(p.clear_height)<28&&[`Low clear (${p.clear_height}')`,'Medium']].filter(Boolean).map(([l,lv])=>(
+                  <div key={l} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid var(--line3)', fontSize:'12px' }}>
+                    <span style={{ color:'var(--ink3)' }}>{l}</span><span className={`badge ${lv==='High'?'badge-warn':'badge-amber'}`} style={{ fontSize:'10px' }}>{lv}</span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

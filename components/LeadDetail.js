@@ -11,7 +11,7 @@ const LOG_TYPES = ['Call', 'Email', 'Meeting'];
 async function getAINextStep(lead) {
   const prompt = `You are a CRE broker assistant. Give the single most important next action for this lead RIGHT NOW. Max 15 words.\n\nLead: ${lead.lead_name}\nStage: ${lead.stage}\nTier: ${lead.tier || 'N/A'} | Score: ${lead.score || 'N/A'}\nDM: ${lead.decision_maker || 'Unknown'}\nPhone: ${lead.phone || 'None'}\nCatalysts: ${(lead.catalyst_tags || []).join(', ') || 'None'}\nIntel: ${(lead.notes || '').slice(0, 400)}\n\nReply with ONLY the action.`;
   try {
-    const res = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: MODEL, max_tokens: 80, messages: [{ role: 'user', content: prompt }] }) });
+    const res = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: AI_MODEL_SONNET, max_tokens: 80, messages: [{ role: 'user', content: prompt }] }) });
     const data = await res.json();
     return data.content?.[0]?.text?.trim() || 'Review lead and identify next contact';
   } catch { return 'Review lead and identify next contact'; }
@@ -274,9 +274,11 @@ export default function LeadDetail({
             <div style={{ fontFamily: "'Playfair Display',serif", fontSize: '28px', fontWeight: 700, color: 'var(--ink)', marginBottom: '8px' }}>{lead.lead_name}</div>
             <div className="badges-row" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
               {(lead.catalyst_tags||[]).map(tag => (
-                <span key={tag} className={`badge ${catalystTagClass(tag)}`}>{tag}</span>
+                <span key={tag} className={`badge ${catalystTagClass(tag)}`}
+                  style={{ cursor: onCatalystClick ? 'pointer' : 'default' }}
+                  onClick={() => onCatalystClick?.(tag)}>{tag}</span>
               ))}
-              {lead.tier && <span className="badge badge-blue">Tier {lead.tier}</span>}
+              {lead.tier && <span className="badge badge-blue">{lead.tier}</span>}
               <span className="badge badge-blue">{lead.stage || 'New'}</span>
             </div>
           </div>
@@ -337,7 +339,7 @@ export default function LeadDetail({
                 </div>
                 <input className="input" value={logSubject} onChange={e => setLogSubject(e.target.value)} placeholder="Subject..." style={{ marginBottom: '8px' }} />
                 <textarea className="textarea" value={logNotes} onChange={e => setLogNotes(e.target.value)} placeholder="Notes..." rows={2} />
-                <button className="btn btn-primary" style={{ marginTop: '8px' }} onClick={handleLogAct} disabled={savingLog}>{savingLog ? 'Saving...' : 'Log Activity'}</button>
+                <button className="btn btn-primary" style={{ marginTop: '8px' }} onClick={handleLogActivity} disabled={savingLog}>{savingLog ? 'Saving...' : 'Log Activity'}</button>
               </div>
             )}
 
@@ -469,10 +471,51 @@ export default function LeadDetail({
               <div className="info-card-head">Score</div>
               <div style={{ padding: '14px 16px', display: 'flex', gap: '20px' }}>
                 {lead.score != null && <div><div className="i-label">AI Score</div><div style={{ fontFamily: "'Playfair Display',serif", fontSize: '28px', fontWeight: 700, color: 'var(--blue)', lineHeight: 1 }}>{lead.score}</div></div>}
+                {lead.tier && <div><div className="i-label">Tier</div><div style={{ fontFamily: "'Playfair Display',serif", fontSize: '28px', fontWeight: 700, color: lead.tier === 'A+' ? 'var(--green)' : lead.tier === 'A' ? 'var(--blue)' : lead.tier === 'B+' ? 'var(--amber)' : 'var(--ink3)', lineHeight: 1 }}>{lead.tier}</div></div>}
                 {lead.probability != null && <div><div className="i-label">Probability</div><div style={{ fontFamily: "'Playfair Display',serif", fontSize: '28px', fontWeight: 700, color: probColor(lead.probability), lineHeight: 1 }}>{lead.probability}%</div></div>}
               </div>
             </div>
           )}
+
+          {/* Linked Records */}
+          <div className="info-card" style={{ marginBottom: '14px' }}>
+            <div className="info-card-head">Linked</div>
+            <div style={{ padding: '8px 4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              {linkedContacts.length > 0 && linkedContacts.slice(0, 3).map(c => (
+                <div key={c.id} onClick={() => onContactClick?.(c)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 12px', borderRadius: '7px', cursor: 'pointer', transition: 'background 0.1s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <span style={{ fontSize: '13px' }}>👤</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--ink2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                    {c.title && <div style={{ fontSize: '11px', color: 'var(--ink4)' }}>{c.title}</div>}
+                  </div>
+                </div>
+              ))}
+              {linkedProperty && (
+                <div onClick={() => onPropertyClick?.(linkedProperty)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 12px', borderRadius: '7px', cursor: 'pointer', transition: 'background 0.1s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <span style={{ fontSize: '13px' }}>🏭</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--ink2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{linkedProperty.address}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--ink4)' }}>Property record</div>
+                  </div>
+                </div>
+              )}
+              {pendingTasks > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 12px' }}>
+                  <span style={{ fontSize: '13px' }}>✓</span>
+                  <div style={{ fontSize: '13px', color: 'var(--amber)', fontWeight: 500 }}>{pendingTasks} pending task{pendingTasks > 1 ? 's' : ''}</div>
+                </div>
+              )}
+              {linkedContacts.length === 0 && !linkedProperty && pendingTasks === 0 && (
+                <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--ink4)', fontStyle: 'italic' }}>No linked records yet</div>
+              )}
+            </div>
+          </div>
 
           {/* Quick Actions */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>

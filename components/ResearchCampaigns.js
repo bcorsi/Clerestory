@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { updateRow, deleteRow, insertRow } from '../lib/db';
+import { useState, useMemo, useEffect } from 'react';
+import { updateRow, deleteRow, insertRow, fetchAll, convertLeadToDeal } from '../lib/db';
 import FilePanel from './FilePanel';
 import CampaignMap from './CampaignMap';
 
@@ -296,6 +296,7 @@ function CampaignDetail({ campaign, leads, onRefresh, showToast, onLeadClick, on
 
   const TABS = [
     { id: 'overview', label: 'Overview' },
+    { id: 'targets', label: 'Targets' },
     { id: 'leads', label: `Leads (${linkedLeads.length})` },
     { id: 'map', label: '🗺 Campaign Map' },
     { id: 'files', label: '📁 Files' },
@@ -404,6 +405,11 @@ function CampaignDetail({ campaign, leads, onRefresh, showToast, onLeadClick, on
         </div>
       )}
 
+      {/* Targets tab */}
+      {activeTab === 'targets' && (
+        <TargetsTab campaign={campaign} onRefresh={onRefresh} showToast={showToast} onLeadClick={onLeadClick} />
+      )}
+
       {/* Leads tab */}
       {activeTab === 'leads' && (
         <div>
@@ -450,6 +456,231 @@ function CampaignDetail({ campaign, leads, onRefresh, showToast, onLeadClick, on
       {/* Files tab */}
       {activeTab === 'files' && (
         <FilePanel recordType="campaign" recordId={campaign.id} showToast={showToast} />
+      )}
+    </div>
+  );
+}
+
+// ─── TARGETS TAB ─────────────────────────────────────────────
+// Lightweight prospects imported via CSV. Convert to Lead when ready.
+
+const TARGET_STATUSES = ['New', 'Reviewing', 'Converted', 'Rejected'];
+const STATUS_COLORS = {
+  New: 'var(--ink3)', Reviewing: 'var(--amber)',
+  Converted: 'var(--green)', Rejected: 'var(--rust)',
+};
+
+function TargetsTab({ campaign, onRefresh, showToast, onLeadClick }) {
+  const [targets, setTargets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState('New');
+  const [converting, setConverting] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [csvText, setCsvText] = useState('');
+
+  const loadTargets = () => {
+    setLoading(true);
+    fetchAll('campaign_targets', { order: 'created_at' })
+      .then(all => {
+        setTargets((all || []).filter(t => t.campaign_id === campaign.id));
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  };
+
+  useEffect(() => { loadTargets(); }, [campaign.id]);
+
+  const filtered = useMemo(() => {
+    if (!filterStatus) return targets;
+    return targets.filter(t => t.status === filterStatus);
+  }, [targets, filterStatus]);
+
+  const counts = useMemo(() => {
+    const c = {};
+    TARGET_STATUSES.forEach(s => { c[s] = targets.filter(t => t.status === s).length; });
+    return c;
+  }, [targets]);
+
+  // CSV import — expects columns: name/address/owner/apn/building_sf/notes (flexible)
+  const handleImport = async () => {
+    if (!csvText.trim()) return;
+    setImporting(true);
+    try {
+      const lines = csvText.trim().split('\n');
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z_]/g, '_'));
+      const rows = lines.slice(1).filter(l => l.trim());
+      let count = 0;
+      for (const row of rows) {
+        const vals = row.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+        const obj = {};
+        headers.forEach((h, i) => { obj[h] = vals[i] || null; });
+        await insertRow('campaign_targets', {
+          campaign_id: campaign.id,
+          name: obj.name || obj.company || obj.owner || null,
+          address: obj.address || null,
+          city: obj.city || null,
+          submarket: obj.submarket || null,
+          apn: obj.apn || null,
+          building_sf: obj.building_sf ? parseInt(obj.building_sf) : null,
+          land_acres: obj.land_acres ? parseFloat(obj.land_acres) : null,
+          owner: obj.owner || obj.name || null,
+          owner_type: obj.owner_type || null,
+          notes: obj.notes || null,
+          priority: obj.priority || 'Medium',
+          status: 'New',
+        });
+        count++;
+      }
+      showToast?.(`Imported ${count} targets`);
+      setCsvText('');
+      setShowImport(false);
+      loadTargets();
+    } catch (e) {
+      console.error(e);
+      showToast?.('Import error — check CSV format');
+    } finally { setImporting(false); }
+  };
+
+  // Convert target → Lead
+  const handleConvert = async (target) => {
+    if (!confirm(`Convert "${target.name || target.address}" to a Lead?`)) return;
+    setConverting(target.id);
+    try {
+      const lead = await insertRow('leads', {
+        lead_name: target.name || target.address || 'Unnamed',
+        address: target.address,
+        city: target.city,
+        submarket: target.submarket,
+        owner: target.owner,
+        owner_type: target.owner_type,
+        building_sf: target.building_sf,
+        land_acres: target.land_acres,
+        notes: target.notes,
+        stage: 'Lead',
+        priority: target.priority || 'Medium',
+        campaign_id: campaign.id,
+        catalyst_tags: campaign.catalyst_tag ? [campaign.catalyst_tag] : [],
+      });
+      await updateRow('campaign_targets', target.id, {
+        status: 'Converted',
+        converted_lead_id: lead.id,
+        converted_at: new Date().toISOString(),
+      });
+      showToast?.(`Converted to Lead: ${lead.lead_name}`);
+      loadTargets();
+      onRefresh?.();
+    } catch (e) {
+      console.error(e);
+      showToast?.('Conversion failed');
+    } finally { setConverting(null); }
+  };
+
+  const handleStatusChange = async (target, status) => {
+    try {
+      await updateRow('campaign_targets', target.id, { status });
+      loadTargets();
+    } catch (e) { console.error(e); }
+  };
+
+  return (
+    <div>
+      {/* Header row */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          {TARGET_STATUSES.map(s => (
+            <button key={s} onClick={() => setFilterStatus(filterStatus === s ? '' : s)}
+              style={{ fontSize: '11px', fontWeight: 600, padding: '5px 12px', borderRadius: '6px', border: '1px solid', cursor: 'pointer', background: filterStatus === s ? STATUS_COLORS[s] + '18' : 'transparent', borderColor: filterStatus === s ? STATUS_COLORS[s] : 'var(--line)', color: filterStatus === s ? STATUS_COLORS[s] : 'var(--ink4)' }}>
+              {s} {counts[s] > 0 ? `(${counts[s]})` : ''}
+            </button>
+          ))}
+        </div>
+        <button onClick={() => setShowImport(!showImport)}
+          style={{ fontSize: '12px', fontWeight: 600, padding: '6px 14px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+          {showImport ? '✕ Cancel' : '↑ Import CSV'}
+        </button>
+      </div>
+
+      {/* CSV Import panel */}
+      {showImport && (
+        <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--ink3)', marginBottom: '8px', lineHeight: 1.6 }}>
+            Paste CSV with headers. Recognized columns: <code style={{ background: 'var(--bg2)', padding: '1px 5px', borderRadius: '3px', fontSize: '11px' }}>name, address, city, submarket, apn, building_sf, land_acres, owner, owner_type, notes, priority</code>
+          </div>
+          <textarea
+            value={csvText} onChange={e => setCsvText(e.target.value)}
+            placeholder={'name,address,city,apn,building_sf\n"Acme Corp","123 Main St","Ontario","8234-001-012","45000"'}
+            rows={6}
+            style={{ width: '100%', fontSize: '12px', padding: '8px', background: 'var(--card)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--ink2)', fontFamily: "'DM Mono',monospace", resize: 'vertical', boxSizing: 'border-box' }}
+          />
+          <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+            <button onClick={handleImport} disabled={importing || !csvText.trim()}
+              style={{ fontSize: '12px', fontWeight: 600, padding: '7px 16px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+              {importing ? 'Importing...' : `Import ${csvText.trim().split('\n').length - 1} rows`}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Targets table */}
+      {loading ? (
+        <div style={{ padding: '40px', textAlign: 'center', color: 'var(--ink4)' }}>Loading...</div>
+      ) : filtered.length === 0 ? (
+        <div style={{ padding: '40px', textAlign: 'center', color: 'var(--ink4)', background: 'var(--bg)', borderRadius: '8px' }}>
+          <div style={{ fontSize: '24px', marginBottom: '8px' }}>🎯</div>
+          <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>No {filterStatus || ''} targets</div>
+          <div style={{ fontSize: '13px' }}>Import a CSV to populate this campaign with prospects.</div>
+        </div>
+      ) : (
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Name / Company</th>
+                <th>Address</th>
+                <th style={{ textAlign: 'right' }}>SF</th>
+                <th>APN</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(t => (
+                <tr key={t.id}>
+                  <td style={{ fontWeight: 500 }}>{t.name || '—'}</td>
+                  <td style={{ color: 'var(--ink3)' }}>{[t.address, t.city].filter(Boolean).join(', ') || '—'}</td>
+                  <td style={{ textAlign: 'right', fontFamily: "'DM Mono',monospace", color: 'var(--ink3)' }}>
+                    {t.building_sf ? Number(t.building_sf).toLocaleString() : '—'}
+                  </td>
+                  <td style={{ fontFamily: "'DM Mono',monospace", fontSize: '12px', color: 'var(--ink4)' }}>{t.apn || '—'}</td>
+                  <td>
+                    <select value={t.priority || 'Medium'} onChange={e => handleStatusChange(t, t.status)}
+                      style={{ fontSize: '11px', padding: '2px 6px', background: 'transparent', border: '1px solid var(--line)', borderRadius: '4px', color: t.priority === 'High' ? 'var(--rust)' : t.priority === 'Low' ? 'var(--ink4)' : 'var(--amber)', cursor: 'pointer' }}>
+                      <option>High</option><option>Medium</option><option>Low</option>
+                    </select>
+                  </td>
+                  <td>
+                    <select value={t.status || 'New'} onChange={e => handleStatusChange(t, e.target.value)}
+                      style={{ fontSize: '11px', padding: '2px 6px', background: 'transparent', border: '1px solid var(--line)', borderRadius: '4px', color: STATUS_COLORS[t.status] || 'var(--ink3)', cursor: 'pointer' }}>
+                      {TARGET_STATUSES.map(s => <option key={s}>{s}</option>)}
+                    </select>
+                  </td>
+                  <td>
+                    {t.status !== 'Converted' ? (
+                      <button onClick={() => handleConvert(t)} disabled={converting === t.id}
+                        style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', background: 'var(--green-bg)', border: '1px solid rgba(26,122,72,0.3)', borderRadius: '5px', color: 'var(--green)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        {converting === t.id ? '...' : '⚡ To Lead'}
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 600 }}>✓ Converted</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import AerialThumbnail from './AerialThumbnail';
 import BuildingSpecs from './BuildingSpecs';
+import CampaignTab from './CampaignTab';
 import { LEAD_STAGES, LEAD_STAGE_COLORS, LEAD_SUBSTEPS, LEAD_TIERS, PRIORITIES, PROP_TYPES, VACANCY_STATUS, LEASE_TYPES, OWNER_TYPES, MARKETS, SUBMARKETS, catalystTagClass, CATALYST_TAGS, CADENCE_OPTIONS, AI_MODEL_OPUS, AI_MODEL_SONNET, fmt } from '../lib/constants';
 import { updateRow, convertLeadToDeal, convertLeadToProperty, insertRow, calculateProbability, setCadence, autoResearch } from '../lib/db';
 
@@ -22,8 +23,9 @@ export default function LeadDetail({
   lead, activities, tasks, properties, contacts, accounts,
   notes: allNotes, followUps: allFollowUps,
   onRefresh, showToast, onPropertyClick, onContactClick, onAccountClick, onCatalystClick,
-  onAddActivity, onAddTask, onConverted
+  onAddActivity, onAddTask, onConverted, onCampaignClick
 }) {
+  const [mainTab, setMainTab] = useState('overview');
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ ...lead });
   const [saving, setSaving] = useState(false);
@@ -298,7 +300,25 @@ export default function LeadDetail({
         )}
       </div>
 
-      {/* ═══ PAGE LAYOUT ═══ */}
+      {/* ═══ TAB BAR ═══ */}
+      <div className="sub-nav" style={{ padding: '0 36px', borderBottom: '1px solid var(--line)', background: 'var(--card)' }}>
+        {[
+          { id: 'overview', label: 'Overview' },
+          { id: 'campaigns', label: 'Campaigns' },
+        ].map(t => (
+          <div key={t.id} className={`sub-tab ${mainTab === t.id ? 'active' : ''}`} onClick={() => setMainTab(t.id)}>{t.label}</div>
+        ))}
+      </div>
+
+      {/* ═══ CAMPAIGNS TAB ═══ */}
+      {mainTab === 'campaigns' && (
+        <div style={{ padding: '28px 36px 48px' }}>
+          <CampaignTab record={lead} onCampaignClick={onCampaignClick} />
+        </div>
+      )}
+
+      {/* ═══ OVERVIEW TAB ═══ */}
+      {mainTab === 'overview' && (
       <div className="page-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 290px', gap: '24px', padding: '28px 36px 48px' }}>
         <div>
           {/* Aerial */}
@@ -499,6 +519,7 @@ export default function LeadDetail({
           </div>
         </div>
       </div>
+      )} {/* end overview tab */}
     </div>
   );
 }

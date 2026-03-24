@@ -305,7 +305,7 @@ export default function LeadDetail({
           {/* Aerial with parcel overlay */}
           {lead.address && (
             <div style={{ marginBottom: '20px' }}>
-              <AerialThumbnail address={lead.address} city={lead.city} apns={lead.apns} height={240} />
+              <AerialThumbnail propertyId={lead.property_id || null} address={lead.address} city={lead.city} apns={lead.apns} parcelGeometry={lead.parcel_geometry || null} latitude={lead.latitude || null} longitude={lead.longitude || null} height={240} />
             </div>
           )}
 

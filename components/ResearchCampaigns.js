@@ -35,10 +35,7 @@ export default function ResearchCampaigns({ campaigns, leads, onRefresh, showToa
 
   // If a campaign is selected, show detail view
   // Guard: ensure campaign has minimum required fields before rendering detail
-  if (selectedCampaign && selectedCampaign.id) {
-    return <CampaignDetail campaign={selectedCampaign} leads={leads} onRefresh={onRefresh} showToast={showToast} onLeadClick={onLeadClick} onBack={() => onCampaignClick(null)} />;
-  }
-
+  // ALL hooks must be called before any conditional return (Rules of Hooks)
   const filtered = useMemo(() => {
     let list = [...(campaigns || [])];
     if (filterStatus) list = list.filter(c => c.status === filterStatus);
@@ -58,6 +55,11 @@ export default function ResearchCampaigns({ campaigns, leads, onRefresh, showToa
       converted: all.reduce((s, c) => s + (c.converted_count || 0), 0),
     };
   }, [campaigns]);
+
+  // Now safe to conditionally render — hooks already called above
+  if (selectedCampaign && selectedCampaign.id) {
+    return <CampaignDetail campaign={selectedCampaign} leads={leads} onRefresh={onRefresh} showToast={showToast} onLeadClick={onLeadClick} onBack={() => onCampaignClick(null)} />;
+  }
 
   return (
     <div>

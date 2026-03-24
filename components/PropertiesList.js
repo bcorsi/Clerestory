@@ -83,10 +83,10 @@ export default function PropertiesList({ properties, onPropertyClick }) {
               <th style={{ width: '28px' }}></th>
               <th onClick={() => toggleSort('address')} style={{ cursor: 'pointer' }}>Address{sortIndicator('address')}</th>
               <th onClick={() => toggleSort('submarket')} style={{ cursor: 'pointer' }}>Submarket{sortIndicator('submarket')}</th>
+              <th onClick={() => toggleSort('prop_type')} style={{ cursor: 'pointer' }}>Property Type{sortIndicator('prop_type')}</th>
               <th onClick={() => toggleSort('building_sf')} style={{ cursor: 'pointer' }}>Bldg SF{sortIndicator('building_sf')}</th>
               <th onClick={() => toggleSort('land_acres')} style={{ cursor: 'pointer' }}>Land AC{sortIndicator('land_acres')}</th>
               <th onClick={() => toggleSort('coverage_ratio')} style={{ cursor: 'pointer' }}>Coverage{sortIndicator('coverage_ratio')}</th>
-              <th onClick={() => toggleSort('prop_type')} style={{ cursor: 'pointer' }}>Type{sortIndicator('prop_type')}</th>
               <th onClick={() => toggleSort('clear_height')} style={{ cursor: 'pointer' }}>Clear Ht{sortIndicator('clear_height')}</th>
               <th onClick={() => toggleSort('dock_high_doors')} style={{ cursor: 'pointer' }}>DH/GL{sortIndicator('dock_high_doors')}</th>
               <th onClick={() => toggleSort('year_built')} style={{ cursor: 'pointer' }}>Built{sortIndicator('year_built')}</th>
@@ -109,6 +109,7 @@ export default function PropertiesList({ properties, onPropertyClick }) {
                     <span className="tag tag-ghost">{p.market}</span>
                     {' '}{p.submarket}
                   </td>
+                  <td style={{ fontSize: '12px' }}>{p.prop_type || p.record_type || '—'}</td>
                   <td style={{ fontFamily: 'var(--font-mono)' }}>
                     {(p.total_sf || p.building_sf) ? fmt.sf(p.total_sf || p.building_sf) : '—'}
                   </td>
@@ -118,7 +119,6 @@ export default function PropertiesList({ properties, onPropertyClick }) {
                       ? `${(((p.total_sf || p.building_sf) / (p.land_acres * 43560)) * 100).toFixed(1)}%`
                       : p.coverage_ratio ? `${p.coverage_ratio}%` : '—'}
                   </td>
-                  <td style={{ fontSize: '12px' }}>{p.prop_type || p.record_type || '—'}</td>
                   <td style={{ fontFamily: 'var(--font-mono)' }}>{p.clear_height ? `${p.clear_height}'` : '—'}</td>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: '12px' }}>
                     {(p.dock_high_doors || p.grade_level_doors)

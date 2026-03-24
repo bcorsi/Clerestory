@@ -49,6 +49,7 @@ export default function PropertyDetail({
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [autoTagLoading, setAutoTagLoading] = useState(false);
   const [researching, setResearching] = useState(false);
+  const [synthExpanded, setSynthExpanded] = useState(false);
 
   const [exporting, setExporting] = useState(false);
 
@@ -275,11 +276,10 @@ export default function PropertyDetail({
             <div style={{ width: '80px', height: '4px', background: 'var(--bg3)', borderRadius: '2px', overflow: 'hidden' }}><div style={{ height: '100%', width: `${Math.min(p.ai_score, 100)}%`, background: 'var(--blue2)', borderRadius: '2px' }} /></div>
           </div>
         )}
-        {p.probability != null && (
-          <div className="score-pill" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 18px', background: 'var(--green-bg)', border: '1px solid var(--green-bdr)', borderRadius: '10px' }}>
-            <span style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: '14px', fontStyle: 'italic', color: 'var(--ink3)' }}>Close Prob.</span>
-            <span style={{ fontFamily: "'Playfair Display',serif", fontSize: '28px', fontWeight: 700, color: 'var(--green)', lineHeight: 1 }}>{p.probability}%</span>
-            <div style={{ width: '80px', height: '4px', background: 'var(--bg3)', borderRadius: '2px', overflow: 'hidden' }}><div style={{ height: '100%', width: `${p.probability}%`, background: 'var(--green)', borderRadius: '2px' }} /></div>
+        {p.tier && (
+          <div className="score-pill" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', background: `${({'A+':'var(--green)','A':'var(--blue)','B':'var(--amber)','C':'var(--ink3)'}[p.tier]||'var(--ink3)')}12`, border: `1px solid ${({'A+':'var(--green)','A':'var(--blue)','B':'var(--amber)','C':'var(--ink3)'}[p.tier]||'var(--ink3)')}30`, borderRadius: '10px' }}>
+            <span style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: '14px', fontStyle: 'italic', color: 'var(--ink3)' }}>Tier</span>
+            <span style={{ fontFamily: "'Playfair Display',serif", fontSize: '28px', fontWeight: 700, color: {'A+':'var(--green)','A':'var(--blue)','B':'var(--amber)','C':'var(--ink3)'}[p.tier]||'var(--ink3)', lineHeight: 1 }}>{p.tier}</span>
           </div>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
@@ -371,7 +371,14 @@ export default function PropertyDetail({
               {synth && (
                 <div style={{ padding: '16px 20px', background: 'var(--purple-bg)', borderBottom: '1px solid rgba(96,64,168,0.2)' }}>
                   <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--purple)', textTransform: 'uppercase', marginBottom: '6px' }}>✦ AI Synthesis</div>
-                  <div style={{ fontSize: '14px', lineHeight: 1.7, color: 'var(--ink2)', whiteSpace: 'pre-wrap' }}>{synth}</div>
+                  <div style={{ fontSize: '14px', lineHeight: 1.7, color: 'var(--ink2)', whiteSpace: 'pre-wrap' }}>
+                    {synthExpanded ? synth : synth.slice(0, 300) + (synth.length > 300 ? '...' : '')}
+                  </div>
+                  {synth.length > 300 && (
+                    <button onClick={() => setSynthExpanded(!synthExpanded)} style={{ marginTop: '8px', background: 'none', border: 'none', color: 'var(--purple)', cursor: 'pointer', fontSize: '12px', fontWeight: 600, padding: 0 }}>
+                      {synthExpanded ? '▲ Show Less' : '▼ Show More'}
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -515,31 +522,24 @@ export default function PropertyDetail({
               )}
             </div>
 
-            {/* AI Opportunity Signal — beefed up */}
+            {/* AI Opportunity Signal — short property assessment */}
             <div className="opp-card" style={{ marginTop: '14px' }}>
               <div className="opp-head">✦ AI Opportunity Signal</div>
-              {synth ? (
-                <div className="opp-body" style={{ lineHeight: 1.7 }}>
-                  <div style={{ fontWeight: 600, marginBottom: '8px', color: 'var(--ink2)' }}>{`Property Status Summary: ${p.address}`}</div>
-                  <div style={{ whiteSpace: 'pre-wrap' }}>{synth}</div>
+              {p.ai_opportunity_signal ? (
+                <div className="opp-body" style={{ lineHeight: 1.7, fontSize: '14px', color: 'var(--ink2)' }}>{p.ai_opportunity_signal}</div>
+              ) : synth ? (
+                <div className="opp-body" style={{ lineHeight: 1.7, fontSize: '14px', color: 'var(--ink2)' }}>
+                  {synth.split('\n').filter(Boolean)[0]?.slice(0, 300)}
                   {(p.catalyst_tags||[]).length > 0 && (
-                    <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--line2)' }}>
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--ink4)', textTransform: 'uppercase', marginBottom: '6px' }}>Active Catalysts</div>
-                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                        {(p.catalyst_tags||[]).map(tag => (
-                          <span key={tag} className={`tag ${urgBadge(tag)}`} style={{ fontSize: '10px', cursor: 'pointer' }} onClick={() => onCatalystClick?.(tag)}>{tag}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {linkedFU.filter(f => !f.completed).length > 0 && (
-                    <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid var(--line2)', fontSize: '12px', color: 'var(--amber)' }}>
-                      ⚡ {linkedFU.filter(f => !f.completed).length} pending follow-up{linkedFU.filter(f => !f.completed).length > 1 ? 's' : ''}
+                    <div style={{ marginTop: '10px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                      {(p.catalyst_tags||[]).map(tag => (
+                        <span key={tag} className={`tag ${urgBadge(tag)}`} style={{ fontSize: '10px', cursor: 'pointer' }} onClick={() => onCatalystClick?.(tag)}>{tag}</span>
+                      ))}
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="opp-body" style={{ color: 'var(--ink4)', fontStyle: 'italic' }}>Click "✦ Synthesize" on the Timeline to generate an AI opportunity signal with next steps, key contacts, and action items.</div>
+                <div className="opp-body" style={{ color: 'var(--ink4)', fontStyle: 'italic' }}>Click "✦ Synthesize" on the Timeline to generate an AI opportunity signal.</div>
               )}
             </div>
 

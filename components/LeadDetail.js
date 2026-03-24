@@ -54,6 +54,7 @@ export default function LeadDetail({
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [autoTagLoading, setAutoTagLoading] = useState(false);
   const [researching, setResearching] = useState(false);
+  const [synthExpanded, setSynthExpanded] = useState(false);
 
   const set = (field, val) => setForm(f => ({ ...f, [field]: val }));
   const availSubs = form.market ? (SUBMARKETS[form.market] || []) : [];
@@ -294,6 +295,27 @@ export default function LeadDetail({
             <button className="btn btn-primary" onClick={handleConvertDeal}>⚡ Convert to Deal</button>
           </div>
         </div>
+        {/* Score strip */}
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+          {lead.ai_score != null && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 16px', background: 'var(--blue-bg)', border: '1px solid var(--blue-bdr)', borderRadius: '10px' }}>
+              <span style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: '13px', fontStyle: 'italic', color: 'var(--ink3)' }}>AI Score</span>
+              <span style={{ fontFamily: "'Playfair Display',serif", fontSize: '24px', fontWeight: 700, color: 'var(--blue)', lineHeight: 1 }}>{lead.ai_score}</span>
+            </div>
+          )}
+          {lead.tier && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: `${tierColor(lead.tier)}12`, border: `1px solid ${tierColor(lead.tier)}30`, borderRadius: '10px' }}>
+              <span style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: '13px', fontStyle: 'italic', color: 'var(--ink3)' }}>Tier</span>
+              <span style={{ fontFamily: "'Playfair Display',serif", fontSize: '24px', fontWeight: 700, color: tierColor(lead.tier), lineHeight: 1 }}>{lead.tier}</span>
+            </div>
+          )}
+          {lead.priority && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: lead.priority === 'High' ? 'rgba(192,60,24,0.08)' : lead.priority === 'Medium' ? 'rgba(184,122,16,0.08)' : 'var(--bg)', border: `1px solid ${lead.priority === 'High' ? 'rgba(192,60,24,0.2)' : lead.priority === 'Medium' ? 'rgba(184,122,16,0.2)' : 'var(--line)'}`, borderRadius: '10px' }}>
+              <span style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: '13px', fontStyle: 'italic', color: 'var(--ink3)' }}>Priority</span>
+              <span style={{ fontSize: '14px', fontWeight: 700, color: lead.priority === 'High' ? 'var(--rust)' : lead.priority === 'Medium' ? 'var(--amber)' : 'var(--ink3)' }}>{lead.priority}</span>
+            </div>
+          )}
+        </div>
         {lead.next_action && (
           <div className="next-bar" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'var(--bg)', borderRadius: '9px' }}>
             <span style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: '14px', fontStyle: 'italic', color: 'var(--ink4)' }}>Next action</span>
@@ -478,7 +500,14 @@ export default function LeadDetail({
             {synth && (
               <div style={{ padding: '16px 20px', background: 'var(--purple-bg)', borderBottom: '1px solid rgba(96,64,168,0.2)' }}>
                 <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--purple)', textTransform: 'uppercase', marginBottom: '6px' }}>✦ AI Synthesis</div>
-                <div style={{ fontSize: '14px', lineHeight: 1.7, color: 'var(--ink2)', whiteSpace: 'pre-wrap' }}>{synth}</div>
+                <div style={{ fontSize: '14px', lineHeight: 1.7, color: 'var(--ink2)', whiteSpace: 'pre-wrap' }}>
+                  {synthExpanded ? synth : synth.slice(0, 300) + (synth.length > 300 ? '...' : '')}
+                </div>
+                {synth.length > 300 && (
+                  <button onClick={() => setSynthExpanded(!synthExpanded)} style={{ marginTop: '8px', background: 'none', border: 'none', color: 'var(--purple)', cursor: 'pointer', fontSize: '12px', fontWeight: 600, padding: 0 }}>
+                    {synthExpanded ? '▲ Show Less' : '▼ Show More'}
+                  </button>
+                )}
               </div>
             )}
 
@@ -570,6 +599,15 @@ export default function LeadDetail({
 
         {/* ═══ RIGHT COLUMN ═══ */}
         <div className="right-col">
+          {/* Google Maps link */}
+          {lead.address && (
+            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lead.address + ', ' + (lead.city || lead.submarket || '') + ', CA')}`} target="_blank" rel="noopener noreferrer"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: '8px', textDecoration: 'none', color: 'var(--blue)', fontSize: '13px', fontWeight: 600, marginBottom: '14px' }}>
+              📍 View on Google Maps
+              <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--ink4)' }}>↗</span>
+            </a>
+          )}
+
           {/* Opportunity Stages */}
           <div className="side-card" style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: '10px', overflow: 'hidden', marginBottom: '14px' }}>
             <div className="side-head" style={{ padding: '13px 18px', background: 'var(--bg)', fontSize: '13px', fontWeight: 600, color: 'var(--ink2)', borderBottom: '1px solid var(--line)' }}>Opportunity Stages</div>

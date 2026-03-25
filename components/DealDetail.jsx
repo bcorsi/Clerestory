@@ -75,7 +75,7 @@ function buildSensGrid(baseInputs, exitCaps, rentGrowths) {
   }));
 }
 
-export default function DealDetail({ deal, onBack }) {
+export default function DealDetail({ deal, onBack, onNavigate }) {
   const [activeTab, setActiveTab] = useState('Timeline');
   const [synthOpen, setSynthOpen] = useState(false);
   const [logPanel, setLogPanel] = useState(null);
@@ -128,7 +128,7 @@ export default function DealDetail({ deal, onBack }) {
     return () => { if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; } };
   }, []);
 
-  const activeStageIdx = STAGES.indexOf(d.stage ?? 'LOI');
+  const [currentStageIdx, setCurrentStageIdx] = useState(Math.max(0, STAGES.indexOf(d.stage ?? 'LOI')));
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -144,7 +144,7 @@ export default function DealDetail({ deal, onBack }) {
             <button style={S.btnGhost} onClick={() => alert('Edit deal — Supabase form coming soon')}>⚙ Edit</button>
             <button style={S.btnGhost} onClick={() => setLogPanel(logPanel === 'note' ? null : 'note')}>+ Activity</button>
             <button style={S.btnGhost} onClick={() => window.print()}>↓ Export BOV</button>
-            <button style={S.btnBlue} onClick={() => alert('Advance Stage — moves deal to next stage in pipeline')}>Advance Stage →</button>
+            <button style={S.btnBlue} onClick={() => setCurrentStageIdx(i => Math.min(i + 1, STAGES.length - 1))}>Advance Stage →</button>
           </div>
         </div>
       </div>
@@ -179,7 +179,7 @@ export default function DealDetail({ deal, onBack }) {
             <button style={S.btnGhost} onClick={() => window.print()}>↓ Export Memo</button>
             <button style={S.btnGhost} onClick={() => alert('Run Comps — pulls sale/lease comps for this submarket')}>📊 Run Comps</button>
             <div style={{ marginLeft: 'auto' }} />
-            <button style={S.btnGreen} onClick={() => alert('Advance to PSA — moves deal to PSA Negotiation stage')}>Advance to PSA →</button>
+            <button style={S.btnGreen} onClick={() => { const psaIdx = STAGES.indexOf('PSA Negotiation'); if (psaIdx >= 0) setCurrentStageIdx(psaIdx); }}>Advance to PSA →</button>
           </div>
 
           {/* LOG PANEL */}
@@ -204,9 +204,9 @@ export default function DealDetail({ deal, onBack }) {
               {STAGES.map((stage, i) => (
                 <div key={stage} style={{
                   ...S.stageCrumb,
-                  ...(i === activeStageIdx ? S.stageCrumbActive : {}),
-                  ...(i < activeStageIdx ? S.stageCrumbDone : {}),
-                }}>
+                  ...(i === currentStageIdx ? S.stageCrumbActive : {}),
+                  ...(i < currentStageIdx ? S.stageCrumbDone : {}),
+                }} onClick={() => setCurrentStageIdx(i)}>
                   {stage}
                 </div>
               ))}
@@ -407,19 +407,102 @@ export default function DealDetail({ deal, onBack }) {
               </div>
             )}
 
-            {activeTab !== 'Timeline' && activeTab !== 'Underwriting' && (
-              <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--line2)', padding: '48px 32px', textAlign: 'center' }}>
-                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 22, fontWeight: 700, color: 'var(--ink2)', marginBottom: 8 }}>{activeTab}</div>
-                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 16, fontStyle: 'italic', color: 'var(--ink4)', marginBottom: 20 }}>This tab connects to live Supabase data — coming soon</div>
-                <button style={{ ...S.btnGhost, margin: '0 auto' }} onClick={() => setActiveTab('Timeline')}>← Back to Timeline</button>
-              </div>
-            )}
+            {activeTab !== 'Timeline' && activeTab !== 'Underwriting' && <DealTabContent tab={activeTab} d={d} />}
 
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+function DealTabContent({ tab, d }) {
+  const tbl = (cols, rows) => (
+    <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--line2)', overflow: 'hidden' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <thead>
+          <tr style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--line)' }}>
+            {cols.map(c => <th key={c} style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10.5, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--ink4)', whiteSpace: 'nowrap' }}>{c}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i} style={{ borderBottom: i < rows.length - 1 ? '1px solid var(--line2)' : 'none', cursor: 'pointer' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+              onMouseLeave={e => e.currentTarget.style.background = ''}>
+              {row.map((cell, j) => <td key={j} style={{ padding: '10px 14px', color: j === 0 ? 'var(--ink2)' : 'var(--ink3)', fontFamily: j > 0 ? "'DM Mono',monospace" : 'inherit', fontSize: j > 0 ? 12 : 13 }}>{cell}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  if (tab === 'Property') return (
+    <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--line2)', overflow: 'hidden' }}>
+      <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink2)' }}>{d.address ?? '4900 Workman Mill Rd'}, City of Industry, CA</div>
+        <button style={{ fontSize: 12, color: 'var(--blue)', background: 'none', border: '1px solid var(--blue-bdr)', borderRadius: 6, padding: '5px 11px', cursor: 'pointer', fontFamily: 'inherit' }} onClick={() => alert('View full property record — coming soon')}>View Property →</button>
+      </div>
+      {[
+        ['Building SF', d.sf ?? '312,000'],
+        ['Market', d.market ?? 'SGV'],
+        ['Deal Type', d.dealType ?? 'Sale-Leaseback'],
+        ['Year Built', '1998'],
+        ['Clear Height', "32'"],
+        ['Dock-High Doors', '30 DH · 4 GL'],
+        ['Truck Court', "185'"],
+        ['APN', '8558-010-004'],
+        ['Zoning', 'M-2'],
+        ['Owner', d.owner ?? 'RJ Neu Properties'],
+      ].map(([k, v]) => (
+        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 18px', borderBottom: '1px solid var(--line2)' }}>
+          <span style={{ fontSize: 12.5, color: 'var(--ink4)' }}>{k}</span>
+          <span style={{ fontSize: 13, color: 'var(--ink2)', fontFamily: "'DM Mono',monospace" }}>{v}</span>
+        </div>
+      ))}
+    </div>
+  );
+  if (tab === 'Contacts') return tbl(
+    ['Name', 'Title', 'Company', 'Role', 'Phone', 'Email'],
+    [
+      ['RJ Neu', 'Principal', d.owner ?? 'RJ Neu Properties', 'Seller', '(626) 555-0177', 'rj@rjneu.com'],
+      ['James Okura', 'EVP Operations', d.tenant ?? 'Pacific Manufacturing', 'Buyer/Tenant', '(626) 555-0133', 'j.okura@pacmfg.com'],
+      ['Briana Corso', 'Broker', 'Colliers International', 'Listing Broker', '(626) 555-0100', 'briana.corso@colliers.com'],
+    ]
+  );
+  if (tab === 'Comps') return tbl(
+    ['Address', 'Type', 'SF', 'Date', 'Price/Rate', 'Cap Rate / Term', 'Notes'],
+    [
+      ['4900 Workman Mill Rd, Industry', 'Sale', '312,000', 'Dec 2024', '$277/SF', '4.9%', 'SLB · Rexford buyer'],
+      ['1800 Workman Mill Rd, Walnut', 'Sale', '186,000', 'Oct 2024', '$277/SF', '5.1%', 'Blackstone'],
+      ['14500 Nelson Ave, Baldwin Park', 'Lease', '142,000', 'Jan 2025', '$1.38/SF/Mo NNN', '5-yr term', 'Pacific Mfg Group'],
+      ['1300 Arrow Hwy, Irwindale', 'Lease', '96,000', 'Mar 2025', '$1.44/SF/Mo NNN', '3-yr term', 'Apex Distribution'],
+    ]
+  );
+  if (tab === 'Files') return (
+    <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--line2)', overflow: 'hidden' }}>
+      {[
+        { name: 'Pacific_Mfg_UW_Model_v3.xlsx', type: 'xlsx', size: '3.2 MB', uploaded: 'Mar 22, 2026', by: 'Briana Corso' },
+        { name: 'LOI_Draft_PacificMfg_v2.docx', type: 'docx', size: '420 KB', uploaded: 'Mar 18, 2026', by: 'Briana Corso' },
+        { name: 'Sale_Comps_SGV_Q1_2026.pdf', type: 'pdf', size: '2.1 MB', uploaded: 'Mar 14, 2026', by: 'Briana Corso' },
+        { name: 'BOV_PacificMfg_WorkmanMill.pdf', type: 'pdf', size: '5.8 MB', uploaded: 'Mar 10, 2026', by: 'Briana Corso' },
+      ].map((f, i, arr) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '11px 16px', borderBottom: i < arr.length - 1 ? '1px solid var(--line2)' : 'none', gap: 12, cursor: 'pointer' }}
+          onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+          onMouseLeave={e => e.currentTarget.style.background = ''}
+          onClick={() => alert(`Download ${f.name} — coming soon`)}>
+          <span style={{ fontSize: 18 }}>{f.type === 'xlsx' ? '📊' : '📄'}</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink2)' }}>{f.name}</div>
+            <div style={{ fontSize: 12, color: 'var(--ink4)', marginTop: 2 }}>{f.size} · {f.uploaded} by {f.by}</div>
+          </div>
+          <span style={{ fontSize: 12, color: 'var(--blue)' }}>↓ Download</span>
+        </div>
+      ))}
+    </div>
+  );
+  return null;
 }
 
 // ── STYLES ────────────────────────────────────────────────────

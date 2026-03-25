@@ -108,10 +108,13 @@ export default function CommandCenter({ onNavigate, counts = {}, data = {} }) {
             <div style={S.col}>
               <div style={S.colHdr}>
                 <span style={S.colTitle}>Today's Actions</span>
-                <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: 'var(--rust)', background: 'var(--rust-bg)', border: '1px solid var(--rust-bdr)', padding: '2px 7px', borderRadius: 20 }}>{tasks.length}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 13, fontStyle: 'italic', color: 'var(--blue2)', cursor: 'pointer' }} onClick={() => onNavigate('tasks')}>View all →</span>
+                  <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: 'var(--rust)', background: 'var(--rust-bg)', border: '1px solid var(--rust-bdr)', padding: '2px 7px', borderRadius: 20 }}>{tasks.length}</span>
+                </div>
               </div>
               {tasks.map((t, i) => (
-                <div key={i} style={{ ...S.taskRow, borderBottom: i < tasks.length - 1 ? '1px solid var(--line2)' : 'none' }}>
+                <div key={i} style={{ ...S.taskRow, borderBottom: i < tasks.length - 1 ? '1px solid var(--line2)' : 'none', cursor: 'pointer' }} onClick={() => onNavigate('tasks')}>
                   <div style={{ width: 16, height: 16, borderRadius: 4, border: '1.5px solid var(--line)', flexShrink: 0, marginTop: 1 }} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13.5, color: 'var(--ink2)', lineHeight: 1.35 }}>{t.text}</div>
@@ -150,7 +153,7 @@ export default function CommandCenter({ onNavigate, counts = {}, data = {} }) {
                 <span style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 13, fontStyle: 'italic', color: 'var(--blue2)', cursor: 'pointer' }} onClick={() => onNavigate('leads')}>View all →</span>
               </div>
               {catalysts.map((c, i) => (
-                <div key={i} style={{ ...S.catRow, borderBottom: i < catalysts.length - 1 ? '1px solid var(--line2)' : 'none' }}>
+                <div key={i} style={{ ...S.catRow, borderBottom: i < catalysts.length - 1 ? '1px solid var(--line2)' : 'none' }} onClick={() => onNavigate('leads')}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: c.priority === 'high' ? 'var(--rust)' : 'var(--amber)', flexShrink: 0 }}>{c.priority === 'high' ? '!!' : '!'}</span>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink2)' }}>{c.company}</div>
@@ -169,7 +172,7 @@ export default function CommandCenter({ onNavigate, counts = {}, data = {} }) {
           <div style={{ ...S.card, marginTop: 16 }}>
             <div style={S.cardHdr}>
               <div style={S.cardTitle}>SoCal Industrial News</div>
-              <span style={S.cardAction}>Load Latest →</span>
+              <span style={S.cardAction} onClick={() => alert('Loading latest SoCal industrial news…')}>Load Latest →</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)' }}>
               {news.map((n, i) => (

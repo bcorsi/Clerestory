@@ -83,7 +83,7 @@ export default function DealPipeline({ deals = MOCK_DEALS, onSelectDeal }) {
                   {stageDeals.map((d, i) => (
                     <DealCard key={d.id ?? i} deal={d} stageColor={stage.color} onClick={() => onSelectDeal?.(d)} />
                   ))}
-                  <div style={S.colAdd}>+ Add Deal</div>
+                  <div style={S.colAdd} onClick={() => alert('Add Deal — form coming soon')}>+ Add Deal</div>
                 </div>
               );
             })}

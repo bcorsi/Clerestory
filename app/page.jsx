@@ -27,16 +27,16 @@ export default function App() {
   const marginLeft = sidebarCollapsed ? 64 : 242;
 
   const renderPage = () => {
-    if (selectedProperty) return <PropertyDetail property={selectedProperty} onBack={() => setSelectedProperty(null)} />;
-    if (selectedDeal) return <DealDetail deal={selectedDeal} onBack={() => { setSelectedDeal(null); setPage('deals'); }} />;
-    if (selectedLead) return <LeadDetail lead={selectedLead} onBack={() => setSelectedLead(null)} />;
+    if (selectedProperty) return <PropertyDetail property={selectedProperty} onBack={() => setSelectedProperty(null)} onNavigate={navigate} />;
+    if (selectedDeal) return <DealDetail deal={selectedDeal} onBack={() => { setSelectedDeal(null); setPage('deals'); }} onNavigate={navigate} />;
+    if (selectedLead) return <LeadDetail lead={selectedLead} onBack={() => setSelectedLead(null)} onNavigate={navigate} />;
 
     switch (page) {
       case 'dashboard':  return <CommandCenter onNavigate={navigate} counts={counts} />;
       case 'properties': return <PropertiesList onSelectProperty={(p) => setSelectedProperty(p)} />;
       case 'leads':      return <LeadGenList onSelectLead={(l) => setSelectedLead(l)} onNavigate={navigate} />;
       case 'deals':      return <DealPipeline onSelectDeal={(d) => setSelectedDeal(d)} />;
-      case 'warn':       return <WarnIntel onCreateLead={() => setPage('leads')} />;
+      case 'warn':       return <WarnIntel onCreateLead={() => setPage('leads')} onNavigate={navigate} />;
       case 'accounts':   return <Accounts />;
       case 'contacts':   return <ContactsList />;
       case 'tasks':      return <Tasks />;

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 
 const TABS = ['Timeline', 'Buildings', 'APNs', 'Lease Comps', 'Sale Comps', 'Contacts', 'Deals', 'Leads', 'Files'];
 
-export default function PropertyDetail({ property, onBack }) {
+export default function PropertyDetail({ property, onBack, onNavigate }) {
   const [activeTab, setActiveTab] = useState('Timeline');
   const [specsOpen, setSpecsOpen] = useState(false);
   const [synthOpen, setSynthOpen] = useState(true);
@@ -134,7 +134,7 @@ export default function PropertyDetail({ property, onBack }) {
             <button style={S.btnGhost} onClick={() => alert('Edit property — Supabase form coming soon')}>⚙ Edit</button>
             <button style={S.btnGhost} onClick={() => window.print()}>↓ Export Memo</button>
             <div style={{ marginLeft: 'auto' }} />
-            <button style={S.btnGreen} onClick={() => alert('Convert to Deal — opens New Deal form with this property pre-filled')}>◈ Convert to Deal</button>
+            <button style={S.btnGreen} onClick={() => onNavigate?.('deals')}>◈ Convert to Deal</button>
           </div>
 
           {/* LOG PANEL */}
@@ -268,7 +268,7 @@ export default function PropertyDetail({ property, onBack }) {
                           <div style={S.actDate}>{a.date}</div>
                         </div>
                       ))}
-                      <div style={S.tlMore} onClick={() => setActiveTab('Timeline')}><span style={S.tlMoreText}>View all 12 activities & notes →</span></div>
+                      <div style={S.tlMore} onClick={() => alert('Showing all 12 activities — Supabase pagination coming soon')}><span style={S.tlMoreText}>View all 12 activities & notes →</span></div>
                     </div>
                   </div>
 
@@ -277,7 +277,7 @@ export default function PropertyDetail({ property, onBack }) {
                     <div style={S.card}>
                       <div style={S.cardHdr}>
                         <div style={S.cardTitle}>Active Catalysts</div>
-                        <span style={S.cardAction}>+ Add</span>
+                        <span style={S.cardAction} onClick={() => alert('Add catalyst — coming soon')}>+ Add</span>
                       </div>
                       {(p.catalysts ?? MOCK_CATALYSTS).map((c, i) => (
                         <div key={i} style={{ ...S.catRow, borderBottom: i < (p.catalysts ?? MOCK_CATALYSTS).length - 1 ? '1px solid var(--line2)' : 'none' }}>
@@ -303,7 +303,7 @@ export default function PropertyDetail({ property, onBack }) {
                   <div style={S.card}>
                     <div style={S.spHdr}>
                       <span>Owner</span>
-                      <span style={S.spHdrA}>View Record →</span>
+                      <span style={S.spHdrA} onClick={() => alert('View owner record — coming soon')}>View Record →</span>
                     </div>
                     {[
                       ['Company', p.owner ?? 'Leegin Creative Leather'],
@@ -343,19 +343,105 @@ export default function PropertyDetail({ property, onBack }) {
               </div>
             )}
 
-            {activeTab !== 'Timeline' && (
-              <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--line2)', padding: '48px 32px', textAlign: 'center' }}>
-                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 22, fontWeight: 700, color: 'var(--ink2)', marginBottom: 8 }}>{activeTab}</div>
-                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 16, fontStyle: 'italic', color: 'var(--ink4)', marginBottom: 20 }}>This tab connects to live Supabase data — coming soon</div>
-                <button style={{ ...S.btnGhost, margin: '0 auto' }} onClick={() => setActiveTab('Timeline')}>← Back to Timeline</button>
-              </div>
-            )}
+            {activeTab !== 'Timeline' && <PropertyTabContent tab={activeTab} p={p} />}
 
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+function PropertyTabContent({ tab, p }) {
+  const tbl = (cols, rows) => (
+    <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--line2)', overflow: 'hidden' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <thead>
+          <tr style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--line)' }}>
+            {cols.map(c => <th key={c} style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10.5, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--ink4)', whiteSpace: 'nowrap' }}>{c}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i} style={{ borderBottom: i < rows.length - 1 ? '1px solid var(--line2)' : 'none', cursor: 'pointer' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+              onMouseLeave={e => e.currentTarget.style.background = ''}>
+              {row.map((cell, j) => <td key={j} style={{ padding: '10px 14px', color: j === 0 ? 'var(--ink2)' : 'var(--ink3)', fontFamily: j > 0 ? "'DM Mono',monospace" : 'inherit', fontSize: j > 0 ? 12 : 13 }}>{cell}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  if (tab === 'Buildings') return tbl(
+    ['APN', 'Building SF', 'Year Built', 'Stories', 'Clear Height', 'Dock Doors', 'Grade Doors'],
+    [['8558-006-003', '186,400', '2001', '1', "32'", '24 DH', '4 GL'],]
+  );
+  if (tab === 'APNs') return tbl(
+    ['APN Number', 'Owner of Record', 'Land (Acres)', 'Assessed Value', 'Last Transfer', 'Zoning'],
+    [
+      ['8558-006-003', p.owner ?? 'Leegin Creative Leather', '4.8 ac', '$18.2M', '2009', 'M-2'],
+      ['8558-006-004', p.owner ?? 'Leegin Creative Leather', '3.4 ac', '$12.8M', '2009', 'M-2'],
+    ]
+  );
+  if (tab === 'Lease Comps') return tbl(
+    ['Address', 'Tenant', 'SF', 'Start', 'Rate/SF/Mo', 'Term', 'Type'],
+    [
+      ['14500 Nelson Ave, Baldwin Park', 'Pacific Mfg Group', '142,000', 'Jan 2025', '$1.38', '5 yr', 'NNN'],
+      ['1300 Arrow Hwy, Irwindale', 'Apex Distribution', '96,000', 'Mar 2025', '$1.44', '3 yr', 'NNN'],
+      ['12200 Shoemaker Ave, Norwalk', 'SoCal Logistics', '220,000', 'Nov 2024', '$1.31', '7 yr', 'NNN'],
+    ]
+  );
+  if (tab === 'Sale Comps') return tbl(
+    ['Address', 'Buyer', 'SF', 'Sale Date', 'Sale Price', 'Price/SF', 'Cap Rate'],
+    [
+      ['4900 Workman Mill Rd, Industry', 'Rexford Industrial', '312,000', 'Dec 2024', '$86.2M', '$277', '4.9%'],
+      ['1800 Workman Mill Rd, Walnut', 'Blackstone RE', '186,000', 'Oct 2024', '$51.5M', '$277', '5.1%'],
+      ['900 S Stimson Ave, Industry', 'Prologis', '420,000', 'Aug 2024', '$109M', '$260', '5.3%'],
+    ]
+  );
+  if (tab === 'Contacts') return tbl(
+    ['Name', 'Title', 'Company', 'Phone', 'Email', 'Role'],
+    [
+      ['Bob Rosenthall', 'VP Real Estate', p.owner ?? 'Leegin Creative Leather', '(626) 555-0142', 'bob.r@leegin.com', 'Decision Maker'],
+      ['Sandra Wu', 'CFO', p.owner ?? 'Leegin Creative Leather', '(626) 555-0199', 's.wu@leegin.com', 'Financial Approver'],
+    ]
+  );
+  if (tab === 'Deals') return tbl(
+    ['Deal Name', 'Stage', 'Deal Type', 'Value', 'Target Close', 'Probability'],
+    [
+      [p.address ?? '14022 Nelson Ave · SLB', 'LOI', 'Sale-Leaseback', '$48.2M', 'Jun 2026', '81%'],
+    ]
+  );
+  if (tab === 'Leads') return tbl(
+    ['Company', 'Lead Score', 'Grade', 'Source', 'Status', 'Added'],
+    [
+      [p.tenant ?? 'Leegin Creative Leather', '95', 'A+', 'Broker Intel', 'Active', 'Mar 20, 2026'],
+    ]
+  );
+  if (tab === 'Files') return (
+    <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--line2)', overflow: 'hidden' }}>
+      {[
+        { name: 'Leegin_BOV_Draft_v2.pdf', type: 'PDF', size: '2.4 MB', uploaded: 'Mar 22, 2026', by: 'Briana Corso' },
+        { name: 'APN_Map_8558-006.png', type: 'Image', size: '840 KB', uploaded: 'Mar 21, 2026', by: 'System' },
+        { name: 'Lease_Abstract_2019.pdf', type: 'PDF', size: '1.1 MB', uploaded: 'Mar 20, 2026', by: 'Briana Corso' },
+      ].map((f, i, arr) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '11px 16px', borderBottom: i < arr.length - 1 ? '1px solid var(--line2)' : 'none', gap: 12, cursor: 'pointer' }}
+          onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+          onMouseLeave={e => e.currentTarget.style.background = ''}
+          onClick={() => alert(`Download ${f.name} — coming soon`)}>
+          <span style={{ fontSize: 18 }}>{f.type === 'PDF' ? '📄' : '🖼'}</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink2)' }}>{f.name}</div>
+            <div style={{ fontSize: 12, color: 'var(--ink4)', marginTop: 2 }}>{f.size} · Uploaded {f.uploaded} by {f.by}</div>
+          </div>
+          <span style={{ fontSize: 12, color: 'var(--blue)', cursor: 'pointer' }}>↓ Download</span>
+        </div>
+      ))}
+    </div>
+  );
+  return null;
 }
 
 function SynthSection({ title, items, steps }) {

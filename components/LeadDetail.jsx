@@ -42,7 +42,7 @@ const CAT_BG = { lease: 'var(--amber-bg)', broker: 'var(--blue-bg)', warn: 'var(
 const CAT_BDR = { lease: 'var(--amber-bdr)', broker: 'var(--blue-bdr)', warn: 'var(--rust-bdr)' };
 const CAT_COLOR = { lease: 'var(--amber)', broker: 'var(--blue)', warn: 'var(--rust)' };
 
-export default function LeadDetail({ lead, onBack }) {
+export default function LeadDetail({ lead, onBack, onNavigate }) {
   const [activeTab, setActiveTab] = useState('Timeline');
   const [synthOpen, setSynthOpen] = useState(true);
   const [specsOpen, setSpecsOpen] = useState(false);
@@ -145,7 +145,7 @@ export default function LeadDetail({ lead, onBack }) {
             <button style={S.btnGhost} onClick={() => alert('Edit lead — Supabase form coming soon')}>⚙ Edit</button>
             <button style={S.btnGhost} onClick={() => window.print()}>↓ Export Memo</button>
             <div style={{ marginLeft: 'auto' }} />
-            <button style={S.btnGreen} onClick={() => alert('Convert to Deal — opens New Deal form with this lead pre-filled')}>◈ Convert to Deal</button>
+            <button style={S.btnGreen} onClick={() => onNavigate?.('deals')}>◈ Convert to Deal</button>
           </div>
 
           {/* LOG PANEL */}
@@ -198,7 +198,7 @@ export default function LeadDetail({ lead, onBack }) {
               )}
               <div style={S.synthFooter}>
                 <button style={S.synthRegen} onClick={() => alert('AI Synthesis regenerated!')}>↻ Regenerate</button>
-                <button style={S.synthRegen} onClick={() => alert('Synthesis copied to clipboard')}>📋 Copy</button>
+                <button style={S.synthRegen} onClick={() => { navigator.clipboard?.writeText(`AI Synthesis: ${l.company} — Owner-user ${l.buildingSF?.toLocaleString() ?? '186,400'} SF, lease expiry ${l.leaseExpiry ?? 'Aug 2027'}, broker intel confirmed.`); alert('Synthesis copied to clipboard'); }}>📋 Copy</button>
                 <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: 'var(--ink4)', marginLeft: 'auto' }}>Generated Mar 24, 2026 · 11:02 AM</span>
               </div>
             </div>
@@ -297,7 +297,7 @@ export default function LeadDetail({ lead, onBack }) {
                         <div style={S.actDate}>{a.date}</div>
                       </div>
                     ))}
-                    <div style={S.tlMore}><span style={S.tlMoreText}>View all 8 activities & notes →</span></div>
+                    <div style={S.tlMore} onClick={() => alert('Showing all activities — Supabase pagination coming soon')}><span style={S.tlMoreText}>View all 8 activities & notes →</span></div>
                   </div>
 
                   {/* RIGHT COLUMN */}
@@ -312,7 +312,7 @@ export default function LeadDetail({ lead, onBack }) {
 
                     {/* Catalysts */}
                     <div style={S.card}>
-                      <div style={S.spHdr}>Active Catalysts <span style={S.spHdrA}>+ Add</span></div>
+                      <div style={S.spHdr}>Active Catalysts <span style={S.spHdrA} onClick={() => alert('Add catalyst — coming soon')}>+ Add</span></div>
                       {MOCK_CATALYSTS.map((c, i) => (
                         <div key={i} style={{ ...S.catRow, borderBottom: i < MOCK_CATALYSTS.length - 1 ? '1px solid var(--line2)' : 'none' }}>
                           <span style={{ ...S.cat, background: CAT_BG[c.type], borderColor: CAT_BDR[c.type], color: CAT_COLOR[c.type] }}>{c.label}</span>
@@ -324,7 +324,7 @@ export default function LeadDetail({ lead, onBack }) {
 
                     {/* Owner */}
                     <div style={S.card}>
-                      <div style={S.spHdr}>Owner <span style={S.spHdrA}>View Record →</span></div>
+                      <div style={S.spHdr}>Owner <span style={S.spHdrA} onClick={() => alert('View owner record — coming soon')}>View Record →</span></div>
                       {[
                         ['Company', l.ownerName ?? 'Leegin Creative Leather Inc.'],
                         ['Type', l.ownerType ?? 'Owner-User'],
@@ -378,20 +378,96 @@ export default function LeadDetail({ lead, onBack }) {
               </>
             )}
 
-            {/* OTHER TABS */}
-            {activeTab !== 'Timeline' && (
-              <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--line2)', padding: '48px 32px', textAlign: 'center' }}>
-                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 22, fontWeight: 700, color: 'var(--ink2)', marginBottom: 8 }}>{activeTab}</div>
-                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 16, fontStyle: 'italic', color: 'var(--ink4)', marginBottom: 20 }}>This tab connects to live Supabase data — coming soon</div>
-                <button style={{ ...S.btnGhost, margin: '0 auto' }} onClick={() => setActiveTab('Timeline')}>← Back to Timeline</button>
-              </div>
-            )}
+            {activeTab !== 'Timeline' && <LeadTabContent tab={activeTab} l={l} onNavigate={onNavigate} />}
 
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+function LeadTabContent({ tab, l, onNavigate }) {
+  const tbl = (cols, rows) => (
+    <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--line2)', overflow: 'hidden' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <thead>
+          <tr style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--line)' }}>
+            {cols.map(c => <th key={c} style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10.5, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--ink4)', whiteSpace: 'nowrap' }}>{c}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i} style={{ borderBottom: i < rows.length - 1 ? '1px solid var(--line2)' : 'none', cursor: 'pointer' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+              onMouseLeave={e => e.currentTarget.style.background = ''}>
+              {row.map((cell, j) => <td key={j} style={{ padding: '10px 14px', color: j === 0 ? 'var(--ink2)' : 'var(--ink3)', fontFamily: j > 0 ? "'DM Mono',monospace" : 'inherit', fontSize: j > 0 ? 12 : 13 }}>{cell}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  if (tab === 'Catalysts') return tbl(
+    ['Catalyst Type', 'Description', 'Priority', 'Date', 'Source'],
+    [
+      ['Lease Expiry', `${l.leaseExpiry ?? 'Aug 2027'} — 17 months remaining`, 'High', 'Aug 2027', 'Assessor'],
+      ['Broker Intel', 'Owner exploring sale-leaseback', 'High', 'Mar 21', 'Direct'],
+      ['Displacement Signal', 'Owner-user relocation risk confirmed', 'Medium', 'est.', 'Analysis'],
+    ]
+  );
+  if (tab === 'Property') return (
+    <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--line2)', overflow: 'hidden' }}>
+      <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink2)' }}>{l.address ?? '14022 Nelson Ave E'}, {l.city ?? 'Baldwin Park'}</div>
+        <button style={{ fontSize: 12, color: 'var(--blue)', background: 'none', border: '1px solid var(--blue-bdr)', borderRadius: 6, padding: '5px 11px', cursor: 'pointer', fontFamily: 'inherit' }} onClick={() => alert('View full property record — coming soon')}>View Property →</button>
+      </div>
+      {[
+        ['Building SF', (l.buildingSF ?? 186400).toLocaleString()],
+        ['Market', l.market ?? 'SGV · Mid Valley'],
+        ['Owner Type', l.ownerType ?? 'Owner-User'],
+        ['Year Built', '2001'],
+        ['Clear Height', "32'"],
+        ['Dock-High Doors', '24 DH · 4 GL'],
+        ['APN', '8558-006-003'],
+        ['Zoning', 'M-2'],
+      ].map(([k, v]) => (
+        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 18px', borderBottom: '1px solid var(--line2)' }}>
+          <span style={{ fontSize: 12.5, color: 'var(--ink4)' }}>{k}</span>
+          <span style={{ fontSize: 13, color: 'var(--ink2)', fontFamily: "'DM Mono',monospace" }}>{v}</span>
+        </div>
+      ))}
+    </div>
+  );
+  if (tab === 'Contacts') return tbl(
+    ['Name', 'Title', 'Company', 'Phone', 'Email'],
+    [
+      ['Bob Rosenthall', 'VP Real Estate', l.ownerName ?? 'Leegin Creative Leather', '(626) 555-0142', 'bob.r@leegin.com'],
+      ['Sandra Wu', 'CFO', l.ownerName ?? 'Leegin Creative Leather', '(626) 555-0199', 's.wu@leegin.com'],
+    ]
+  );
+  if (tab === 'Files') return (
+    <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--line2)', overflow: 'hidden' }}>
+      {[
+        { name: `${l.company ?? 'Lead'}_Research_Brief.pdf`, type: 'PDF', size: '1.8 MB', uploaded: 'Mar 22, 2026' },
+        { name: 'Owner_Contact_Notes.docx', type: 'Doc', size: '320 KB', uploaded: 'Mar 21, 2026' },
+      ].map((f, i, arr) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '11px 16px', borderBottom: i < arr.length - 1 ? '1px solid var(--line2)' : 'none', gap: 12, cursor: 'pointer' }}
+          onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+          onMouseLeave={e => e.currentTarget.style.background = ''}
+          onClick={() => alert(`Download ${f.name} — coming soon`)}>
+          <span style={{ fontSize: 18 }}>📄</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink2)' }}>{f.name}</div>
+            <div style={{ fontSize: 12, color: 'var(--ink4)', marginTop: 2 }}>{f.size} · {f.uploaded}</div>
+          </div>
+          <span style={{ fontSize: 12, color: 'var(--blue)' }}>↓ Download</span>
+        </div>
+      ))}
+    </div>
+  );
+  return null;
 }
 
 function SynthSection({ title, items, steps }) {

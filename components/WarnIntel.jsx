@@ -1,11 +1,13 @@
 'use client';
 import { useState } from 'react';
 
-export default function WarnIntel({ filings = MOCK_FILINGS, onCreateLead }) {
+export default function WarnIntel({ filings: initialFilings = MOCK_FILINGS, onCreateLead, onNavigate }) {
   const [search, setSearch] = useState('');
-  const filtered = filings.filter(f =>
+  const [filingList, setFilingList] = useState(initialFilings);
+  const filtered = filingList.filter(f =>
     !search || f.company.toLowerCase().includes(search.toLowerCase()) || f.addr.toLowerCase().includes(search.toLowerCase())
   );
+  const archiveFiling = (id) => setFilingList(list => list.filter(f => f.id !== id));
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -18,7 +20,7 @@ export default function WarnIntel({ filings = MOCK_FILINGS, onCreateLead }) {
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke="#6E6860" strokeWidth="1.5"/><path d="M10.5 10.5L14 14" stroke="#6E6860" strokeWidth="1.5" strokeLinecap="round"/></svg>
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search filings…" style={{ background: 'none', border: 'none', outline: 'none', fontFamily: 'inherit', fontSize: 13.5, color: 'var(--ink2)', width: '100%' }} />
           </div>
-          <button style={S.btnGhost}>Export CSV</button>
+          <button style={S.btnGhost} onClick={() => alert('Export CSV — coming soon')}>Export CSV</button>
         </div>
       </div>
 
@@ -72,7 +74,7 @@ export default function WarnIntel({ filings = MOCK_FILINGS, onCreateLead }) {
               <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: 'var(--ink4)' }}>{filtered.length} filings</span>
             </div>
             {filtered.map((f, i) => (
-              <WarnCard key={f.id ?? i} filing={f} onCreateLead={() => onCreateLead?.(f)} />
+              <WarnCard key={f.id ?? i} filing={f} onCreateLead={() => { onCreateLead?.(f); onNavigate?.('leads'); }} onNavigate={onNavigate} onArchive={() => archiveFiling(f.id)} />
             ))}
           </div>
 
@@ -118,8 +120,9 @@ export default function WarnIntel({ filings = MOCK_FILINGS, onCreateLead }) {
   );
 }
 
-function WarnCard({ filing: f, onCreateLead }) {
+function WarnCard({ filing: f, onCreateLead, onNavigate, onArchive }) {
   const [hover, setHover] = useState(false);
+  const [open, setOpen] = useState(true);
   return (
     <div style={{ ...S.warnCard, ...(f.isNew ? S.warnCardNew : {}), background: hover ? 'var(--bg)' : (f.isNew ? '#FFF8F5' : 'var(--card)') }}
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
@@ -140,12 +143,15 @@ function WarnCard({ filing: f, onCreateLead }) {
         <span style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 20, fontSize: 11, fontWeight: 500, border: '1px solid var(--blue-bdr)', background: 'var(--blue-bg)', color: 'var(--blue)' }}>{f.submarket}</span>
         <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: 'var(--ink4)' }}>Filed {f.filed}</span>
       </div>
-      {/* Opportunity match */}
-      {f.matches?.length > 0 ? (
+      {/* Opportunity match — collapsible */}
+      <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, marginBottom: open ? 8 : 0 }} onClick={() => setOpen(o => !o)}>
+        <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--blue)' }}>✦ Opportunity Matches ({f.matches?.length ?? 0})</span>
+        <span style={{ fontSize: 11, color: 'var(--blue)', marginLeft: 'auto' }}>{open ? '▴' : '▾'}</span>
+      </div>
+      {open && (f.matches?.length > 0 ? (
         <div style={S.oppMatch}>
-          <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--blue)', marginBottom: 8 }}>✦ Opportunity Match — Buyer / Tenant Prospects</div>
           {f.matches.map((m, i) => (
-            <div key={i} style={S.omMatch}>
+            <div key={i} style={S.omMatch} onClick={() => onNavigate?.('leads')}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink2)' }}>{m.name}</div>
                 <div style={{ fontSize: 11.5, color: 'var(--ink4)', marginTop: 1 }}>{m.sub}</div>
@@ -156,14 +162,14 @@ function WarnCard({ filing: f, onCreateLead }) {
           ))}
         </div>
       ) : (
-        <div style={{ padding: '10px 12px', background: 'var(--bg2)', border: '1px dashed var(--line)', borderRadius: 7, fontSize: 13, fontStyle: 'italic', color: 'var(--ink4)', marginTop: 10 }}>No matching tenant/buyer prospects in database for this size range.</div>
-      )}
+        <div style={{ padding: '10px 12px', background: 'var(--bg2)', border: '1px dashed var(--line)', borderRadius: 7, fontSize: 13, fontStyle: 'italic', color: 'var(--ink4)', marginTop: 4 }}>No matching tenant/buyer prospects in database for this size range.</div>
+      ))}
       {/* Actions */}
       <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
         <button style={S.wbRust} onClick={onCreateLead}>⚡ Create Lead</button>
-        <button style={S.wbBlue}>📞 Call Owner</button>
-        <button style={S.wbBlue}>📝 Note</button>
-        <button style={S.wbGray}>Archive</button>
+        <button style={S.wbBlue} onClick={() => alert(`Calling owner for ${f.company} — coming soon`)}>📞 Call Owner</button>
+        <button style={S.wbBlue} onClick={() => alert('Add note — coming soon')}>📝 Note</button>
+        <button style={S.wbGray} onClick={onArchive}>Archive</button>
       </div>
     </div>
   );

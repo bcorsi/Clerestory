@@ -136,6 +136,48 @@ export default function DealDetail({ deal, onBack, onNavigate, onSelectAccount }
   }, []);
 
   const [currentStageIdx, setCurrentStageIdx] = useState(Math.max(0, STAGES.indexOf(d.stage ?? 'LOI')));
+  const [exporting, setExporting] = useState(false);
+
+  async function exportExcel() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const res = await fetch('/api/export-model', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...inputs,
+          dealName: d.name ?? 'Deal',
+          address:  d.address ?? '',
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: 'Export failed' }));
+        alert('Export failed: ' + (body.error ?? res.statusText));
+        return;
+      }
+
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+
+      // Prefer the filename the server sends via Content-Disposition
+      const cd   = res.headers.get('Content-Disposition') ?? '';
+      const match = cd.match(/filename="([^"]+)"/);
+      a.download = match ? match[1] : `UW_Model_${(d.name ?? 'Deal').replace(/\s+/g, '_')}.xlsx`;
+
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Export failed: ' + err.message);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -351,7 +393,13 @@ export default function DealDetail({ deal, onBack, onNavigate, onSelectAccount }
                   {/* Actions */}
                   <div style={{ padding: '12px 22px', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <button style={S.uwRun} onClick={() => setResults(runModel(inputs))}>↻ Update Model</button>
-                    <button style={S.uwExcel} onClick={() => alert('Excel export coming soon')}>↓ Export Full Excel Model</button>
+                    <button
+                      style={{ ...S.uwExcel, opacity: exporting ? 0.65 : 1, cursor: exporting ? 'not-allowed' : 'pointer' }}
+                      onClick={exportExcel}
+                      disabled={exporting}
+                    >
+                      {exporting ? '⏳ Generating…' : '↓ Export Full Excel Model'}
+                    </button>
                     <a href="#returns" style={{ marginLeft: 'auto', fontFamily: "'Cormorant Garamond',serif", fontSize: 13.5, fontStyle: 'italic', color: 'var(--blue2)', cursor: 'pointer', textDecoration: 'none' }}
                       onClick={e => { e.preventDefault(); document.getElementById('returns')?.scrollIntoView({ behavior: 'smooth' }); }}>View Returns Dashboard ↓</a>
                   </div>
@@ -362,7 +410,13 @@ export default function DealDetail({ deal, onBack, onNavigate, onSelectAccount }
                   <div style={{ ...S.card, marginBottom: 16 }}>
                     <div style={{ ...S.cardHdr }}>
                       <div style={S.cardTitle}>Returns Dashboard — {inputs.hold}-Year Hold</div>
-                      <button style={S.uwExcel} onClick={() => alert('Generates full multi-sheet Excel model via sgv-ie-finance skill')}>↓ Export Excel</button>
+                      <button
+                        style={{ ...S.uwExcel, opacity: exporting ? 0.65 : 1, cursor: exporting ? 'not-allowed' : 'pointer' }}
+                        onClick={exportExcel}
+                        disabled={exporting}
+                      >
+                        {exporting ? '⏳ Generating…' : '↓ Export Excel'}
+                      </button>
                     </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)' }}>
                         {[

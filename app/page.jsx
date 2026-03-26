@@ -22,6 +22,8 @@ import TaskDetailPage from '../components/TaskDetailPage.jsx';
 import NewsFeed from '../components/NewsFeed.jsx';
 import Campaigns from '../components/Campaigns.jsx';
 import CompAnalytics from '../components/CompAnalytics.jsx';
+import LeaseCompDetail from '../components/LeaseCompDetail.jsx';
+import SaleCompDetail from '../components/SaleCompDetail.jsx';
 
 export default function App() {
   const [page, setPage] = useState('dashboard');
@@ -31,6 +33,8 @@ export default function App() {
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [selectedContact, setSelectedContact] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [selectedLeaseComp, setSelectedLeaseComp] = useState(null);
+  const [selectedSaleComp, setSelectedSaleComp] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // navigate() — used by sidebar, resets all detail state
@@ -42,6 +46,8 @@ export default function App() {
     setSelectedAccount(null);
     setSelectedContact(null);
     setSelectedTask(null);
+    setSelectedLeaseComp(null);
+    setSelectedSaleComp(null);
   };
 
   // openXxx() — used by list row clicks, ONLY sets the selected item (no page reset)
@@ -58,11 +64,13 @@ export default function App() {
 
   const renderPage = () => {
     // Detail views — checked BEFORE the page switch so they overlay any list page
+    if (selectedLeaseComp) return <LeaseCompDetail comp={selectedLeaseComp} onBack={() => setSelectedLeaseComp(null)} onNavigate={navigate} />;
+    if (selectedSaleComp) return <SaleCompDetail comp={selectedSaleComp} onBack={() => setSelectedSaleComp(null)} onNavigate={navigate} />;
     if (selectedProperty) return <PropertyDetail property={selectedProperty} onBack={() => setSelectedProperty(null)} onNavigate={navigate} onSelectAccount={openAccount} />;
     if (selectedDeal) return <DealDetail deal={selectedDeal} onBack={() => { setSelectedDeal(null); setPage('deals'); }} onNavigate={navigate} onSelectAccount={openAccount} />;
     if (selectedLead) return <LeadDetail lead={selectedLead} onBack={() => setSelectedLead(null)} onNavigate={navigate} />;
-    if (selectedAccount) return <AccountDetailPage account={selectedAccount} onBack={() => setSelectedAccount(null)} onNavigate={navigate} />;
-    if (selectedContact) return <ContactDetailPage contact={selectedContact} onBack={() => setSelectedContact(null)} onNavigate={navigate} />;
+    if (selectedAccount) return <AccountDetailPage account={selectedAccount} onBack={() => setSelectedAccount(null)} onNavigate={navigate} onSelectContact={openContact} onSelectProperty={openProperty} onSelectDeal={openDeal} />;
+    if (selectedContact) return <ContactDetailPage contact={selectedContact} onBack={() => setSelectedContact(null)} onNavigate={navigate} onSelectAccount={openAccount} onSelectProperty={openProperty} onSelectDeal={openDeal} />;
     if (selectedTask) return <TaskDetailPage task={selectedTask} onBack={() => setSelectedTask(null)} onNavigate={navigate} />;
 
     switch (page) {
@@ -74,10 +82,10 @@ export default function App() {
       case 'accounts':      return <Accounts onSelectAccount={openAccount} />;
       case 'contacts':      return <ContactsList onSelectContact={openContact} />;
       case 'tasks':         return <Tasks onSelectTask={openTask} />;
-      case 'lease-comps':   return <LeaseCompsPage onNavigate={navigate} />;
-      case 'sale-comps':    return <SaleCompsPage onNavigate={navigate} />;
-      case 'map':           return <MapViewPage onNavigate={navigate} />;
-      case 'owner-search':  return <OwnerSearchPage onNavigate={navigate} />;
+      case 'lease-comps':   return <LeaseCompsPage onNavigate={navigate} onSelectComp={c => setSelectedLeaseComp(c)} />;
+      case 'sale-comps':    return <SaleCompsPage onNavigate={navigate} onSelectComp={c => setSelectedSaleComp(c)} />;
+      case 'map':           return <MapViewPage onNavigate={navigate} onSelectProperty={openProperty} onSelectLead={openLead} />;
+      case 'owner-search':  return <OwnerSearchPage onNavigate={navigate} onSelectAccount={openAccount} />;
       case 'news':          return <NewsFeed onNavigate={navigate} />;
       case 'campaigns':     return <Campaigns onNavigate={navigate} />;
       case 'comp-analytics': return <CompAnalytics onNavigate={navigate} />;

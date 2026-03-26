@@ -1,6 +1,150 @@
 'use client';
 import { useState } from 'react';
 
+const CATALYST_TAGS_OPTIONS = ['Lease Expiry \'25–\'27', 'WARN Notice', 'NOD Filed', 'CapEx Signal', 'Sale-Leaseback', 'Owner-User', 'Hiring Signal', 'Vacancy Risk', 'Broker Intel'];
+
+function AddLeadModal({ onClose, onSave }) {
+  const [form, setForm] = useState({ company: '', address: '', city: '', state: '', zip: '', market: '', sf: '', propType: '', ownerName: '', ownerType: '', source: '', score: 75, notes: '' });
+  const [tags, setTags] = useState([]);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const toggleTag = t => setTags(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
+
+  const handleSave = () => {
+    if (!form.company) { alert('Company Name is required'); return; }
+    const C = (bg, bdr, color, label) => ({ bg, bdr, color, label });
+    const catalysts = tags.map(t => t.includes('WARN') ? C('var(--rust-bg)', 'var(--rust-bdr)', 'var(--rust)', '⚠ ' + t) : t.includes('Expiry') ? C('var(--amber-bg)', 'var(--amber-bdr)', 'var(--amber)', t) : t.includes('CapEx') || t.includes('SLB') ? C('var(--purple-bg)', 'var(--purple-bdr)', 'var(--purple)', t) : C('var(--blue-bg)', 'var(--blue-bdr)', 'var(--blue)', t));
+    onSave({
+      id: Date.now(), score: Number(form.score), grade: Number(form.score) >= 90 ? 'A+' : Number(form.score) >= 80 ? 'A' : Number(form.score) >= 70 ? 'B+' : 'B',
+      name: form.company, addr: form.address + (form.city ? ' · ' + form.city : ''),
+      market: form.market || 'SGV', sf: form.sf ? form.sf + ' SF' : '—',
+      catalysts, source: form.source || 'Manual', owner: form.ownerName || 'Unknown',
+      lastContact: 'Never', hot: Number(form.score) >= 80, warn: tags.some(t => t.includes('WARN')),
+    });
+    onClose();
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: 'var(--card)', borderRadius: 12, boxShadow: '0 8px 40px rgba(0,0,0,0.18)', width: 540, maxHeight: '90vh', overflowY: 'auto', padding: '0 0 24px' }}>
+        {/* Modal Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 24px 14px', borderBottom: '1px solid var(--line)' }}>
+          <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink2)' }}>Add New Lead</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--ink4)', lineHeight: 1, padding: '0 4px' }}>×</button>
+        </div>
+
+        <div style={{ padding: '20px 24px 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Company Name */}
+          <div>
+            <label style={ML}>Company Name <span style={{ color: 'var(--rust)' }}>*</span></label>
+            <input style={MI} value={form.company} onChange={e => set('company', e.target.value)} placeholder="e.g. Leegin Creative Leather" />
+          </div>
+
+          {/* Address */}
+          <div>
+            <label style={ML}>Address</label>
+            <input style={MI} value={form.address} onChange={e => set('address', e.target.value)} placeholder="Street address" />
+          </div>
+
+          {/* City + State/ZIP */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <label style={ML}>City</label>
+              <input style={MI} value={form.city} onChange={e => set('city', e.target.value)} placeholder="City" />
+            </div>
+            <div>
+              <label style={ML}>State / ZIP</label>
+              <input style={MI} value={form.state} onChange={e => set('state', e.target.value)} placeholder="CA 91706" />
+            </div>
+          </div>
+
+          {/* Market */}
+          <div>
+            <label style={ML}>Market</label>
+            <select style={MS} value={form.market} onChange={e => set('market', e.target.value)}>
+              <option value="">Select market…</option>
+              <option>SGV</option><option>IE West</option><option>IE East</option><option>OC</option>
+            </select>
+          </div>
+
+          {/* Building SF + Property Type */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <label style={ML}>Building SF</label>
+              <input style={MI} value={form.sf} onChange={e => set('sf', e.target.value)} placeholder="e.g. 186,400" />
+            </div>
+            <div>
+              <label style={ML}>Property Type</label>
+              <select style={MS} value={form.propType} onChange={e => set('propType', e.target.value)}>
+                <option value="">Select…</option>
+                <option>Industrial / Warehouse</option><option>Manufacturing</option><option>Flex / R&D</option><option>Cold Storage</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Owner Name + Owner Type */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <label style={ML}>Owner Name</label>
+              <input style={MI} value={form.ownerName} onChange={e => set('ownerName', e.target.value)} placeholder="Owner or company" />
+            </div>
+            <div>
+              <label style={ML}>Owner Type</label>
+              <select style={MS} value={form.ownerType} onChange={e => set('ownerType', e.target.value)}>
+                <option value="">Select…</option>
+                <option>Private · Owner-User</option><option>Private LLC</option><option>Corp</option><option>Family Trust</option><option>REIT</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Lead Source */}
+          <div>
+            <label style={ML}>Lead Source</label>
+            <select style={MS} value={form.source} onChange={e => set('source', e.target.value)}>
+              <option value="">Select…</option>
+              <option>Broker intel</option><option>WARN filing</option><option>CapEx permit pull</option><option>NOD filing</option><option>Grapevine</option><option>CoStar</option><option>Direct</option>
+            </select>
+          </div>
+
+          {/* Catalyst Tags */}
+          <div>
+            <label style={ML}>Catalyst Tags</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+              {CATALYST_TAGS_OPTIONS.map(t => (
+                <button key={t} style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11.5, border: '1px solid', cursor: 'pointer', fontFamily: 'inherit', background: tags.includes(t) ? 'var(--blue-bg)' : 'var(--card)', borderColor: tags.includes(t) ? 'var(--blue-bdr)' : 'var(--line)', color: tags.includes(t) ? 'var(--blue)' : 'var(--ink3)' }}
+                  onClick={() => toggleTag(t)}>{t}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Lead Score */}
+          <div>
+            <label style={ML}>Lead Score (1–100): <strong style={{ color: 'var(--blue)' }}>{form.score}</strong></label>
+            <input type="range" min={1} max={100} value={form.score} onChange={e => set('score', e.target.value)} style={{ width: '100%', accentColor: 'var(--blue)' }} />
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label style={ML}>Notes</label>
+            <textarea style={{ ...MI, minHeight: 80, resize: 'vertical' }} value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Research notes, context, source details…" />
+          </div>
+
+          {/* Buttons */}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 4 }}>
+            <button style={MBGhost} onClick={onClose}>Cancel</button>
+            <button style={MBBlue} onClick={handleSave}>Save Lead</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const ML = { display: 'block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--ink4)', marginBottom: 5 };
+const MI = { display: 'block', width: '100%', padding: '8px 12px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--bg)', fontSize: 13.5, fontFamily: 'inherit', color: 'var(--ink2)', outline: 'none', boxSizing: 'border-box' };
+const MS = { display: 'block', width: '100%', padding: '8px 12px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--bg)', fontSize: 13.5, fontFamily: 'inherit', color: 'var(--ink2)', outline: 'none', cursor: 'pointer' };
+const MBGhost = { display: 'inline-flex', alignItems: 'center', padding: '8px 16px', borderRadius: 7, fontSize: 13, fontWeight: 500, cursor: 'pointer', border: '1px solid var(--line)', background: 'var(--card)', color: 'var(--ink3)', fontFamily: 'inherit' };
+const MBBlue = { display: 'inline-flex', alignItems: 'center', padding: '8px 18px', borderRadius: 7, fontSize: 13, fontWeight: 500, cursor: 'pointer', border: '1px solid var(--blue)', background: 'var(--blue)', color: '#fff', fontFamily: 'inherit' };
+
 const TABS = [
   { label: 'All Leads', key: 'all', count: 237 },
   { label: 'A+/A Hot', key: 'hot', count: 40, hot: true },
@@ -17,9 +161,11 @@ const SIZE_FILTERS = ['50K+ SF', '100K+ SF'];
 
 const SCORE_COLOR = (score) => score >= 85 ? 'var(--blue)' : score >= 70 ? 'var(--blue2)' : score >= 55 ? 'var(--amber)' : 'var(--ink4)';
 
-export default function LeadGenList({ leads = MOCK_LEADS, onSelectLead, onNavigate }) {
+export default function LeadGenList({ leads: initialLeads, onSelectLead, onNavigate }) {
   const [activeTab, setActiveTab] = useState('all');
   const [activeFilters, setActiveFilters] = useState(['SGV', 'IE West']);
+  const [leads, setLeads] = useState(initialLeads ?? MOCK_LEADS);
+  const [showAddLead, setShowAddLead] = useState(false);
 
   const filteredLeads = leads.filter(l => {
     if (activeTab === 'hot') return l.hot || l.score >= 80;
@@ -34,6 +180,7 @@ export default function LeadGenList({ leads = MOCK_LEADS, onSelectLead, onNaviga
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      {showAddLead && <AddLeadModal onClose={() => setShowAddLead(false)} onSave={lead => { setLeads(prev => [lead, ...prev]); setActiveTab('all'); }} />}
       {/* TOPBAR */}
       <div style={S.topbar}>
         <span style={{ fontSize: 13, color: 'var(--ink4)' }}><span style={{ color: 'var(--ink2)', fontWeight: 500 }}>Lead Gen</span></span>
@@ -58,7 +205,7 @@ export default function LeadGenList({ leads = MOCK_LEADS, onSelectLead, onNaviga
               <button style={S.btnGhost} onClick={() => alert('Import CSV — coming soon')}>Import CSV</button>
               <button style={S.btnGhost} onClick={() => alert('Map View — coming soon')}>Map View</button>
               <button style={{ ...S.btn, background: 'var(--rust)', color: '#fff', borderColor: 'var(--rust)', fontSize: 12 }} onClick={() => setActiveTab('hot')}>⚡ Hot Queue (40)</button>
-              <button style={{ ...S.btn, background: 'var(--blue)', color: '#fff', borderColor: 'var(--blue)' }} onClick={() => alert('Add Lead — Supabase form coming soon')}>+ Add Lead</button>
+              <button style={{ ...S.btn, background: 'var(--blue)', color: '#fff', borderColor: 'var(--blue)' }} onClick={() => setShowAddLead(true)}>+ Add Lead</button>
             </div>
           </div>
 

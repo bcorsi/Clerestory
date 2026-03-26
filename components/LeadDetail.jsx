@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 
-const TABS = ['Timeline', 'Catalysts', 'Property', 'Contacts', 'Files'];
+const TABS = ['Timeline', 'APNs', 'Lease Comps', 'Contacts', 'Properties', 'Files'];
 
 const MOCK_LEAD = {
   company: 'Leegin Creative Leather Products',
@@ -143,7 +143,8 @@ export default function LeadDetail({ lead, onBack, onNavigate }) {
             <button style={S.btnLink} onClick={() => window.open('https://www.costar.com/search/industrial')}>🗂 CoStar</button>
             <div style={S.abSep} />
             <button style={S.btnGhost} onClick={() => alert('Edit lead — Supabase form coming soon')}>⚙ Edit</button>
-            <button style={S.btnGhost} onClick={() => window.print()}>↓ Export Memo</button>
+            <button style={S.btnGhost} onClick={() => alert('Export Memo — coming soon')}>↓ Export Memo</button>
+            <button style={S.btnGhost} onClick={() => alert('Running owner search across assessor + CoStar records…')}>🔍 Run Owner Search</button>
             <div style={{ marginLeft: 'auto' }} />
             <button style={S.btnGreen} onClick={() => onNavigate?.('deals')}>◈ Convert to Deal</button>
           </div>
@@ -322,6 +323,26 @@ export default function LeadDetail({ lead, onBack, onNavigate }) {
                       ))}
                     </div>
 
+                    {/* Buyer Matches */}
+                    <div style={S.card}>
+                      <div style={S.spHdr}>✦ Buyer / Tenant Prospects</div>
+                      {[
+                        { name: 'Pacific Manufacturing Group', sub: 'Seeking 150–200K SF · IE West', pct: 94 },
+                        { name: 'Matrix Logistics Partners', sub: '170–220K SF req · Ontario/Fontana', pct: 87 },
+                      ].map((m, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', borderBottom: '1px solid var(--line2)', cursor: 'pointer', background: 'var(--blue-bg)' }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'var(--blue-bg)'}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink2)' }}>{m.name}</div>
+                            <div style={{ fontSize: 11.5, color: 'var(--ink4)', marginTop: 1 }}>{m.sub}</div>
+                          </div>
+                          <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, fontWeight: 700, color: 'var(--blue)' }}>{m.pct}%</div>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', cursor: 'pointer' }} onClick={() => alert('Open buyer record — coming soon')}>Open →</span>
+                        </div>
+                      ))}
+                    </div>
+
                     {/* Owner */}
                     <div style={S.card}>
                       <div style={S.spHdr}>Owner <span style={S.spHdrA} onClick={() => alert('View owner record — coming soon')}>View Record →</span></div>
@@ -409,15 +430,29 @@ function LeadTabContent({ tab, l, onNavigate }) {
     </div>
   );
 
-  if (tab === 'Catalysts') return tbl(
-    ['Catalyst Type', 'Description', 'Priority', 'Date', 'Source'],
+  if (tab === 'APNs') return tbl(
+    ['APN Number', 'Owner of Record', 'Land (Acres)', 'Assessed Value', 'Last Transfer', 'Zoning'],
     [
-      ['Lease Expiry', `${l.leaseExpiry ?? 'Aug 2027'} — 17 months remaining`, 'High', 'Aug 2027', 'Assessor'],
-      ['Broker Intel', 'Owner exploring sale-leaseback', 'High', 'Mar 21', 'Direct'],
-      ['Displacement Signal', 'Owner-user relocation risk confirmed', 'Medium', 'est.', 'Analysis'],
+      ['8558-006-003', l.ownerName ?? 'Leegin Creative Leather', '4.8 ac', '$18.2M', '2009', 'M-2'],
+      ['8558-006-004', l.ownerName ?? 'Leegin Creative Leather', '3.4 ac', '$12.8M', '2009', 'M-2'],
     ]
   );
-  if (tab === 'Property') return (
+  if (tab === 'Lease Comps') return tbl(
+    ['Address', 'Tenant', 'SF', 'Start', 'Rate/SF/Mo', 'Term', 'Type'],
+    [
+      ['14500 Nelson Ave, Baldwin Park', 'Pacific Mfg Group', '142,000', 'Jan 2025', '$1.38', '5 yr', 'NNN'],
+      ['1300 Arrow Hwy, Irwindale', 'Apex Distribution', '96,000', 'Mar 2025', '$1.44', '3 yr', 'NNN'],
+      ['12200 Shoemaker Ave, Norwalk', 'SoCal Logistics', '220,000', 'Nov 2024', '$1.31', '7 yr', 'NNN'],
+    ]
+  );
+  if (tab === 'Contacts') return tbl(
+    ['Name', 'Title', 'Company', 'Phone', 'Email'],
+    [
+      ['Bob Rosenthall', 'VP Real Estate', l.ownerName ?? 'Leegin Creative Leather', '(626) 555-0142', 'bob.r@leegin.com'],
+      ['Sandra Wu', 'CFO', l.ownerName ?? 'Leegin Creative Leather', '(626) 555-0199', 's.wu@leegin.com'],
+    ]
+  );
+  if (tab === 'Properties') return (
     <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--line2)', overflow: 'hidden' }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink2)' }}>{l.address ?? '14022 Nelson Ave E'}, {l.city ?? 'Baldwin Park'}</div>
@@ -439,13 +474,6 @@ function LeadTabContent({ tab, l, onNavigate }) {
         </div>
       ))}
     </div>
-  );
-  if (tab === 'Contacts') return tbl(
-    ['Name', 'Title', 'Company', 'Phone', 'Email'],
-    [
-      ['Bob Rosenthall', 'VP Real Estate', l.ownerName ?? 'Leegin Creative Leather', '(626) 555-0142', 'bob.r@leegin.com'],
-      ['Sandra Wu', 'CFO', l.ownerName ?? 'Leegin Creative Leather', '(626) 555-0199', 's.wu@leegin.com'],
-    ]
   );
   if (tab === 'Files') return (
     <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--line2)', overflow: 'hidden' }}>

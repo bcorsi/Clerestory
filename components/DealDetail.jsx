@@ -143,7 +143,7 @@ export default function DealDetail({ deal, onBack, onNavigate }) {
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
             <button style={S.btnGhost} onClick={() => alert('Edit deal — Supabase form coming soon')}>⚙ Edit</button>
             <button style={S.btnGhost} onClick={() => setLogPanel(logPanel === 'note' ? null : 'note')}>+ Activity</button>
-            <button style={S.btnGhost} onClick={() => window.print()}>↓ Export BOV</button>
+            <button style={S.btnGhost} onClick={() => alert('Export BOV — coming soon')}>↓ Export BOV</button>
             <button style={S.btnBlue} onClick={() => setCurrentStageIdx(i => Math.min(i + 1, STAGES.length - 1))}>Advance Stage →</button>
           </div>
         </div>
@@ -176,7 +176,7 @@ export default function DealDetail({ deal, onBack, onNavigate }) {
             <button style={S.btnLink} onClick={() => window.open('https://www.costar.com/search/industrial')}>🗂 CoStar</button>
             <button style={S.btnLink} onClick={() => window.open('https://assessor.lacounty.gov/')}>🗺 LA County GIS</button>
             <div style={S.abSep} />
-            <button style={S.btnGhost} onClick={() => window.print()}>↓ Export Memo</button>
+            <button style={S.btnGhost} onClick={() => alert('Export Memo — coming soon')}>↓ Export Memo</button>
             <button style={S.btnGhost} onClick={() => alert('Run Comps — pulls sale/lease comps for this submarket')}>📊 Run Comps</button>
             <div style={{ marginLeft: 'auto' }} />
             <button style={S.btnGreen} onClick={() => { const psaIdx = STAGES.indexOf('PSA Negotiation'); if (psaIdx >= 0) setCurrentStageIdx(psaIdx); }}>Advance to PSA →</button>
@@ -343,12 +343,15 @@ export default function DealDetail({ deal, onBack, onNavigate }) {
                   </div>
                   {/* Actions */}
                   <div style={{ padding: '12px 22px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <button style={S.uwExcel} onClick={() => alert('Generates full multi-sheet Excel model via sgv-ie-finance skill')}>↓ Export Full Excel Model</button>
+                    <button style={S.uwRun} onClick={() => setResults(runModel(inputs))}>↻ Update Model</button>
+                    <button style={S.uwExcel} onClick={() => alert('Excel export coming soon')}>↓ Export Full Excel Model</button>
+                    <a href="#returns" style={{ marginLeft: 'auto', fontFamily: "'Cormorant Garamond',serif", fontSize: 13.5, fontStyle: 'italic', color: 'var(--blue2)', cursor: 'pointer', textDecoration: 'none' }}
+                      onClick={e => { e.preventDefault(); document.getElementById('returns')?.scrollIntoView({ behavior: 'smooth' }); }}>View Returns Dashboard ↓</a>
                   </div>
                 </div>
 
                 {/* ── RETURNS DASHBOARD ── */}
-                <div>
+                <div id="returns">
                   <div style={{ ...S.card, marginBottom: 16 }}>
                     <div style={{ ...S.cardHdr }}>
                       <div style={S.cardTitle}>Returns Dashboard — {inputs.hold}-Year Hold</div>

@@ -132,7 +132,7 @@ export default function PropertyDetail({ property, onBack, onNavigate }) {
             <button style={S.btnLink} onClick={() => window.open('https://assessor.lacounty.gov/')}>🗺 LA County GIS</button>
             <div style={S.abSep} />
             <button style={S.btnGhost} onClick={() => alert('Edit property — Supabase form coming soon')}>⚙ Edit</button>
-            <button style={S.btnGhost} onClick={() => window.print()}>↓ Export Memo</button>
+            <button style={S.btnGhost} onClick={() => alert('Export Memo — coming soon')}>↓ Export Memo</button>
             <div style={{ marginLeft: 'auto' }} />
             <button style={S.btnGreen} onClick={() => onNavigate?.('deals')}>◈ Convert to Deal</button>
           </div>

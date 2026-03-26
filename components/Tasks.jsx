@@ -153,7 +153,8 @@ function TaskRow({ task, type, checked, onCheck, dueLabel, dueStyle }) {
 
   return (
     <div style={{ background: 'var(--card)', borderRadius: 10, border: borderLeft, borderRight: '1px solid var(--line2)', borderTop: '1px solid var(--line2)', borderBottom: '1px solid var(--line2)', padding: '12px 16px', marginBottom: 8, display: 'flex', gap: 12, alignItems: 'flex-start', cursor: 'pointer', boxShadow: hover ? '0 1px 4px rgba(0,0,0,0.08)' : 'none', transition: 'box-shadow 0.12s' }}
-      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      onClick={() => alert(`${task.text} — task detail coming soon`)}>
       <div style={{ width: 18, height: 18, borderRadius: 4, border: checked ? 'none' : '1.5px solid var(--line)', flexShrink: 0, marginTop: 2, cursor: 'pointer', background: checked ? 'var(--green)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         onClick={e => { e.stopPropagation(); onCheck(); }}>
         {checked && <span style={{ color: '#fff', fontSize: 10 }}>✓</span>}

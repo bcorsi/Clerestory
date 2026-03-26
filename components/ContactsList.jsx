@@ -2,12 +2,12 @@
 import { useState } from 'react';
 
 const MOCK_CONTACTS = [
-  { id: 1, initials: 'BR', color: '#4E6E96', name: 'Bob Rosenthall', title: 'President & CEO', type: 'Owner', typeColor: 'blue', company: 'Leegin Creative Leather', phone: '(626) 555-0182', email: 'brosenthall@leegin.com', lastContact: 'Mar 22', linkedTo: [{ label: '14022 Nelson', color: 'var(--blue)' }, { label: 'SLB Deal', color: 'var(--green)' }], actions: ['Call', 'Email'] },
-  { id: 2, initials: 'JO', color: '#B83714', name: 'James Okura', title: 'EVP Operations', type: 'Decision Maker', typeColor: 'amber', company: 'Pacific Manufacturing', phone: '(909) 555-0244', email: 'jokura@pacificmfg.com', lastContact: 'Mar 22', linkedTo: [{ label: 'Workman Mill Deal', color: 'var(--green)' }], actions: ['Call', 'Email'] },
-  { id: 3, initials: 'RN', color: '#156636', name: 'RJ Neu', title: 'Principal', type: 'Owner', typeColor: 'green', company: 'RJ Neu Properties', phone: '(626) 555-0317', email: 'rj@rjneuprops.com', lastContact: 'Mar 14', linkedTo: [{ label: '4900 Workman Mill', color: 'var(--blue)' }], actions: ['Call', 'Email'] },
-  { id: 4, initials: 'DL', color: '#5838A0', name: 'David Lim', title: 'Owner / Principal', type: 'Owner', typeColor: 'blue', company: 'Tarhong Industry Props', phone: '(626) 555-0488', email: null, lastContact: 'Never', lastContactColor: 'var(--rust)', linkedTo: [{ label: '780 Nogales', color: 'var(--blue)' }], actions: ['Call', 'Research'] },
-  { id: 5, initials: 'SO', color: '#8C5A04', name: 'Scott Oh', title: 'Senior VP', type: 'Broker', typeColor: 'purple', company: 'Colliers — SGV', phone: '(626) 555-0591', email: 'soh@colliers.com', lastContact: 'Mar 20', linkedTo: [{ label: 'Broker Network', color: 'var(--ink4)' }], actions: ['Call', 'Note'] },
-  { id: 6, initials: 'AC', color: '#4E6E96', name: 'Andy Chen', title: 'VP Real Estate', type: 'Decision Maker', typeColor: 'amber', company: 'Valley Cold Storage', phone: '(909) 555-0621', email: 'achen@valleycold.com', lastContact: 'Mar 18', linkedTo: [{ label: 'LOI Deal', color: 'var(--blue)' }], actions: ['Call', 'Email'] },
+  { id: 1, initials: 'BR', color: '#4E6E96', name: 'Bob Rosenthall', title: 'President & CEO', type: 'Owner', tabKey: 'owners', typeColor: 'blue', company: 'Leegin Creative Leather', phone: '(626) 555-0182', email: 'brosenthall@leegin.com', lastContact: 'Mar 22', linkedTo: [{ label: '14022 Nelson', color: 'var(--blue)' }, { label: 'SLB Deal', color: 'var(--green)' }], actions: ['Call', 'Email'] },
+  { id: 2, initials: 'JO', color: '#B83714', name: 'James Okura', title: 'EVP Operations', type: 'Decision Maker', tabKey: 'dm', typeColor: 'amber', company: 'Pacific Manufacturing', phone: '(909) 555-0244', email: 'jokura@pacificmfg.com', lastContact: 'Mar 22', linkedTo: [{ label: 'Workman Mill Deal', color: 'var(--green)' }], actions: ['Call', 'Email'] },
+  { id: 3, initials: 'RN', color: '#156636', name: 'RJ Neu', title: 'Principal', type: 'Owner', tabKey: 'owners', typeColor: 'green', company: 'RJ Neu Properties', phone: '(626) 555-0317', email: 'rj@rjneuprops.com', lastContact: 'Mar 14', linkedTo: [{ label: '4900 Workman Mill', color: 'var(--blue)' }], actions: ['Call', 'Email'] },
+  { id: 4, initials: 'DL', color: '#5838A0', name: 'David Lim', title: 'Owner / Principal', type: 'Owner', tabKey: 'owners', typeColor: 'blue', company: 'Tarhong Industry Props', phone: '(626) 555-0488', email: null, lastContact: 'Never', lastContactColor: 'var(--rust)', linkedTo: [{ label: '780 Nogales', color: 'var(--blue)' }], actions: ['Call', 'Research'] },
+  { id: 5, initials: 'SO', color: '#8C5A04', name: 'Scott Oh', title: 'Senior VP', type: 'Broker', tabKey: 'brokers', typeColor: 'purple', company: 'Colliers — SGV', phone: '(626) 555-0591', email: 'soh@colliers.com', lastContact: 'Mar 20', linkedTo: [{ label: 'Broker Network', color: 'var(--ink4)' }], actions: ['Call', 'Note'] },
+  { id: 6, initials: 'AC', color: '#4E6E96', name: 'Andy Chen', title: 'VP Real Estate', type: 'Decision Maker', tabKey: 'dm', typeColor: 'amber', company: 'Valley Cold Storage', phone: '(909) 555-0621', email: 'achen@valleycold.com', lastContact: 'Mar 18', linkedTo: [{ label: 'LOI Deal', color: 'var(--blue)' }], actions: ['Call', 'Email'] },
 ];
 
 const TYPE_STYLE = {
@@ -35,8 +35,9 @@ const TABS = [
   { key: 'lenders', label: 'Lenders' },
 ];
 
-export default function ContactsList() {
+export default function ContactsList({ onSelectContact }) {
   const [activeTab, setActiveTab] = useState('all');
+  const filteredContacts = activeTab === 'all' ? MOCK_CONTACTS : MOCK_CONTACTS.filter(c => c.tabKey === activeTab);
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -92,7 +93,7 @@ export default function ContactsList() {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_CONTACTS.map(c => <ContactRow key={c.id} contact={c} />)}
+                {filteredContacts.map(c => <ContactRow key={c.id} contact={c} onSelectContact={onSelectContact} />)}
               </tbody>
             </table>
           </div>
@@ -102,13 +103,13 @@ export default function ContactsList() {
   );
 }
 
-function ContactRow({ contact: c }) {
+function ContactRow({ contact: c, onSelectContact }) {
   const [hover, setHover] = useState(false);
   const ts = TYPE_STYLE[c.type] ?? TYPE_STYLE['Owner'];
   return (
     <tr style={{ borderBottom: '1px solid var(--line2)', cursor: 'pointer', background: hover ? '#F8F6F2' : 'transparent', transition: 'background 0.1s' }}
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-      onClick={() => alert(`${c.name} — Contact Detail coming soon`)}>
+      onClick={() => onSelectContact?.(c)}>
       <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 34, height: 34, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0, background: c.color }}>{c.initials}</div>

@@ -140,7 +140,8 @@ export default function LeadDetail({ lead, onBack, onNavigate }) {
             <button style={S.btnGhost} onClick={() => toggleLog('task')}>+ Task</button>
             <div style={S.abSep} />
             <button style={S.btnLink} onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent(l.address + ' ' + l.city)}`)}>📍 Google Maps</button>
-            <button style={S.btnLink} onClick={() => window.open('https://www.costar.com/search/industrial')}>🗂 CoStar</button>
+            <button style={S.btnLink} onClick={() => window.open(`https://www.costar.com/search#?q=${encodeURIComponent(l.address + (l.city ? ', ' + l.city : ''))}&t=2`)}>🗂 CoStar</button>
+            <button style={S.btnLink} onClick={() => { const apn = l.apn ?? ''; window.open(`https://assessor.lacounty.gov/commonassessment/assessmentinformation/assessmentdetails.aspx?ain=${apn.replace(/-/g,'')}`); }}>🗺 LA County GIS</button>
             <div style={S.abSep} />
             <button style={S.btnGhost} onClick={() => alert('Edit lead — Supabase form coming soon')}>⚙ Edit</button>
             <button style={S.btnGhost} onClick={() => alert('Export Memo — coming soon')}>↓ Export Memo</button>

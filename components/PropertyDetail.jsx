@@ -128,8 +128,8 @@ export default function PropertyDetail({ property, onBack, onNavigate }) {
             <button style={S.btnGhost} onClick={() => setLogPanel(logPanel === 'task' ? null : 'task')}>+ Task</button>
             <div style={S.abSep} />
             <button style={S.btnLink} onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent(p.address + ' ' + (p.city ?? ''))}`)}>📍 Google Maps</button>
-            <button style={S.btnLink} onClick={() => window.open('https://www.costar.com/search/industrial')}>🗂 CoStar</button>
-            <button style={S.btnLink} onClick={() => window.open('https://assessor.lacounty.gov/')}>🗺 LA County GIS</button>
+            <button style={S.btnLink} onClick={() => window.open(`https://www.costar.com/search#?q=${encodeURIComponent(p.address + (p.city ? ', ' + p.city : ''))}&t=2`)}>🗂 CoStar</button>
+            <button style={S.btnLink} onClick={() => { const apn = p.apn ?? p.apns?.[0]?.apn ?? ''; window.open(`https://assessor.lacounty.gov/commonassessment/assessmentinformation/assessmentdetails.aspx?ain=${apn.replace(/-/g,'')}`); }}>🗺 LA County GIS</button>
             <div style={S.abSep} />
             <button style={S.btnGhost} onClick={() => alert('Edit property — Supabase form coming soon')}>⚙ Edit</button>
             <button style={S.btnGhost} onClick={() => alert('Export Memo — coming soon')}>↓ Export Memo</button>

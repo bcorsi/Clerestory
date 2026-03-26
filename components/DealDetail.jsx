@@ -173,8 +173,8 @@ export default function DealDetail({ deal, onBack, onNavigate }) {
             <button style={S.btnGhost} onClick={() => setLogPanel(logPanel === 'note' ? null : 'note')}>📝 Add Note</button>
             <div style={S.abSep} />
             <button style={S.btnLink} onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent((d.address ?? '4900 Workman Mill Rd') + ' City of Industry CA')}`)}>📍 Google Maps</button>
-            <button style={S.btnLink} onClick={() => window.open('https://www.costar.com/search/industrial')}>🗂 CoStar</button>
-            <button style={S.btnLink} onClick={() => window.open('https://assessor.lacounty.gov/')}>🗺 LA County GIS</button>
+            <button style={S.btnLink} onClick={() => window.open(`https://www.costar.com/search#?q=${encodeURIComponent((d.address ?? '4900 Workman Mill Rd') + ', ' + (d.city ?? 'City of Industry'))}&t=2`)}>🗂 CoStar</button>
+            <button style={S.btnLink} onClick={() => { const apn = d.apn ?? ''; window.open(`https://assessor.lacounty.gov/commonassessment/assessmentinformation/assessmentdetails.aspx?ain=${apn.replace(/-/g,'')}`); }}>🗺 LA County GIS</button>
             <div style={S.abSep} />
             <button style={S.btnGhost} onClick={() => alert('Export Memo — coming soon')}>↓ Export Memo</button>
             <button style={S.btnGhost} onClick={() => alert('Run Comps — pulls sale/lease comps for this submarket')}>📊 Run Comps</button>

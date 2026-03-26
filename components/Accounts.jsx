@@ -2,15 +2,15 @@
 import { useState } from 'react';
 
 const MOCK_ACCOUNTS = [
-  { id: 1, initial: 'L', name: 'Leegin Creative Leather Products', type: 'Owner-User', location: 'Baldwin Park, CA', tags: [{ label: "Lease '27", color: 'amber' }, { label: 'SLB Target', color: 'green' }], props: 1, deals: 1, statLabel: 'Deal Value', statVal: '$48M', contacts: 'Bob Rosenthall · +1 contact' },
-  { id: 2, initial: 'C', name: 'Cabot Industrial Value Fund', type: 'Institutional REIT', location: 'National', tags: [{ label: 'WARN Vacancy', color: 'rust' }, { label: 'IE West', color: 'blue' }], props: 3, deals: 0, statLabel: 'SF Tracked', statVal: '464K', contacts: 'Asset Mgr — TBD' },
-  { id: 3, initial: 'R', name: 'RJ Neu Properties', type: 'Private Family Trust', location: 'Industry, CA', tags: [{ label: 'SLB In Progress', color: 'green' }], props: 2, deals: 1, statLabel: 'Deal Value', statVal: '$47.5M', contacts: 'RJ Neu · +2 contacts' },
-  { id: 4, initial: 'S', name: 'Snak King Corp', type: 'Owner-User', location: 'City of Industry, CA', tags: [{ label: 'CapEx Signal', color: 'purple' }, { label: 'SLB?', color: 'green' }], props: 5, deals: 1, statLabel: 'Deal Value', statVal: '$62M', contacts: 'CEO · +3 contacts' },
-  { id: 5, initial: 'T', name: 'Tarhong Industry Properties LLC', type: 'Owner-User', location: 'City of Industry, CA', tags: [{ label: 'Broker Intel', color: 'blue' }], props: 1, deals: 1, statLabel: 'Deal Value', statVal: '$24M', contacts: 'Owner · +1 contact' },
-  { id: 6, initial: 'P', name: 'Pacific Manufacturing Group', type: 'Corporate / Buyer', location: 'IE West', tags: [{ label: 'Active Buyer', color: 'blue' }, { label: '150–200K SF', color: 'green' }], props: 0, deals: 1, statLabel: 'Budget', statVal: '$40–55M', contacts: 'James Okura · EVP Ops' },
-  { id: 7, initial: 'V', name: 'Valley Cold Storage Inc.', type: 'Owner-User', location: 'Ontario Airport', tags: [{ label: 'SLB?', color: 'green' }], props: 1, deals: 1, statLabel: 'Deal Value', statVal: '$19M', contacts: 'VP Real Estate' },
-  { id: 8, initial: 'R', name: 'Rexford Industrial Realty', type: 'Institutional REIT', location: 'National', tags: [{ label: 'Portfolio Buyer', color: 'blue' }], props: 0, deals: 1, statLabel: 'Deal Value', statVal: '$104M', contacts: 'AM Team · 2 contacts' },
-  { id: 9, initial: 'M', name: 'Matrix Logistics LLC', type: 'Tenant', location: 'Hacienda Heights, CA', tags: [{ label: 'Lease Rep', color: 'amber' }], props: 0, deals: 1, statLabel: 'Deal Value', statVal: '$22M', contacts: 'Facilities Dir.' },
+  { id: 1, initial: 'L', name: 'Leegin Creative Leather Products', type: 'Owner-User', tabKey: 'owner-user', location: 'Baldwin Park, CA', tags: [{ label: "Lease '27", color: 'amber' }, { label: 'SLB Target', color: 'green' }], props: 1, deals: 1, statLabel: 'Deal Value', statVal: '$48M', contacts: 'Bob Rosenthall · +1 contact' },
+  { id: 2, initial: 'C', name: 'Cabot Industrial Value Fund', type: 'Institutional REIT', tabKey: 'institutional', location: 'National', tags: [{ label: 'WARN Vacancy', color: 'rust' }, { label: 'IE West', color: 'blue' }], props: 3, deals: 0, statLabel: 'SF Tracked', statVal: '464K', contacts: 'Asset Mgr — TBD' },
+  { id: 3, initial: 'R', name: 'RJ Neu Properties', type: 'Private Family Trust', tabKey: 'family', location: 'Industry, CA', tags: [{ label: 'SLB In Progress', color: 'green' }], props: 2, deals: 1, statLabel: 'Deal Value', statVal: '$47.5M', contacts: 'RJ Neu · +2 contacts' },
+  { id: 4, initial: 'S', name: 'Snak King Corp', type: 'Owner-User', tabKey: 'owner-user', location: 'City of Industry, CA', tags: [{ label: 'CapEx Signal', color: 'purple' }, { label: 'SLB?', color: 'green' }], props: 5, deals: 1, statLabel: 'Deal Value', statVal: '$62M', contacts: 'CEO · +3 contacts' },
+  { id: 5, initial: 'T', name: 'Tarhong Industry Properties LLC', type: 'Owner-User', tabKey: 'owner-user', location: 'City of Industry, CA', tags: [{ label: 'Broker Intel', color: 'blue' }], props: 1, deals: 1, statLabel: 'Deal Value', statVal: '$24M', contacts: 'Owner · +1 contact' },
+  { id: 6, initial: 'P', name: 'Pacific Manufacturing Group', type: 'Corporate / Buyer', tabKey: 'buyers', location: 'IE West', tags: [{ label: 'Active Buyer', color: 'blue' }, { label: '150–200K SF', color: 'green' }], props: 0, deals: 1, statLabel: 'Budget', statVal: '$40–55M', contacts: 'James Okura · EVP Ops' },
+  { id: 7, initial: 'V', name: 'Valley Cold Storage Inc.', type: 'Owner-User', tabKey: 'owner-user', location: 'Ontario Airport', tags: [{ label: 'SLB?', color: 'green' }], props: 1, deals: 1, statLabel: 'Deal Value', statVal: '$19M', contacts: 'VP Real Estate' },
+  { id: 8, initial: 'R', name: 'Rexford Industrial Realty', type: 'Institutional REIT', tabKey: 'institutional', location: 'National', tags: [{ label: 'Portfolio Buyer', color: 'blue' }], props: 0, deals: 1, statLabel: 'Deal Value', statVal: '$104M', contacts: 'AM Team · 2 contacts' },
+  { id: 9, initial: 'M', name: 'Matrix Logistics LLC', type: 'Tenant', tabKey: 'tenants', location: 'Hacienda Heights, CA', tags: [{ label: 'Lease Rep', color: 'amber' }], props: 0, deals: 1, statLabel: 'Deal Value', statVal: '$22M', contacts: 'Facilities Dir.' },
 ];
 
 const COLOR_STYLES = {
@@ -30,8 +30,9 @@ const TABS = [
   { key: 'tenants', label: 'Tenants' },
 ];
 
-export default function Accounts() {
+export default function Accounts({ onSelectAccount }) {
   const [activeTab, setActiveTab] = useState('all');
+  const filteredAccounts = activeTab === 'all' ? MOCK_ACCOUNTS : MOCK_ACCOUNTS.filter(a => a.tabKey === activeTab);
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -96,7 +97,7 @@ export default function Accounts() {
 
           {/* GRID */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
-            {MOCK_ACCOUNTS.map(a => <AccountCard key={a.id} acct={a} />)}
+            {filteredAccounts.map(a => <AccountCard key={a.id} acct={a} onSelectAccount={onSelectAccount} />)}
           </div>
         </div>
       </div>
@@ -104,12 +105,12 @@ export default function Accounts() {
   );
 }
 
-function AccountCard({ acct: a }) {
+function AccountCard({ acct: a, onSelectAccount }) {
   const [hover, setHover] = useState(false);
   return (
     <div style={{ ...S.acctCard, boxShadow: hover ? '0 4px 16px rgba(0,0,0,0.10)' : '0 1px 4px rgba(0,0,0,0.08)' }}
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-      onClick={() => alert(`${a.name} — Account Detail coming soon`)}>
+      onClick={() => onSelectAccount?.(a)}>
       <div style={S.acctTop}>
         <div style={S.acctLogo}>{a.initial}</div>
         <div style={{ flex: 1 }}>

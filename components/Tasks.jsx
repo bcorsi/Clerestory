@@ -26,7 +26,7 @@ const MOCK_TASKS = {
   ],
 };
 
-export default function Tasks() {
+export default function Tasks({ onSelectTask }) {
   const [checked, setChecked] = useState(new Set());
 
   const toggle = (id) => setChecked(prev => {
@@ -63,7 +63,7 @@ export default function Tasks() {
               <TaskGroup label="Overdue" count={MOCK_TASKS.overdue.length} countStyle="rust">
                 {MOCK_TASKS.overdue.map(t => (
                   <TaskRow key={t.id} task={t} type="overdue" checked={checked.has(t.id)} onCheck={() => toggle(t.id)}
-                    dueLabel={t.daysAgo} dueStyle="overdue" />
+                    dueLabel={t.daysAgo} dueStyle="overdue" onSelect={onSelectTask} />
                 ))}
               </TaskGroup>
 
@@ -71,7 +71,7 @@ export default function Tasks() {
               <TaskGroup label="Today" count={MOCK_TASKS.today.length} countStyle="amber">
                 {MOCK_TASKS.today.map(t => (
                   <TaskRow key={t.id} task={t} type={t.priority === 'high' ? 'high' : 'normal'} checked={checked.has(t.id)} onCheck={() => toggle(t.id)}
-                    dueLabel="Today" dueStyle="today" />
+                    dueLabel="Today" dueStyle="today" onSelect={onSelectTask} />
                 ))}
               </TaskGroup>
 
@@ -79,7 +79,7 @@ export default function Tasks() {
               <TaskGroup label="This Week" count={MOCK_TASKS.thisWeek.length} countStyle="blue">
                 {MOCK_TASKS.thisWeek.map(t => (
                   <TaskRow key={t.id} task={t} type="normal" checked={checked.has(t.id)} onCheck={() => toggle(t.id)}
-                    dueLabel={t.due} dueStyle="soon" />
+                    dueLabel={t.due} dueStyle="soon" onSelect={onSelectTask} />
                 ))}
               </TaskGroup>
             </div>
@@ -142,7 +142,7 @@ function TaskGroup({ label, count, countStyle, children }) {
   );
 }
 
-function TaskRow({ task, type, checked, onCheck, dueLabel, dueStyle }) {
+function TaskRow({ task, type, checked, onCheck, dueLabel, dueStyle, onSelect }) {
   const [hover, setHover] = useState(false);
   const borderLeft = type === 'overdue' ? '3px solid var(--rust)' : type === 'high' ? '3px solid var(--amber)' : '1px solid var(--line2)';
   const dueColor = dueStyle === 'overdue'
@@ -154,7 +154,7 @@ function TaskRow({ task, type, checked, onCheck, dueLabel, dueStyle }) {
   return (
     <div style={{ background: 'var(--card)', borderRadius: 10, border: borderLeft, borderRight: '1px solid var(--line2)', borderTop: '1px solid var(--line2)', borderBottom: '1px solid var(--line2)', padding: '12px 16px', marginBottom: 8, display: 'flex', gap: 12, alignItems: 'flex-start', cursor: 'pointer', boxShadow: hover ? '0 1px 4px rgba(0,0,0,0.08)' : 'none', transition: 'box-shadow 0.12s' }}
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-      onClick={() => alert(`${task.text} — task detail coming soon`)}>
+      onClick={() => onSelect?.(task)}>
       <div style={{ width: 18, height: 18, borderRadius: 4, border: checked ? 'none' : '1.5px solid var(--line)', flexShrink: 0, marginTop: 2, cursor: 'pointer', background: checked ? 'var(--green)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         onClick={e => { e.stopPropagation(); onCheck(); }}>
         {checked && <span style={{ color: '#fff', fontSize: 10 }}>✓</span>}

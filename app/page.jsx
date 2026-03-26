@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useWarnSync } from '../lib/useWarnSync';
 import Sidebar from '../components/Sidebar.jsx';
 import CommandCenter from '../components/CommandCenter.jsx';
 import PropertiesList from '../components/PropertiesList.jsx';
@@ -27,6 +28,7 @@ import SaleCompDetail from '../components/SaleCompDetail.jsx';
 
 export default function App() {
   const [page, setPage] = useState('dashboard');
+  const { filings: warnFilings, newCount: warnNewCount, syncing: warnSyncing, lastSync: warnLastSync, error: warnError, syncFailed: warnSyncFailed, sync: warnSync } = useWarnSync();
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [selectedDeal, setSelectedDeal] = useState(null);
   const [selectedLead, setSelectedLead] = useState(null);
@@ -58,7 +60,19 @@ export default function App() {
   const openContact = (c) => setSelectedContact(c);
   const openTask = (t) => setSelectedTask(t);
 
-  const counts = { properties: 18, leads: 237, deals: 12, contacts: 94, accounts: 68, tasks: 26, leaseComps: 175, saleComps: 22, warn: 4 };
+  // Auto-sync WARN once per day on first load
+  useEffect(() => {
+    const lastSync = localStorage.getItem('clerestory_warn_last_sync');
+    if (!lastSync) {
+      warnSync();
+      return;
+    }
+    const hoursSinceSync = (Date.now() - new Date(lastSync)) / (1000 * 60 * 60);
+    if (hoursSinceSync >= 20) warnSync();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const counts = { properties: 18, leads: 237, deals: 12, contacts: 94, accounts: 68, tasks: 26, leaseComps: 175, saleComps: 22, warn: warnNewCount || 4 };
 
   const marginLeft = sidebarCollapsed ? 64 : 242;
 
@@ -78,7 +92,7 @@ export default function App() {
       case 'properties':    return <PropertiesList onSelectProperty={openProperty} />;
       case 'leads':         return <LeadGenList onSelectLead={openLead} onNavigate={navigate} />;
       case 'deals':         return <DealPipeline onSelectDeal={openDeal} />;
-      case 'warn':          return <WarnIntel onCreateLead={() => setPage('leads')} onNavigate={navigate} />;
+      case 'warn':          return <WarnIntel filings={warnFilings} newCount={warnNewCount} syncing={warnSyncing} lastSync={warnLastSync} syncFailed={warnSyncFailed} onSync={warnSync} onCreateLead={() => setPage('leads')} onNavigate={navigate} />;
       case 'accounts':      return <Accounts onSelectAccount={openAccount} />;
       case 'contacts':      return <ContactsList onSelectContact={openContact} />;
       case 'tasks':         return <Tasks onSelectTask={openTask} />;

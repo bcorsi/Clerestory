@@ -140,6 +140,28 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* ── Dynamic browser tab titles ── */
+  useEffect(() => {
+    const titles = {
+      'command-center': 'Clerestory',
+      'properties': 'Properties — Clerestory',
+      'pipeline': 'Pipeline — Clerestory',
+      'lead-gen': 'Lead Gen — Clerestory',
+      'warn-intel': 'WARN Intel — Clerestory',
+      'lease-comps': 'Lease Comps — Clerestory',
+      'sale-comps': 'Sale Comps — Clerestory',
+      'comp-analytics': 'Comp Analytics — Clerestory',
+      'map-view': 'Map View — Clerestory',
+      'owner-search': 'Owner Search — Clerestory',
+      'campaigns': 'Campaigns — Clerestory',
+      'news': 'News Feed — Clerestory',
+      'tasks': 'Tasks — Clerestory',
+      'accounts': 'Accounts — Clerestory',
+      'contacts': 'Contacts — Clerestory',
+    };
+    document.title = titles[page] ?? 'Clerestory';
+  }, [page]);
+
   /* ── Convert to Deal ── */
   const handleConvertToDeal = useCallback(async (source) => {
     try {

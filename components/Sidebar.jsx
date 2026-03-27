@@ -1,19 +1,82 @@
 'use client';
 import { useState } from 'react';
 
-function ClerestoryIcon() {
+function ClerestoryIcon({ size = 32 }) {
   return (
-    <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-      <rect x="3" y="20" width="30" height="13" rx="1" fill="#4E6E96" opacity="0.6"/>
-      <rect x="3" y="14" width="6" height="5" rx="0.5" fill="#89A8C6"/>
-      <rect x="11" y="14" width="6" height="5" rx="0.5" fill="#89A8C6" opacity="0.8"/>
-      <rect x="19" y="14" width="6" height="5" rx="0.5" fill="#89A8C6" opacity="0.6"/>
-      <rect x="27" y="14" width="6" height="5" rx="0.5" fill="#89A8C6" opacity="0.4"/>
-      <path d="M1 14 L18 4 L35 14" stroke="#89A8C6" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-      <line x1="6" y1="19" x2="6" y2="33" stroke="rgba(137,168,198,0.3)" strokeWidth="1"/>
-      <line x1="14" y1="19" x2="14" y2="33" stroke="rgba(137,168,198,0.25)" strokeWidth="1"/>
-      <line x1="22" y1="19" x2="22" y2="33" stroke="rgba(137,168,198,0.2)" strokeWidth="1"/>
-    </svg>
+    <div style={{
+      width: size, height: size,
+      background: '#0E1520',
+      borderRadius: size * 0.19,
+      overflow: 'hidden',
+      flexShrink: 0,
+    }}>
+      <svg width={size} height={size} viewBox="0 0 52 52">
+        <defs>
+          <linearGradient id="ns1" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#6480A2" stopOpacity=".95"/>
+            <stop offset="100%" stopColor="#6480A2" stopOpacity="0"/>
+          </linearGradient>
+          <linearGradient id="ns2" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#89A8C6" stopOpacity=".7"/>
+            <stop offset="100%" stopColor="#89A8C6" stopOpacity="0"/>
+          </linearGradient>
+          <linearGradient id="ns3" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#6480A2" stopOpacity=".42"/>
+            <stop offset="100%" stopColor="#6480A2" stopOpacity="0"/>
+          </linearGradient>
+          <linearGradient id="ns4" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#6480A2" stopOpacity=".2"/>
+            <stop offset="100%" stopColor="#6480A2" stopOpacity="0"/>
+          </linearGradient>
+        </defs>
+        <rect x="3"  y="3" width="10" height="8" rx="1.5" fill="#6480A2"/>
+        <rect x="4"  y="3.5" width="4" height="3" rx=".5" fill="#A8C4DC" opacity=".55"/>
+        <rect x="15" y="3" width="10" height="8" rx="1.5" fill="#6480A2" opacity=".7"/>
+        <rect x="27" y="3" width="10" height="8" rx="1.5" fill="#6480A2" opacity=".42"/>
+        <rect x="39" y="3" width="10" height="8" rx="1.5" fill="#6480A2" opacity=".2"/>
+        <rect x="0" y="10" width="52" height="2" fill="#0A0F1A"/>
+        <polygon points="3,12 13,12 16,50 0,50"  fill="url(#ns1)" opacity=".7"/>
+        <polygon points="15,12 25,12 26,50 14,50" fill="url(#ns2)" opacity=".6"/>
+        <polygon points="27,12 37,12 36,50 26,50" fill="url(#ns3)" opacity=".5"/>
+        <polygon points="39,12 49,12 52,50 36,50" fill="url(#ns4)" opacity=".4"/>
+        <circle cx="20" cy="46" r="2.5" fill="#B83714"/>
+      </svg>
+    </div>
+  );
+}
+
+function ClerestoryWordmark({ size = 16, color = 'rgba(240,235,225,0.93)' }) {
+  const eyeW = size * 0.69;
+  const eyeH = size * 1.0;
+  return (
+    <div style={{
+      fontFamily: "'Instrument Sans', sans-serif",
+      fontSize: size,
+      fontWeight: 600,
+      color,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 0,
+      lineHeight: 1,
+    }}>
+      <span>Clerest</span>
+      <svg
+        width={eyeW}
+        height={eyeH}
+        viewBox="0 0 14 22"
+        style={{ display: 'inline-block', margin: '0 0.5px' }}
+      >
+        <path
+          d="M1,11 C3.5,4 10.5,4 13,11 C10.5,18 3.5,18 1,11 Z"
+          fill="none"
+          stroke={color}
+          strokeWidth="0.8"
+        />
+        <circle cx="7" cy="11" r="3" fill="none" stroke={color} strokeWidth="0.7"/>
+        <circle cx="7" cy="11" r="1.3" fill="#B83714"/>
+      </svg>
+      <span>ry</span>
+    </div>
   );
 }
 
@@ -58,13 +121,31 @@ export default function Sidebar({ currentPage, onNavigate, counts = {}, onCollap
       <div style={{ height: 2, background: 'linear-gradient(90deg, transparent, #6480A2, #89A8C6, transparent)', flexShrink: 0 }} />
 
       {/* Logo zone */}
-      <div style={{ height: 68, display: 'flex', alignItems: 'center', padding: '0 14px', borderBottom: '1px solid rgba(200,220,255,0.13)', flexShrink: 0, gap: 12, overflow: 'hidden' }}>
-        <div style={{ flexShrink: 0 }}><ClerestoryIcon /></div>
-        {!collapsed && (
-          <div style={{ overflow: 'hidden' }}>
-            <div style={{ fontSize: 17, fontWeight: 600, color: 'rgba(245,240,232,0.96)', letterSpacing: '-0.01em', whiteSpace: 'nowrap', fontFamily: "'Instrument Sans', sans-serif" }}>Clerestory</div>
-            <div style={{ fontSize: 12, color: 'rgba(100,128,162,0.72)', fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', whiteSpace: 'nowrap', marginTop: 1 }}>See the deal before it&apos;s a deal.</div>
+      <div style={{
+        padding: '22px 18px 18px',
+        borderBottom: '1px solid var(--sb-line2)',
+      }}>
+        {collapsed ? (
+          <div style={{ display:'flex', justifyContent:'center', paddingBottom:4 }}>
+            <ClerestoryIcon size={32} />
           </div>
+        ) : (
+          <>
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:7 }}>
+              <ClerestoryIcon size={32} />
+              <ClerestoryWordmark size={16} color="rgba(240,235,225,0.93)" />
+            </div>
+            <div style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: 12,
+              fontStyle: 'italic',
+              fontWeight: 300,
+              color: 'rgba(100,128,162,0.85)',
+              lineHeight: 1.3,
+            }}>
+              See the deal before it&apos;s a deal.
+            </div>
+          </>
         )}
       </div>
 

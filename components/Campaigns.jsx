@@ -136,6 +136,7 @@ function CampaignDetail({ campaign, onBack, onNavigate }) {
       </div>
       <div style={{ padding: '32px' }}>
         <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>{c.name}</h1>
+        <div style={{ fontFamily:"'DM Mono', monospace", fontSize:9, letterSpacing:'0.18em', textTransform:'uppercase', color:'var(--rust)', opacity:0.65, marginTop:2 }}>THE EDGE IS IN THE DATA</div>
         <div style={{ color: 'var(--ink4)', fontSize: 13, marginTop: 4, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }}>{c.type} · Created {c.created}</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, margin: '24px 0' }}>
           {[['TARGETS', c.targets], ['CONTACTED', c.contacted], ['RESPONSES', c.responses], ['RESPONSE RATE', c.contacted > 0 ? Math.round(c.responses / c.contacted * 100) + '%' : '—']].map(([label, value]) => (

@@ -157,6 +157,7 @@ export default function WarnIntel({
           <div style={{ padding: '22px 28px 16px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
             <div>
               <div style={S.pageTitle}>WARN <em style={S.pageTitleEm}>Intel</em></div>
+              <div style={{ fontFamily:"'DM Mono', monospace", fontSize:9, letterSpacing:'0.18em', textTransform:'uppercase', color:'var(--rust)', opacity:0.65, marginTop:2 }}>THE EDGE IS IN THE DATA</div>
               <div style={S.pageSub}>Worker Adjustment &amp; Retraining Notification filings · SGV / IE industrial</div>
             </div>
             <div style={{ textAlign: 'right' }}>

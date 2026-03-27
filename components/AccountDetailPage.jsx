@@ -55,10 +55,10 @@ export default function AccountDetailPage({ account, onBack, onNavigate, onSelec
           <span style={{ color: 'var(--ink2)', fontWeight: 500 }}>{a.name}</span>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button style={S.btnGhost} onClick={() => alert('Add Contact — coming soon')}>+ Add Contact</button>
-          <button style={S.btnGhost} onClick={() => alert('Add Deal — coming soon')}>+ Add Deal</button>
-          <button style={S.btnGhost} onClick={() => alert('Add Note — coming soon')}>+ Note</button>
-          <button style={S.btnGhost} onClick={() => alert('Edit — coming soon')}>Edit</button>
+          <button style={S.btnGhost} onClick={() => {}}>+ Add Contact</button>
+          <button style={S.btnGhost} onClick={() => {}}>+ Add Deal</button>
+          <button style={S.btnGhost} onClick={() => {}}>+ Note</button>
+          <button style={S.btnGhost} onClick={() => {}}>Edit</button>
         </div>
       </div>
 
@@ -211,7 +211,7 @@ export default function AccountDetailPage({ account, onBack, onNavigate, onSelec
           {activeTab === 'Files' && (
             <div style={{ ...S.card, padding: '32px', textAlign: 'center' }}>
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 15, fontStyle: 'italic', color: 'var(--ink4)', marginBottom: 12 }}>No files attached yet</div>
-              <button style={S.btnGhost} onClick={() => alert('Upload File — coming soon')}>+ Upload File</button>
+              <button style={S.btnGhost} onClick={() => {}}>+ Upload File</button>
             </div>
           )}
         </div>

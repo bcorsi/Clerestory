@@ -1,42 +1,44 @@
 'use client';
 import { useState } from 'react';
-import styles from './Sidebar.module.css';
+
+function ClerestoryIcon() {
+  return (
+    <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+      <rect x="3" y="20" width="30" height="13" rx="1" fill="#4E6E96" opacity="0.6"/>
+      <rect x="3" y="14" width="6" height="5" rx="0.5" fill="#89A8C6"/>
+      <rect x="11" y="14" width="6" height="5" rx="0.5" fill="#89A8C6" opacity="0.8"/>
+      <rect x="19" y="14" width="6" height="5" rx="0.5" fill="#89A8C6" opacity="0.6"/>
+      <rect x="27" y="14" width="6" height="5" rx="0.5" fill="#89A8C6" opacity="0.4"/>
+      <path d="M1 14 L18 4 L35 14" stroke="#89A8C6" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+      <line x1="6" y1="19" x2="6" y2="33" stroke="rgba(137,168,198,0.3)" strokeWidth="1"/>
+      <line x1="14" y1="19" x2="14" y2="33" stroke="rgba(137,168,198,0.25)" strokeWidth="1"/>
+      <line x1="22" y1="19" x2="22" y2="33" stroke="rgba(137,168,198,0.2)" strokeWidth="1"/>
+    </svg>
+  );
+}
 
 const NAV = [
-  { section: 'Overview', items: [
-    { label: 'Command Center', page: 'dashboard', icon: '⊞' },
-  ]},
-  { section: 'CRM', items: [
-    { label: 'Properties', page: 'properties', countKey: 'properties' },
-    { label: 'Lead Gen', page: 'leads', countKey: 'leads' },
-    { label: 'Deal Pipeline', page: 'deals', countKey: 'deals' },
-    { label: 'Contacts', page: 'contacts', countKey: 'contacts' },
-    { label: 'Accounts', page: 'accounts', countKey: 'accounts' },
-    { label: 'Tasks', page: 'tasks', countKey: 'tasks', hot: true },
-  ]},
-  { divider: true },
-  { section: 'Comps', items: [
-    { label: 'Lease Comps', page: 'lease-comps', countKey: 'leaseComps' },
-    { label: 'Sale Comps', page: 'sale-comps', countKey: 'saleComps' },
-    { label: 'Comp Analytics', page: 'comp-analytics' },
-  ]},
-  { divider: true },
-  { section: 'Intelligence', items: [
-    { label: 'WARN Intel', page: 'warn', countKey: 'warn', hot: true },
-    { label: 'News Feed', page: 'news' },
-    { label: 'Campaigns', page: 'campaigns' },
-    { label: 'Owner Search', page: 'owner-search' },
-    { label: 'Map View', page: 'map' },
-  ]},
+  { section: 'Portfolio' },
+  { page: 'dashboard', label: 'Command Center', icon: '⌘' },
+  { page: 'properties', label: 'Properties', icon: '▣', count: 'properties' },
+  { page: 'map', label: 'Map View', icon: '◎' },
+  { section: 'Deal Flow' },
+  { page: 'leads', label: 'Lead Gen', icon: '⚡', count: 'leads' },
+  { page: 'deals', label: 'Deal Pipeline', icon: '◈', count: 'deals' },
+  { page: 'warn', label: 'WARN Intel', icon: '◉', count: 'warn', hot: true },
+  { section: 'Market Intel' },
+  { page: 'lease-comps', label: 'Lease Comps', icon: '≡', count: 'leaseComps' },
+  { page: 'sale-comps', label: 'Sale Comps', icon: '◇', count: 'saleComps' },
+  { page: 'comp-analytics', label: 'Comp Analytics', icon: '▲' },
+  { page: 'news', label: 'News Feed', icon: '◫' },
+  { section: 'Relationships' },
+  { page: 'accounts', label: 'Accounts', icon: '◫', count: 'accounts' },
+  { page: 'contacts', label: 'Contacts', icon: '○', count: 'contacts' },
+  { page: 'owner-search', label: 'Owner Search', icon: '◎' },
+  { section: 'Operations' },
+  { page: 'tasks', label: 'Tasks', icon: '□', count: 'tasks' },
+  { page: 'campaigns', label: 'Campaigns', icon: '◑' },
 ];
-
-// Icons for collapsed mode
-const PAGE_ICONS = {
-  dashboard: '⊞', properties: '🏢', leads: '⚡', deals: '◈', contacts: '👤',
-  accounts: '🏦', tasks: '✓', 'lease-comps': '📋', 'sale-comps': '💰',
-  'comp-analytics': '📊', warn: '🚨', news: '📰', campaigns: '📣',
-  'owner-search': '🔍', map: '🗺',
-};
 
 export default function Sidebar({ currentPage, onNavigate, counts = {}, onCollapseChange }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -47,143 +49,83 @@ export default function Sidebar({ currentPage, onNavigate, counts = {}, onCollap
     onCollapseChange?.(next);
   };
 
-  const sbWidth = collapsed ? 64 : 242;
+  const bg = 'linear-gradient(180deg, #1F2840 0%, #1A2130 55%, #15192A 100%)';
+  const w = collapsed ? 64 : 242;
 
   return (
-    <>
-      <aside style={{
-        width: sbWidth, minHeight: '100vh',
-        background: 'linear-gradient(180deg,#1F2840 0%,#1A2130 55%,#15192A 100%)',
-        display: 'flex', flexDirection: 'column', flexShrink: 0,
-        position: 'fixed', top: 0, left: 0, zIndex: 100,
-        overflowY: 'auto', overflowX: 'hidden',
-        transition: 'width 0.25s ease',
-        borderRight: '1px solid rgba(0,0,0,0.18)',
-      }}>
-        {/* Top accent line */}
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg,transparent,#6480A2 35%,#89A8C6 65%,transparent)', pointerEvents: 'none' }} />
+    <div style={{ width: w, minHeight: '100vh', background: bg, position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 100, transition: 'width 0.25s ease', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      {/* Top accent line */}
+      <div style={{ height: 2, background: 'linear-gradient(90deg, transparent, #6480A2, #89A8C6, transparent)', flexShrink: 0 }} />
 
-        {/* Logo Zone */}
-        <div style={{ padding: collapsed ? '20px 0 16px' : '20px 18px 16px', borderBottom: '1px solid rgba(200,220,255,0.13)', display: 'flex', alignItems: 'center', gap: 11, justifyContent: collapsed ? 'center' : 'flex-start', flexShrink: 0 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 7, background: '#0D1320', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="18" height="18" viewBox="0 0 64 64" fill="none">
-              <rect x="4" y="3" width="12" height="9" rx="0.5" fill="#6B83A6"/>
-              <rect x="19" y="3" width="12" height="9" rx="0.5" fill="#6B83A6" opacity="0.7"/>
-              <rect x="34" y="3" width="12" height="9" rx="0.5" fill="#6B83A6" opacity="0.4"/>
-              <circle cx="32" cy="40" r="6" stroke="#6B83A6" strokeWidth="0.9" fill="none"/>
-              <circle cx="32" cy="40" r="2" fill="#6B83A6"/>
-            </svg>
+      {/* Logo zone */}
+      <div style={{ height: 68, display: 'flex', alignItems: 'center', padding: '0 14px', borderBottom: '1px solid rgba(200,220,255,0.13)', flexShrink: 0, gap: 12, overflow: 'hidden' }}>
+        <div style={{ flexShrink: 0 }}><ClerestoryIcon /></div>
+        {!collapsed && (
+          <div style={{ overflow: 'hidden' }}>
+            <div style={{ fontSize: 17, fontWeight: 600, color: 'rgba(245,240,232,0.96)', letterSpacing: '-0.01em', whiteSpace: 'nowrap', fontFamily: "'Instrument Sans', sans-serif" }}>Clerestory</div>
+            <div style={{ fontSize: 12, color: 'rgba(100,128,162,0.72)', fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', whiteSpace: 'nowrap', marginTop: 1 }}>See the deal before it&apos;s a deal.</div>
           </div>
-          {!collapsed && (
-            <div>
-              <div style={{ fontFamily: "'Instrument Sans',sans-serif", fontSize: 15, fontWeight: 500, color: 'rgba(245,240,232,0.96)', letterSpacing: '-0.01em' }}>Clerestory</div>
-              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 12, fontStyle: 'italic', color: 'rgba(100,128,162,0.72)', marginTop: 2 }}>See the deal before it's a deal.</div>
-            </div>
-          )}
-        </div>
+        )}
+      </div>
 
-        {/* Nav */}
-        <nav style={{ flex: 1, paddingTop: 6 }}>
-          {NAV.map((group, gi) => {
-            if (group.divider) {
-              return <div key={`div-${gi}`} style={{ height: 1, background: 'rgba(200,220,255,0.07)', margin: '5px 16px' }} />;
-            }
+      {/* Nav */}
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '8px 0' }}>
+        {NAV.map((item, i) => {
+          if (item.section) {
+            if (collapsed) return null;
             return (
-              <div key={group.section} style={{ padding: '10px 0 2px' }}>
-                {!collapsed && (
-                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 12, fontStyle: 'italic', color: 'rgba(240,235,225,0.38)', padding: '0 16px 5px' }}>
-                    {group.section}
-                  </div>
-                )}
-                {group.items.map(item => {
-                  const count = item.countKey ? counts[item.countKey] : undefined;
-                  const isActive = currentPage === item.page;
-                  const icon = PAGE_ICONS[item.page] ?? '·';
-                  return (
-                    <div
-                      key={item.page}
-                      title={collapsed ? item.label : undefined}
-                      style={{
-                        display: 'flex', alignItems: 'center',
-                        padding: collapsed ? '10px 0' : '8px 18px',
-                        justifyContent: collapsed ? 'center' : 'flex-start',
-                        cursor: 'pointer',
-                        borderLeft: isActive ? '2px solid #89A8C6' : '2px solid transparent',
-                        background: isActive ? 'rgba(100,128,162,0.16)' : 'transparent',
-                        fontSize: collapsed ? 16 : 13.5,
-                        fontWeight: isActive ? 500 : 400,
-                        color: isActive ? 'rgba(245,240,232,0.96)' : 'rgba(240,235,225,0.62)',
-                        gap: 8,
-                        transition: 'background 0.12s, color 0.12s',
-                      }}
-                      onClick={() => onNavigate(item.page)}
-                      onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.045)'; }}
-                      onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
-                    >
-                      {collapsed ? (
-                        <span>{icon}</span>
-                      ) : (
-                        <>
-                          <span style={{ flex: 1 }}>{item.label}</span>
-                          {count != null && (
-                            <span style={{
-                              fontFamily: "'DM Mono',monospace", fontSize: 11,
-                              color: item.hot ? '#F08880' : isActive ? '#89A8C6' : 'rgba(200,215,235,0.38)',
-                              background: item.hot ? 'rgba(220,100,88,0.20)' : isActive ? 'rgba(100,128,162,0.22)' : 'rgba(255,255,255,0.07)',
-                              padding: '2px 7px', borderRadius: 20,
-                            }}>{count}</span>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
+              <div key={i} style={{ fontSize: 11, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', color: 'rgba(240,235,225,0.38)', padding: '14px 18px 4px', letterSpacing: '0.03em' }}>
+                {item.section}
               </div>
             );
-          })}
-        </nav>
-
-        {/* Footer */}
-        {!collapsed && (
-          <div style={{ padding: '14px 18px', borderTop: '1px solid rgba(200,220,255,0.13)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#4E6E96,#6480A2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0 }}>BC</div>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: 'rgba(245,240,232,0.96)' }}>Briana Corso</div>
-              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 12, fontStyle: 'italic', color: 'rgba(100,128,162,0.65)', marginTop: 1 }}>Industrial · SGV / IE</div>
+          }
+          const isActive = currentPage === item.page;
+          const count = item.count ? (counts[item.count] || 0) : null;
+          const isHot = item.hot && count > 0;
+          return (
+            <div
+              key={item.page}
+              onClick={() => onNavigate(item.page)}
+              title={collapsed ? item.label : undefined}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: collapsed ? '10px 0' : '8px 18px',
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                cursor: 'pointer',
+                background: isActive ? 'rgba(100,128,162,0.16)' : 'transparent',
+                borderLeft: isActive ? '2px solid #89A8C6' : '2px solid transparent',
+                marginBottom: 1,
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(100,128,162,0.08)'; }}
+              onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
+            >
+              <span style={{ fontSize: 15, opacity: isActive ? 1 : 0.55, color: '#89A8C6', flexShrink: 0 }}>{item.icon}</span>
+              {!collapsed && (
+                <>
+                  <span style={{ fontSize: 13.5, fontFamily: "'Instrument Sans', sans-serif", color: isActive ? 'rgba(245,240,232,0.96)' : 'rgba(240,235,225,0.62)', flex: 1, whiteSpace: 'nowrap' }}>{item.label}</span>
+                  {count != null && count > 0 && (
+                    <span style={{
+                      fontSize: 11, fontFamily: "'DM Mono', monospace",
+                      background: isHot ? 'rgba(220,100,88,0.20)' : 'rgba(255,255,255,0.07)',
+                      color: isHot ? '#F08880' : 'rgba(200,215,235,0.38)',
+                      padding: '1px 6px', borderRadius: 10, flexShrink: 0,
+                    }}>{count}</span>
+                  )}
+                </>
+              )}
             </div>
-          </div>
-        )}
-        {collapsed && (
-          <div style={{ padding: '14px 0', borderTop: '1px solid rgba(200,220,255,0.13)', display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
-            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#4E6E96,#6480A2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#fff' }}>BC</div>
-          </div>
-        )}
-      </aside>
+          );
+        })}
+      </div>
 
-      {/* Collapse Toggle */}
+      {/* Collapse toggle */}
       <div
         onClick={toggleCollapse}
-        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        style={{
-          position: 'fixed',
-          left: sbWidth - 12,
-          top: '50%',
-          transform: 'translateY(-50%)',
-          width: 22, height: 44,
-          background: 'var(--card)',
-          border: '1px solid var(--line)',
-          borderLeft: 'none',
-          borderRadius: '0 8px 8px 0',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer',
-          zIndex: 200,
-          boxShadow: '2px 0 8px rgba(0,0,0,0.08)',
-          fontSize: 10, color: 'var(--ink4)',
-          transition: 'left 0.25s ease',
-        }}
+        style={{ position: 'absolute', right: -11, top: '50%', transform: 'translateY(-50%)', width: 22, height: 44, background: '#FFFFFF', borderRadius: 11, boxShadow: '0 2px 8px rgba(0,0,0,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 11, color: '#524D46', zIndex: 101 }}
       >
         {collapsed ? '›' : '‹'}
       </div>
-    </>
+    </div>
   );
 }

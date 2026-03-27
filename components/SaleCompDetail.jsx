@@ -48,8 +48,8 @@ export default function SaleCompDetail({ comp, onBack }) {
           <span style={{ color: 'var(--ink2)', fontWeight: 500 }}>{c.address}</span>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button style={S.btnGhost} onClick={() => alert('Edit — coming soon')}>Edit</button>
-          <button style={S.btnGhost} onClick={() => alert('Export — coming soon')}>Export</button>
+          <button style={S.btnGhost} onClick={() => {}}>Edit</button>
+          <button style={S.btnGhost} onClick={() => {}}>Export</button>
         </div>
       </div>
 
@@ -153,7 +153,7 @@ export default function SaleCompDetail({ comp, onBack }) {
                       <span style={{ fontSize: 12, color: 'var(--ink2)' }}>{r.val ?? '—'}</span>
                     </div>
                   ))}
-                  <button style={{ ...S.btnBlue, marginTop: 4, width: '100%', justifyContent: 'center' }} onClick={() => alert('Saved')}>Save Note</button>
+                  <button style={{ ...S.btnBlue, marginTop: 4, width: '100%', justifyContent: 'center' }} onClick={() => {}}>Save Note</button>
                 </div>
               </div>
             </div>

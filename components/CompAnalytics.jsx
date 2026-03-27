@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { LineChart, BarChart, XAxis, YAxis, Tooltip, CartesianGrid, Legend, Line, Bar, ResponsiveContainer } from 'recharts';
+import { LineChart, BarChart, XAxis, YAxis, Tooltip, CartesianGrid, Legend, Line, Bar, Cell, ResponsiveContainer } from 'recharts';
 
 // Chart data
 const LEASE_RATE_TREND = [
@@ -77,10 +77,21 @@ const DATE_RANGES = ['2024', '2025', '2026', 'All'];
 
 const CHART_COLORS = { SGV: '#3B5F8A', 'IE West': '#8B2500', 'IE East': '#8C5A04', OC: '#156636' };
 
-export default function CompAnalytics({ onNavigate }) {
+export default function CompAnalytics({ onNavigate, leaseComps: propLeaseComps, saleComps: propSaleComps, onSelectLeaseComp, onSelectSaleComp }) {
   const [market, setMarket] = useState('All');
   const [dateRange, setDateRange] = useState('All');
   const [compTab, setCompTab] = useState('lease');
+
+  const filteredLease = (propLeaseComps && propLeaseComps.length > 0 ? propLeaseComps : LEASE_TABLE).filter(c => {
+    if (market !== 'All' && c.market !== market) return false;
+    if (dateRange !== 'All' && !String(c.start_date || c.date || '').includes(dateRange)) return false;
+    return true;
+  });
+  const filteredSale = (propSaleComps && propSaleComps.length > 0 ? propSaleComps : SALE_TABLE).filter(c => {
+    if (market !== 'All' && c.market !== market) return false;
+    if (dateRange !== 'All' && !String(c.sale_date || c.date || '').includes(dateRange)) return false;
+    return true;
+  });
 
   const tooltipStyle = { background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 8, fontSize: 12 };
 
@@ -90,7 +101,7 @@ export default function CompAnalytics({ onNavigate }) {
       <div style={S.topbar}>
         <span style={{ fontSize: 13, color: 'var(--ink2)', fontWeight: 500 }}>Comp Analytics</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button style={S.btnGhost} onClick={() => alert('Export — coming soon')}>↓ Export</button>
+          <button style={S.btnGhost} onClick={() => {}}>↓ Export</button>
         </div>
       </div>
 
@@ -161,7 +172,7 @@ export default function CompAnalytics({ onNavigate }) {
                   <Tooltip contentStyle={tooltipStyle} formatter={(v) => ['$' + v.toFixed(2) + '/SF/Mo']} />
                   <Bar dataKey="rate" name="NNN Rate" radius={[4, 4, 0, 0]}>
                     {RATE_BY_MARKET.map((entry, i) => (
-                      <rect key={i} fill={Object.values(CHART_COLORS)[i % 4]} />
+                      <Cell key={i} fill={['#4E6E96', '#B83714', '#8C5A04', '#156636'][i % 4]} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -217,8 +228,8 @@ export default function CompAnalytics({ onNavigate }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {LEASE_TABLE.map((c, i) => (
-                    <tr key={c.id} style={{ borderBottom: i < LEASE_TABLE.length - 1 ? '1px solid var(--line2)' : 'none' }}>
+                  {filteredLease.map((c, i) => (
+                    <tr key={c.id || i} style={{ borderBottom: i < filteredLease.length - 1 ? '1px solid var(--line2)' : 'none', cursor: 'pointer' }} onClick={() => onSelectLeaseComp?.(c)} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'} onMouseLeave={e => e.currentTarget.style.background = ''}>
                       <td style={S.td}><div style={{ fontWeight: 500, color: 'var(--ink2)' }}>{c.address}</div><div style={{ fontSize: 11, color: 'var(--ink4)' }}>{c.city}</div></td>
                       <td style={S.td}><span style={S.mktBadge}>{c.market}</span></td>
                       <td style={{ ...S.td, fontFamily: "'DM Mono',monospace" }}>{c.sf.toLocaleString()}</td>
@@ -245,8 +256,8 @@ export default function CompAnalytics({ onNavigate }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {SALE_TABLE.map((c, i) => (
-                    <tr key={c.id} style={{ borderBottom: i < SALE_TABLE.length - 1 ? '1px solid var(--line2)' : 'none' }}>
+                  {filteredSale.map((c, i) => (
+                    <tr key={c.id || i} style={{ borderBottom: i < filteredSale.length - 1 ? '1px solid var(--line2)' : 'none', cursor: 'pointer' }} onClick={() => onSelectSaleComp?.(c)} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'} onMouseLeave={e => e.currentTarget.style.background = ''}>
                       <td style={S.td}><div style={{ fontWeight: 500, color: 'var(--ink2)' }}>{c.address}</div><div style={{ fontSize: 11, color: 'var(--ink4)' }}>{c.city}</div></td>
                       <td style={S.td}><span style={S.mktBadge}>{c.market}</span></td>
                       <td style={{ ...S.td, fontFamily: "'DM Mono',monospace" }}>{c.sf.toLocaleString()}</td>

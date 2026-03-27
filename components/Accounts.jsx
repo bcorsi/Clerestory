@@ -57,7 +57,7 @@ export default function Accounts({ onSelectAccount, accounts: propAccounts, load
         <span style={{ fontSize: 13, color: 'var(--ink2)', fontWeight: 500 }}>Accounts</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
           <button style={S.btnGhost} onClick={() => setShowImport(true)}>↑ Import CSV</button>
-          <button style={S.btnBlue} onClick={() => alert('Add Account — coming soon')}>+ Add Account</button>
+          <button style={S.btnBlue} onClick={() => {}}>+ Add Account</button>
         </div>
       </div>
 
@@ -150,7 +150,7 @@ function AccountCard({ acct: a, onSelectAccount }) {
           <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--ink2)', marginBottom: 3 }}>{a.name}</div>
           <div style={{ fontSize: 12, color: 'var(--ink4)' }}>{a.type} · {a.location}</div>
           <div style={{ display: 'flex', gap: 5, marginTop: 6, flexWrap: 'wrap' }}>
-            {a.tags.map((t, i) => {
+            {(a.tags || []).map((t, i) => {
               const cs = COLOR_STYLES[t.color];
               return <span key={i} style={{ display: 'inline-flex', padding: '2px 7px', borderRadius: 4, fontSize: 10.5, fontWeight: 500, border: `1px solid ${cs.bdr}`, background: cs.bg, color: cs.color }}>{t.label}</span>;
             })}

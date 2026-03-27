@@ -147,7 +147,7 @@ export default function WarnIntel({
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke="#6E6860" strokeWidth="1.5"/><path d="M10.5 10.5L14 14" stroke="#6E6860" strokeWidth="1.5" strokeLinecap="round"/></svg>
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search filings…" style={{ background: 'none', border: 'none', outline: 'none', fontFamily: 'inherit', fontSize: 13.5, color: 'var(--ink2)', width: '100%' }} />
           </div>
-          <button style={S.btnGhost} onClick={() => alert('Export CSV — coming soon')}>Export CSV</button>
+          <button style={S.btnGhost} onClick={() => {}}>Export CSV</button>
         </div>
       </div>
 
@@ -340,8 +340,8 @@ function WarnCard({ filing: f, onCreateLead, onNavigate, onArchive }) {
       {/* Actions */}
       <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
         <button style={S.wbRust} onClick={onCreateLead}>⚡ Create Lead</button>
-        <button style={S.wbBlue} onClick={() => alert(`Calling owner for ${f.company} — coming soon`)}>📞 Call Owner</button>
-        <button style={S.wbBlue} onClick={() => alert('Add note — coming soon')}>📝 Note</button>
+        <button style={S.wbBlue} onClick={() => {}}>📞 Call Owner</button>
+        <button style={S.wbBlue} onClick={() => {}}>📝 Note</button>
         <button style={S.wbGray} onClick={onArchive}>Archive</button>
       </div>
     </div>

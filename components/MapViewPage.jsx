@@ -26,16 +26,18 @@ const LAYER_COLORS = {
 
 const TYPE_LABELS = { property: 'Properties', lead: 'Leads', deal: 'Deals', warn: 'WARN' };
 
-export default function MapViewPage({ onNavigate, onSelectProperty, onSelectLead }) {
+export default function MapViewPage({ onNavigate, onSelectProperty, onSelectLead, properties, leads }) {
   const [layers, setLayers] = useState({ property: true, lead: true, deal: true, warn: false });
   const [hoveredMarker, setHoveredMarker] = useState(null);
+  const [activeMarket, setActiveMarket] = useState('All');
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
 
   const toggleLayer = (type) => setLayers(l => ({ ...l, [type]: !l[type] }));
 
-  const visibleMarkers = MOCK_MARKERS.filter(m => layers[m.type]);
+  const allItems = MOCK_MARKERS;
+  const visibleMarkers = allItems.filter(m => layers[m.type] && (activeMarket === 'All' || (m.address || '').includes(activeMarket) || (m.name || '').includes(activeMarket)));
 
   useEffect(() => {
     if (typeof window === 'undefined' || mapInstanceRef.current) return;
@@ -125,7 +127,7 @@ export default function MapViewPage({ onNavigate, onSelectProperty, onSelectLead
           <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--ink4)', marginBottom: 8 }}>Market</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {['All', 'SGV', 'IE West', 'IE East'].map(m => (
-              <button key={m} style={{ padding: '3px 9px', borderRadius: 20, fontSize: 11, border: '1px solid var(--line)', background: m === 'All' ? 'var(--blue-bg)' : 'var(--card)', color: m === 'All' ? 'var(--blue)' : 'var(--ink3)', cursor: 'pointer', fontFamily: 'inherit' }}>{m}</button>
+              <button key={m} onClick={() => setActiveMarket(m)} style={{ padding: '3px 9px', borderRadius: 20, fontSize: 11, border: '1px solid var(--line)', background: activeMarket === m ? 'var(--blue)' : 'var(--card)', color: activeMarket === m ? '#fff' : 'var(--ink3)', cursor: 'pointer', fontFamily: 'inherit' }}>{m}</button>
             ))}
           </div>
         </div>

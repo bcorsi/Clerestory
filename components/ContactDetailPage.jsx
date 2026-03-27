@@ -45,11 +45,11 @@ export default function ContactDetailPage({ contact, onBack, onNavigate, onSelec
           <span style={{ color: 'var(--ink2)', fontWeight: 500 }}>{c.name}</span>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button style={S.btnGhost} onClick={() => alert('Log Call — coming soon')}>📞 Call</button>
-          <button style={S.btnGhost} onClick={() => alert('Send Email — coming soon')}>✉ Email</button>
-          <button style={S.btnGhost} onClick={() => alert('Add Note — coming soon')}>📝 Add Note</button>
-          <button style={S.btnGhost} onClick={() => alert('Add Task — coming soon')}>+ Task</button>
-          <button style={S.btnGhost} onClick={() => alert('Edit Contact — coming soon')}>Edit</button>
+          <button style={S.btnGhost} onClick={() => {}}>📞 Call</button>
+          <button style={S.btnGhost} onClick={() => {}}>✉ Email</button>
+          <button style={S.btnGhost} onClick={() => {}}>📝 Add Note</button>
+          <button style={S.btnGhost} onClick={() => {}}>+ Task</button>
+          <button style={S.btnGhost} onClick={() => {}}>Edit</button>
         </div>
       </div>
 
@@ -160,7 +160,7 @@ export default function ContactDetailPage({ contact, onBack, onNavigate, onSelec
                       placeholder="Add freeform notes about this contact…"
                       style={{ width: '100%', minHeight: 100, padding: '8px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--bg)', fontSize: 13, fontFamily: 'inherit', color: 'var(--ink2)', resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
                     />
-                    <button style={{ ...S.btnBlue, marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => alert('Note saved')}>Save Note</button>
+                    <button style={{ ...S.btnBlue, marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => {}}>Save Note</button>
                   </div>
                 </div>
               </div>
@@ -235,7 +235,7 @@ export default function ContactDetailPage({ contact, onBack, onNavigate, onSelec
           {activeTab === 'Files' && (
             <div style={{ ...S.card, padding: '32px', textAlign: 'center' }}>
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 15, fontStyle: 'italic', color: 'var(--ink4)', marginBottom: 12 }}>No files attached yet</div>
-              <button style={S.btnGhost} onClick={() => alert('Upload — coming soon')}>+ Upload File</button>
+              <button style={S.btnGhost} onClick={() => {}}>+ Upload File</button>
             </div>
           )}
         </div>

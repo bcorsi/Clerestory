@@ -82,7 +82,7 @@ function buildSensGrid(baseInputs, exitCaps, rentGrowths) {
   }));
 }
 
-export default function DealDetail({ deal, onBack, onNavigate, onSelectAccount }) {
+export default function DealDetail({ deal, onBack, onNavigate, onSelectAccount, properties, contacts, leaseComps, saleComps, onSelectProperty, onRefresh, toast }) {
   const [activeTab, setActiveTab] = useState('Timeline');
   const [synthOpen, setSynthOpen] = useState(false);
   const [logPanel, setLogPanel] = useState(null);
@@ -154,7 +154,7 @@ export default function DealDetail({ deal, onBack, onNavigate, onSelectAccount }
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({ error: 'Export failed' }));
-        alert('Export failed: ' + (body.error ?? res.statusText));
+        console.error("Export failed:", body.error ?? res.statusText);
         return;
       }
 
@@ -173,7 +173,7 @@ export default function DealDetail({ deal, onBack, onNavigate, onSelectAccount }
       a.remove();
       URL.revokeObjectURL(url);
     } catch (err) {
-      alert('Export failed: ' + err.message);
+      console.error("Export failed:", err.message);
     } finally {
       setExporting(false);
     }
@@ -190,9 +190,9 @@ export default function DealDetail({ deal, onBack, onNavigate, onSelectAccount }
             <span style={{ color: 'var(--ink2)', fontWeight: 500 }}>{d.name}</span>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-            <button style={S.btnGhost} onClick={() => alert('Edit deal — Supabase form coming soon')}>⚙ Edit</button>
+            <button style={S.btnGhost} onClick={() => {}}>⚙ Edit</button>
             <button style={S.btnGhost} onClick={() => setLogPanel(logPanel === 'note' ? null : 'note')}>+ Activity</button>
-            <button style={S.btnGhost} onClick={() => alert('Export BOV — coming soon')}>↓ Export BOV</button>
+            <button style={S.btnGhost} onClick={() => {}}>↓ Export BOV</button>
             <button style={S.btnBlue} onClick={() => setCurrentStageIdx(i => Math.min(i + 1, STAGES.length - 1))}>Advance Stage →</button>
           </div>
         </div>
@@ -225,8 +225,8 @@ export default function DealDetail({ deal, onBack, onNavigate, onSelectAccount }
             <button style={S.btnLink} onClick={() => window.open(`https://www.costar.com/search#?q=${encodeURIComponent((d.address ?? '4900 Workman Mill Rd') + ', ' + (d.city ?? 'City of Industry'))}&t=2`)}>🗂 CoStar</button>
             <button style={S.btnLink} onClick={() => { const apn = d.apn ?? ''; window.open(`https://assessor.lacounty.gov/commonassessment/assessmentinformation/assessmentdetails.aspx?ain=${apn.replace(/-/g,'')}`); }}>🗺 LA County GIS</button>
             <div style={S.abSep} />
-            <button style={S.btnGhost} onClick={() => alert('Export Memo — coming soon')}>↓ Export Memo</button>
-            <button style={S.btnGhost} onClick={() => alert('Run Comps — pulls sale/lease comps for this submarket')}>📊 Run Comps</button>
+            <button style={S.btnGhost} onClick={() => {}}>↓ Export Memo</button>
+            <button style={S.btnGhost} onClick={() => {}}>📊 Run Comps</button>
             <div style={{ marginLeft: 'auto' }} />
             <button style={S.btnGreen} onClick={() => { const psaIdx = STAGES.indexOf('PSA Negotiation'); if (psaIdx >= 0) setCurrentStageIdx(psaIdx); }}>Advance to PSA →</button>
           </div>
@@ -318,7 +318,7 @@ export default function DealDetail({ deal, onBack, onNavigate, onSelectAccount }
                   </div>
                   {/* Deal details */}
                   <div style={S.card}>
-                    <div style={S.spHdr}><span>Deal Details</span><span style={S.spHdrA} onClick={() => alert('Edit deal details — form coming soon')}>Edit</span></div>
+                    <div style={S.spHdr}><span>Deal Details</span><span style={S.spHdrA} onClick={() => {}}>Edit</span></div>
                     {[
                       ['Deal Type', d.dealType ?? 'Sale-Leaseback'],
                       ['Stage', d.stage ?? 'LOI'],
@@ -506,7 +506,7 @@ function DealTabContent({ tab, d, onSelectAccount }) {
     <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--line2)', overflow: 'hidden' }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink2)' }}>{d.address ?? '4900 Workman Mill Rd'}, City of Industry, CA</div>
-        <button style={{ fontSize: 12, color: 'var(--blue)', background: 'none', border: '1px solid var(--blue-bdr)', borderRadius: 6, padding: '5px 11px', cursor: 'pointer', fontFamily: 'inherit' }} onClick={() => alert('View full property record — coming soon')}>View Property →</button>
+        <button style={{ fontSize: 12, color: 'var(--blue)', background: 'none', border: '1px solid var(--blue-bdr)', borderRadius: 6, padding: '5px 11px', cursor: 'pointer', fontFamily: 'inherit' }} onClick={() => { const linkedProp = (properties||[]).find(p => p.id === d.property_id); if (linkedProp) { onSelectProperty?.(linkedProp); onNavigate?.('properties'); } }}>View Property →</button>
       </div>
       {[
         ['Building SF', d.sf ?? '312,000'],
@@ -591,7 +591,7 @@ function DealTabContent({ tab, d, onSelectAccount }) {
         <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '11px 16px', borderBottom: i < arr.length - 1 ? '1px solid var(--line2)' : 'none', gap: 12, cursor: 'pointer' }}
           onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
           onMouseLeave={e => e.currentTarget.style.background = ''}
-          onClick={() => alert(`Download ${f.name} — coming soon`)}>
+          onClick={() => {}}>
           <span style={{ fontSize: 18 }}>{f.type === 'xlsx' ? '📊' : '📄'}</span>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink2)' }}>{f.name}</div>

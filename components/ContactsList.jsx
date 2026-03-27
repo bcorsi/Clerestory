@@ -46,8 +46,8 @@ export default function ContactsList({ onSelectContact, contacts: propContacts, 
       <div style={S.topbar}>
         <span style={{ fontSize: 13, color: 'var(--ink2)', fontWeight: 500 }}>Contacts</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button style={S.btnGhost} onClick={() => alert('Import CSV — coming soon')}>Import CSV</button>
-          <button style={S.btnBlue} onClick={() => alert('Add Contact — coming soon')}>+ Add Contact</button>
+          <button style={S.btnGhost} onClick={() => {}}>Import CSV</button>
+          <button style={S.btnBlue} onClick={() => {}}>+ Add Contact</button>
         </div>
       </div>
 
@@ -136,17 +136,17 @@ function ContactRow({ contact: c, onSelectContact }) {
       <td style={{ padding: '12px 14px', verticalAlign: 'middle', fontSize: 12.5, color: c.email ? 'var(--ink3)' : 'var(--ink4)', fontStyle: c.email ? 'normal' : 'italic' }}>{c.email ?? 'Not on file'}</td>
       <td style={{ padding: '12px 14px', verticalAlign: 'middle', fontFamily: "'DM Mono',monospace", fontSize: 11, color: c.lastContactColor ?? 'var(--ink4)' }}>{c.lastContact}</td>
       <td style={{ padding: '12px 14px', verticalAlign: 'middle', fontSize: 12.5 }}>
-        {c.linkedTo.map((l, i) => (
+        {(c.linkedTo || []).map((l, i) => (
           <span key={i}>{i > 0 && <span style={{ color: 'var(--ink4)' }}> · </span>}<span style={{ color: l.color }}>{l.label}</span></span>
         ))}
       </td>
       <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
         <div style={{ display: 'flex', gap: 4, opacity: hover ? 1 : 0, transition: 'opacity 0.12s' }}>
-          {c.actions.map(a => {
+          {(c.actions || []).map(a => {
             const as = ACTION_STYLE[a] ?? ACTION_STYLE['Email'];
             return (
               <button key={a} style={{ padding: '4px 9px', borderRadius: 5, fontSize: 11, fontWeight: 500, border: `1px solid ${as.bdr}`, background: as.bg, color: as.color, cursor: 'pointer', fontFamily: 'inherit' }}
-                onClick={e => { e.stopPropagation(); alert(`${a} ${c.name} — coming soon`); }}>{a}</button>
+                onClick={() => {}}>{a}</button>
             );
           })}
         </div>

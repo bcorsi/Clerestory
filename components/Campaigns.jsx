@@ -34,7 +34,7 @@ export default function Campaigns({ onNavigate }) {
       <div style={S.topbar}>
         <span style={{ fontSize: 13, color: 'var(--ink2)', fontWeight: 500 }}>Campaigns</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button style={S.btnBlue} onClick={() => alert('New Campaign — coming soon')}>+ New Campaign</button>
+          <button style={S.btnBlue} onClick={() => {}}>+ New Campaign</button>
         </div>
       </div>
 
@@ -118,59 +118,101 @@ export default function Campaigns({ onNavigate }) {
   );
 }
 
-function CampaignDetail({ campaign: c, onBack }) {
-  const [activeTab, setActiveTab] = useState('Overview');
-  const TABS = ['Overview', 'Targets', 'Activity'];
+function CampaignDetail({ campaign, onBack, onNavigate }) {
+  const [tab, setTab] = useState('overview');
+  const c = campaign;
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <div style={S.topbar}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-          <span style={{ cursor: 'pointer', color: 'var(--ink4)' }} onClick={onBack}>Campaigns</span>
-          <span style={{ opacity: .4 }}>›</span>
-          <span style={{ color: 'var(--ink2)', fontWeight: 500 }}>{c.name}</span>
+    <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
+      <div style={{ background: 'var(--card)', borderBottom: '1px solid var(--line)', padding: '16px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--ink4)', cursor: 'pointer', fontSize: 13 }}>← Campaigns</button>
+          <span style={{ color: 'var(--ink4)' }}>›</span>
+          <span style={{ fontSize: 13, color: 'var(--ink3)' }}>{c.name}</span>
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button style={S.btnGhost} onClick={() => alert('Edit Campaign — coming soon')}>⚙ Edit</button>
-          <button style={S.btnBlue} onClick={() => alert('Add Targets — coming soon')}>+ Add Targets</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button style={{ padding: '6px 14px', border: '1px solid var(--line)', borderRadius: 6, background: 'transparent', cursor: 'pointer', fontSize: 13 }}>Edit</button>
+          <button style={{ padding: '6px 14px', background: 'var(--blue)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>+ Add Targets</button>
         </div>
       </div>
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        <div style={S.pageWrap}>
-          <div style={S.pageHeader}>
-            <div style={S.pageTitle}>{c.name}</div>
-            <div style={S.pageSub}>{c.type} · Created {c.created}</div>
-          </div>
-          <div style={{ display: 'flex', borderBottom: '1px solid var(--line)', marginBottom: 20 }}>
-            {TABS.map(t => (
-              <div key={t} style={{ ...S.tab, ...(activeTab === t ? S.tabActive : {}) }} onClick={() => setActiveTab(t)}>{t}</div>
-            ))}
-          </div>
-          {activeTab === 'Overview' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
-              {[
-                { lbl: 'Targets', val: c.targets },
-                { lbl: 'Contacted', val: c.contacted },
-                { lbl: 'Responses', val: c.responses },
-                { lbl: 'Meetings', val: c.meetings },
-              ].map((k, i) => (
-                <div key={i} style={S.kpiCard}>
-                  <div style={{ fontSize: 11, color: 'var(--ink4)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>{k.lbl}</div>
-                  <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 32, fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>{k.val}</div>
+      <div style={{ padding: '32px' }}>
+        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>{c.name}</h1>
+        <div style={{ color: 'var(--ink4)', fontSize: 13, marginTop: 4, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }}>{c.type} · Created {c.created}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, margin: '24px 0' }}>
+          {[['TARGETS', c.targets], ['CONTACTED', c.contacted], ['RESPONSES', c.responses], ['RESPONSE RATE', c.contacted > 0 ? Math.round(c.responses / c.contacted * 100) + '%' : '—']].map(([label, value]) => (
+            <div key={label} style={{ background: 'var(--card)', border: '1px solid var(--line2)', borderRadius: 10, padding: '20px 24px' }}>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--ink4)', marginBottom: 8 }}>{label}</div>
+              <div style={{ fontSize: 28, fontWeight: 700, fontFamily: "'Playfair Display', serif", color: 'var(--ink)' }}>{value}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--line)', marginBottom: 24 }}>
+          {['overview', 'targets', 'activity'].map(t => (
+            <button key={t} onClick={() => setTab(t)} style={{ padding: '10px 20px', background: 'none', border: 'none', borderBottom: tab === t ? '2px solid var(--blue)' : '2px solid transparent', cursor: 'pointer', fontSize: 13.5, fontWeight: tab === t ? 600 : 400, color: tab === t ? 'var(--blue)' : 'var(--ink3)', textTransform: 'capitalize', marginBottom: -1 }}>
+              {t.charAt(0).toUpperCase() + t.slice(1)}
+            </button>
+          ))}
+        </div>
+        {tab === 'overview' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+            <div style={{ background: 'var(--card)', border: '1px solid var(--line2)', borderRadius: 10, padding: 24 }}>
+              <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 600, color: 'var(--ink2)' }}>Campaign Details</h3>
+              {[['Type', c.type], ['Market', c.market || 'SGV · IE West'], ['Status', c.status], ['Goal', c.goal || 'Generate qualified leads for industrial displacement deals']].map(([k, v]) => (
+                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--line2)', fontSize: 13 }}>
+                  <span style={{ color: 'var(--ink4)' }}>{k}</span>
+                  <span style={{ color: 'var(--ink2)', fontWeight: 500 }}>{v}</span>
                 </div>
               ))}
             </div>
-          )}
-          {activeTab === 'Targets' && (
-            <div style={{ background: 'var(--card)', borderRadius: 10, border: '1px solid var(--line2)', padding: '20px', textAlign: 'center', fontFamily: "'Cormorant Garamond',serif", fontSize: 15, fontStyle: 'italic', color: 'var(--ink4)' }}>
-              {c.targets} targets — target list view coming soon
+            <div style={{ background: 'var(--card)', border: '1px solid var(--line2)', borderRadius: 10, padding: 24 }}>
+              <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 600, color: 'var(--ink2)' }}>Progress</h3>
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--ink4)', marginBottom: 6 }}><span>Contacted</span><span>{c.contacted} / {c.targets}</span></div>
+                <div style={{ height: 8, background: 'var(--bg2)', borderRadius: 4, overflow: 'hidden' }}><div style={{ height: '100%', background: 'var(--blue)', borderRadius: 4, width: `${Math.round(c.contacted / c.targets * 100)}%` }} /></div>
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--ink4)', marginBottom: 6 }}><span>Response Rate</span><span>{c.contacted > 0 ? Math.round(c.responses / c.contacted * 100) : 0}%</span></div>
+                <div style={{ height: 8, background: 'var(--bg2)', borderRadius: 4, overflow: 'hidden' }}><div style={{ height: '100%', background: 'var(--green)', borderRadius: 4, width: `${c.contacted > 0 ? Math.round(c.responses / c.contacted * 100) : 0}%` }} /></div>
+              </div>
             </div>
-          )}
-          {activeTab === 'Activity' && (
-            <div style={{ background: 'var(--card)', borderRadius: 10, border: '1px solid var(--line2)', padding: '20px', textAlign: 'center', fontFamily: "'Cormorant Garamond',serif", fontSize: 15, fontStyle: 'italic', color: 'var(--ink4)' }}>
-              Activity timeline — coming soon
-            </div>
-          )}
-        </div>
+          </div>
+        )}
+        {tab === 'targets' && (
+          <div style={{ background: 'var(--card)', border: '1px solid var(--line2)', borderRadius: 10, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: 'var(--bg2)' }}>
+                  {['Company / Address', 'Market', 'Last Contacted', 'Status', 'Actions'].map(h => (
+                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--ink4)' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(c.targetList || [{ company: 'Sample Target Inc', market: 'IE West', lastContacted: 'Mar 10', status: 'Responded' }, { company: 'Pacific Logistics Co', market: 'SGV', lastContacted: 'Mar 12', status: 'No Response' }, { company: 'Western Mfg Group', market: 'IE East', lastContacted: '—', status: 'Not Contacted' }]).map((t, i) => (
+                  <tr key={i} style={{ borderTop: '1px solid var(--line2)', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                    <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 500, color: 'var(--ink2)' }}>{t.company}</td>
+                    <td style={{ padding: '12px 16px' }}><span style={{ background: 'var(--blue-bg)', color: 'var(--blue)', borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 500 }}>{t.market}</span></td>
+                    <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--ink4)' }}>{t.lastContacted}</td>
+                    <td style={{ padding: '12px 16px' }}><span style={{ fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 4, background: t.status === 'Responded' ? 'var(--green-bg)' : t.status === 'No Response' ? 'var(--rust-bg)' : 'var(--bg2)', color: t.status === 'Responded' ? 'var(--green)' : t.status === 'No Response' ? 'var(--rust)' : 'var(--ink4)' }}>{t.status}</span></td>
+                    <td style={{ padding: '12px 16px' }}><div style={{ display: 'flex', gap: 6 }}>{['Call', 'Email', 'Note'].map(a => <button key={a} onClick={e => e.stopPropagation()} style={{ padding: '3px 8px', border: '1px solid var(--line)', borderRadius: 4, background: 'transparent', fontSize: 11, cursor: 'pointer', color: 'var(--ink3)' }}>{a}</button>)}</div></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {tab === 'activity' && (
+          <div style={{ background: 'var(--card)', border: '1px solid var(--line2)', borderRadius: 10, padding: 24 }}>
+            {[{ date: 'Mar 14', action: 'Campaign created', detail: '18 targets added from WARN Intel feed' }, { date: 'Mar 15', action: 'First outreach batch sent', detail: '11 contacts reached via email' }, { date: 'Mar 17', action: 'Response received', detail: 'Pacific Logistics Co — interested in relocation options' }, { date: 'Mar 20', action: 'Meeting scheduled', detail: 'Western Mfg Group — site tour Fri Mar 22' }].map((e, i) => (
+              <div key={i} style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
+                <div style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: 'var(--ink4)', whiteSpace: 'nowrap', paddingTop: 2, minWidth: 48 }}>{e.date}</div>
+                <div style={{ flex: 1, paddingLeft: 16, borderLeft: '2px solid var(--line)' }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink2)', marginBottom: 2 }}>{e.action}</div>
+                  <div style={{ fontSize: 12, color: 'var(--ink4)' }}>{e.detail}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

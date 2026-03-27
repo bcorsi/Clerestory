@@ -10,7 +10,7 @@ const MOCK_BUYER_MATCHES = [
   { id: 10, company: 'Matrix Logistics Partners',    type: 'Private Equity Buyer', req: '150–250K SF · IE West · Dock-High · 28\'+ Clear', match: 74 },
 ];
 
-export default function PropertyDetail({ property, onBack, onNavigate, onSelectAccount }) {
+export default function PropertyDetail({ property, onBack, onNavigate, onSelectAccount, onConvertToDeal, deals, leads, contacts, leaseComps, saleComps, onRefresh, toast }) {
   const [activeTab, setActiveTab] = useState('Timeline');
   const [specsOpen, setSpecsOpen] = useState(false);
   const [synthOpen, setSynthOpen] = useState(true);
@@ -136,12 +136,12 @@ export default function PropertyDetail({ property, onBack, onNavigate, onSelectA
             <div style={S.abSep} />
             <button style={S.btnLink} onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent(p.address + ' ' + (p.city ?? ''))}`)}>📍 Google Maps</button>
             <button style={S.btnLink} onClick={() => window.open(`https://www.costar.com/search#?q=${encodeURIComponent(p.address + (p.city ? ', ' + p.city : ''))}&t=2`)}>🗂 CoStar</button>
-            <button style={S.btnLink} onClick={() => { const apn = p.apn ?? p.apns?.[0]?.apn ?? ''; window.open(`https://assessor.lacounty.gov/commonassessment/assessmentinformation/assessmentdetails.aspx?ain=${apn.replace(/-/g,'')}`); }}>🗺 LA County GIS</button>
+            <button style={S.btnLink} onClick={() => { const apn = p.apn ?? p.apns?.[0]; if (apn) { const cleanAPN = String(apn).replace(/-/g,''); window.open(`https://portal.assessor.lacounty.gov/parceldetail/${cleanAPN}`, '_blank'); } else { const addr = encodeURIComponent(`${p.address}, ${p.city}, CA`); window.open(`https://portal.assessor.lacounty.gov/commonassessment/assessmentsearch?SearchType=address&Address=${addr}`, '_blank'); } }}>🗺 LA County GIS</button>
             <div style={S.abSep} />
-            <button style={S.btnGhost} onClick={() => alert('Edit property — Supabase form coming soon')}>⚙ Edit</button>
-            <button style={S.btnGhost} onClick={() => alert('Export Memo — coming soon')}>↓ Export Memo</button>
+            <button style={S.btnGhost} onClick={() => {}}>⚙ Edit</button>
+            <button style={S.btnGhost} onClick={() => {}}>↓ Export Memo</button>
             <div style={{ marginLeft: 'auto' }} />
-            <button style={S.btnGreen} onClick={() => onNavigate?.('deals')}>◈ Convert to Deal</button>
+            <button style={S.btnGreen} onClick={() => onConvertToDeal?.(p)}>◈ Convert to Deal</button>
           </div>
 
           {/* LOG PANEL */}
@@ -182,8 +182,8 @@ export default function PropertyDetail({ property, onBack, onNavigate, onSelectA
                 </div>
               )}
               <div style={S.synthFooter}>
-                <button style={S.synthRegen} onClick={() => alert('AI Synthesis regenerated!')}>↻ Regenerate</button>
-                <button style={S.synthRegen} onClick={() => { navigator.clipboard?.writeText(document.querySelector('[data-synth]')?.innerText ?? 'Synthesis copied'); alert('Synthesis copied to clipboard'); }}>📋 Copy</button>
+                <button style={S.synthRegen} onClick={() => {}}>↻ Regenerate</button>
+                <button style={S.synthRegen} onClick={() => { navigator.clipboard?.writeText(document.querySelector('[data-synth]')?.innerText ?? 'Synthesis copied'); {}; }}>📋 Copy</button>
                 <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: 'var(--ink4)', marginLeft: 'auto' }}>Generated Mar 24, 2026 · 9:14 AM</span>
               </div>
             </div>
@@ -275,7 +275,7 @@ export default function PropertyDetail({ property, onBack, onNavigate, onSelectA
                           <div style={S.actDate}>{a.date}</div>
                         </div>
                       ))}
-                      <div style={S.tlMore} onClick={() => alert('Showing all 12 activities — Supabase pagination coming soon')}><span style={S.tlMoreText}>View all 12 activities & notes →</span></div>
+                      <div style={S.tlMore} onClick={() => {}}><span style={S.tlMoreText}>View all 12 activities & notes →</span></div>
                     </div>
                   </div>
 
@@ -284,7 +284,7 @@ export default function PropertyDetail({ property, onBack, onNavigate, onSelectA
                     <div style={S.card}>
                       <div style={S.cardHdr}>
                         <div style={S.cardTitle}>Active Catalysts</div>
-                        <span style={S.cardAction} onClick={() => alert('Add catalyst — coming soon')}>+ Add</span>
+                        <span style={S.cardAction} onClick={() => {}}>+ Add</span>
                       </div>
                       {(p.catalysts ?? MOCK_CATALYSTS).map((c, i) => (
                         <div key={i} style={{ ...S.catRow, borderBottom: i < (p.catalysts ?? MOCK_CATALYSTS).length - 1 ? '1px solid var(--line2)' : 'none' }}>
@@ -310,7 +310,7 @@ export default function PropertyDetail({ property, onBack, onNavigate, onSelectA
                   <div style={S.card}>
                     <div style={S.spHdr}>
                       <span>Owner</span>
-                      <span style={S.spHdrA} onClick={() => alert('View owner record — coming soon')}>View Record →</span>
+                      <span style={S.spHdrA} onClick={() => {}}>View Record →</span>
                     </div>
                     {[
                       ['Company', p.owner ?? 'Leegin Creative Leather'],
@@ -473,7 +473,7 @@ function PropertyTabContent({ tab, p, onSelectAccount }) {
         <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '11px 16px', borderBottom: i < arr.length - 1 ? '1px solid var(--line2)' : 'none', gap: 12, cursor: 'pointer' }}
           onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
           onMouseLeave={e => e.currentTarget.style.background = ''}
-          onClick={() => alert(`Download ${f.name} — coming soon`)}>
+          onClick={() => {}}>
           <span style={{ fontSize: 18 }}>{f.type === 'PDF' ? '📄' : '🖼'}</span>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink2)' }}>{f.name}</div>

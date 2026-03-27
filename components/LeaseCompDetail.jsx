@@ -42,9 +42,9 @@ export default function LeaseCompDetail({ comp, onBack }) {
           <span style={{ color: 'var(--ink2)', fontWeight: 500 }}>{c.address}</span>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button style={S.btnGhost} onClick={() => alert('Edit — coming soon')}>Edit</button>
-          <button style={S.btnGhost} onClick={() => alert('Export — coming soon')}>Export</button>
-          <button style={S.btnGhost} onClick={() => alert('Copy — coming soon')}>Copy</button>
+          <button style={S.btnGhost} onClick={() => {}}>Edit</button>
+          <button style={S.btnGhost} onClick={() => {}}>Export</button>
+          <button style={S.btnGhost} onClick={() => {}}>Copy</button>
         </div>
       </div>
 
@@ -135,7 +135,7 @@ export default function LeaseCompDetail({ comp, onBack }) {
                       placeholder="Add analysis notes…"
                       style={{ width: '100%', minHeight: 80, padding: '8px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--bg)', fontSize: 13, fontFamily: 'inherit', color: 'var(--ink2)', resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
                     />
-                    <button style={{ ...S.btnBlue, marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => alert('Note saved')}>Save Note</button>
+                    <button style={{ ...S.btnBlue, marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => {}}>Save Note</button>
                   </div>
                 </div>
               </div>

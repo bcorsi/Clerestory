@@ -27,7 +27,7 @@ const MOCK_TASKS = {
   ],
 };
 
-export default function Tasks({ onSelectTask, tasks: propTasks, loading, onRefresh, toast }) {
+export default function Tasks({ onSelectTask, tasks: propTasks, loading, onRefresh, toast, properties, deals, leads, onSelectProperty, onSelectDeal, onSelectLead }) {
   const [checked, setChecked] = useState(new Set());
 
   // Build flat list from Supabase data or mock sections
@@ -55,8 +55,8 @@ export default function Tasks({ onSelectTask, tasks: propTasks, loading, onRefre
       <div style={S.topbar}>
         <span style={{ fontSize: 13, color: 'var(--ink2)', fontWeight: 500 }}>Tasks</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button style={S.btnGhost} onClick={() => alert('Filter — coming soon')}>Filter</button>
-          <button style={S.btnBlue} onClick={() => alert('Add Task — coming soon')}>+ Add Task</button>
+          <button style={S.btnGhost} onClick={() => {}}>Filter</button>
+          <button style={S.btnBlue} onClick={() => {}}>+ Add Task</button>
         </div>
       </div>
 
@@ -197,7 +197,7 @@ function TaskRow({ task, type, checked, onCheck, dueLabel, dueStyle, onSelect })
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 14, color: 'var(--ink2)', lineHeight: 1.35, textDecoration: checked ? 'line-through' : 'none', opacity: checked ? 0.5 : 1 }}>{task.text}</div>
         <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 12.5, fontStyle: 'italic', color: 'var(--ink4)', marginTop: 3 }}>
-          {task.meta.linkLabel && <span style={{ color: task.meta.linkColor, cursor: 'pointer' }} onClick={e => { e.stopPropagation(); alert(`${task.meta.linkLabel} — coming soon`); }}>{task.meta.linkLabel}</span>}
+          {task.meta.linkLabel && <span style={{ color: task.meta.linkColor, cursor: 'pointer' }} onClick={e => { e.stopPropagation(); }}>{task.meta.linkLabel}</span>}
           {task.meta.linkLabel && <span> · </span>}
           {task.detail}
         </div>

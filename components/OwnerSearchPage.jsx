@@ -16,15 +16,43 @@ const STATUS_STYLE = {
   Never: { bg: 'var(--bg2)', bdr: 'var(--line)', color: 'var(--ink4)' },
 };
 
-export default function OwnerSearchPage({ onNavigate, onSelectAccount }) {
+export default function OwnerSearchPage({ onNavigate, onSelectAccount, accounts }) {
   const [query, setQuery] = useState('');
   const [searched, setSearched] = useState(false);
   const [market, setMarket] = useState('');
   const [ownerType, setOwnerType] = useState('');
-  const [loanMaturity, setLoanMaturity] = useState('');
+  const [webLoading, setWebLoading] = useState(false);
+  const [webResult, setWebResult] = useState(null);
+  const [localResults, setLocalResults] = useState([]);
 
-  const handleSearch = () => {
-    if (query.trim() || market || ownerType) setSearched(true);
+  const handleSearch = async () => {
+    if (!query.trim() && !market && !ownerType) return;
+    setSearched(true);
+    setWebLoading(true);
+    setWebResult(null);
+
+    // 1. Local filter (instant)
+    const localFiltered = (accounts || MOCK_RESULTS).filter(a =>
+      (a.name || a.owner || '').toLowerCase().includes(query.toLowerCase()) ||
+      (a.company || '').toLowerCase().includes(query.toLowerCase())
+    );
+    setLocalResults(localFiltered);
+
+    // 2. AI web research
+    if (query.trim()) {
+      try {
+        const res = await fetch('/api/owner-search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query }),
+        });
+        const data = await res.json();
+        if (data.success) setWebResult(data.result);
+      } catch (e) {
+        console.error('Owner search API error:', e);
+      }
+    }
+    setWebLoading(false);
   };
 
   const filtered = searched ? MOCK_RESULTS.filter(r => {
@@ -40,7 +68,7 @@ export default function OwnerSearchPage({ onNavigate, onSelectAccount }) {
         <span style={{ fontSize: 13, color: 'var(--ink2)', fontWeight: 500 }}>Owner Search</span>
         {searched && (
           <div style={{ marginLeft: 'auto' }}>
-            <button style={S.btnGhost} onClick={() => alert('Export Results — coming soon')}>↓ Export Results</button>
+            <button style={S.btnGhost} onClick={() => {}}>↓ Export Results</button>
           </div>
         )}
       </div>
@@ -134,32 +162,71 @@ export default function OwnerSearchPage({ onNavigate, onSelectAccount }) {
 
           {searched && (
             <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <span style={{ fontSize: 13, color: 'var(--ink3)' }}><strong style={{ color: 'var(--ink2)' }}>{filtered.length}</strong> results found</span>
+              {/* In Clerestory section */}
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink4)', marginBottom: 10 }}>In Clerestory</div>
+                {localResults.length === 0 ? (
+                  <div style={{ background: 'var(--card)', borderRadius: 10, border: '1px solid var(--line2)', padding: '24px', textAlign: 'center', color: 'var(--ink4)', fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic', fontSize: 14 }}>No matches in Clerestory</div>
+                ) : (
+                  <div style={S.tblWrap}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <thead><tr style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--line)' }}>{['Owner Name', 'Entity Type', 'Properties', 'Total SF', 'Markets', 'Est. Value', 'Held Since', 'Contact Status'].map(col => <th key={col} style={S.th}>{col}</th>)}</tr></thead>
+                      <tbody>
+                        {localResults.map((r, i) => {
+                          const ss = STATUS_STYLE[r.contactStatus] ?? STATUS_STYLE.Never;
+                          return <OwnerRow key={r.id || i} row={r} last={i === localResults.length - 1} ss={ss} onClick={() => onSelectAccount?.({ name: r.owner || r.name, type: r.entityType || r.type, initial: (r.owner || r.name || '?')[0], location: r.markets || r.location })} />;
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-              <div style={S.tblWrap}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--line)' }}>
-                      {['Owner Name', 'Entity Type', 'Properties', 'Total SF', 'Markets', 'Est. Value', 'Held Since', 'Contact Status'].map(col => (
-                        <th key={col} style={S.th}>{col}</th>
+
+              {/* Web Research section */}
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink4)', marginBottom: 10 }}>Web Research (AI)</div>
+                {webLoading ? (
+                  <div style={{ background: 'var(--card)', borderRadius: 10, border: '1px solid var(--line2)', padding: '24px', textAlign: 'center', color: 'var(--ink4)', fontSize: 13 }}>Researching owner intel…</div>
+                ) : webResult ? (
+                  <div style={{ background: 'var(--card)', borderRadius: 10, border: '1px solid var(--line2)', padding: '20px 24px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink2)' }}>{webResult.name}</div>
+                        <div style={{ fontSize: 12, color: 'var(--ink4)', marginTop: 2 }}>{webResult.type} · {webResult.city}, {webResult.state}</div>
+                      </div>
+                      {webResult.website && <a href={`https://${webResult.website}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'var(--blue)' }}>{webResult.website}</a>}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 12 }}>
+                      {[['Est. SF', webResult.portfolio_sf ? webResult.portfolio_sf.toLocaleString() + ' SF' : '—'], ['Properties', webResult.properties_count ?? '—'], ['Markets', (webResult.known_markets || []).join(', ') || '—']].map(([k, v]) => (
+                        <div key={k} style={{ background: 'var(--bg)', borderRadius: 8, padding: '12px 16px' }}>
+                          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink4)', marginBottom: 4 }}>{k}</div>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink2)' }}>{v}</div>
+                        </div>
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((r, i) => {
-                      const ss = STATUS_STYLE[r.contactStatus];
-                      return (
-                        <OwnerRow key={r.id} row={r} last={i === filtered.length - 1} ss={ss}
-                          onClick={() => onSelectAccount?.({ name: r.owner, type: r.entityType, initial: r.owner[0], location: r.markets })} />
-                      );
-                    })}
-                    {filtered.length === 0 && (
-                      <tr><td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: 'var(--ink4)', fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic', fontSize: 15 }}>No results match the current filters</td></tr>
-                    )}
-                  </tbody>
-                </table>
+                    </div>
+                    {webResult.acquisition_strategy && <div style={{ fontSize: 12, color: 'var(--ink3)', marginBottom: 8 }}><strong>Strategy:</strong> {webResult.acquisition_strategy}</div>}
+                    {webResult.notes && <div style={{ fontSize: 12, color: 'var(--ink4)', fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic' }}>{webResult.notes}</div>}
+                  </div>
+                ) : null}
               </div>
+
+              {/* Legacy results table */}
+              {filtered.length > 0 && (
+                <div style={{ marginTop: 24 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink4)', marginBottom: 10 }}>Filtered Results</div>
+                  <div style={S.tblWrap}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <thead><tr style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--line)' }}>{['Owner Name', 'Entity Type', 'Properties', 'Total SF', 'Markets', 'Est. Value', 'Held Since', 'Contact Status'].map(col => <th key={col} style={S.th}>{col}</th>)}</tr></thead>
+                      <tbody>
+                        {filtered.map((r, i) => {
+                          const ss = STATUS_STYLE[r.contactStatus];
+                          return <OwnerRow key={r.id} row={r} last={i === filtered.length - 1} ss={ss} onClick={() => onSelectAccount?.({ name: r.owner, type: r.entityType, initial: r.owner[0], location: r.markets })} />;
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>

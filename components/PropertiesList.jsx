@@ -81,9 +81,9 @@ export default function PropertiesList({ onSelectProperty, properties: propData,
       <div style={S.topbar}>
         <span style={{ fontSize: 13, color: 'var(--ink4)' }}>CRM <span style={{ color: 'var(--ink2)' }}> › </span><span style={{ color: 'var(--ink2)', fontWeight: 600 }}>Properties</span></span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button style={S.btnGhost} onClick={() => alert('Filter — coming soon')}>⊕ Filter</button>
+          <button style={S.btnGhost} onClick={() => {}}>⊕ Filter</button>
           <button style={S.btnGhost} onClick={() => setShowImport(true)}>↑ Import CSV</button>
-          <button style={S.btnBlue} onClick={() => alert('Add Property — Supabase form coming soon')}>+ Add Property</button>
+          <button style={S.btnBlue} onClick={() => {}}>+ Add Property</button>
         </div>
       </div>
 
@@ -203,7 +203,7 @@ function PropertyRow({ p, onSelect }) {
       </td>
       <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          {p.catalysts.map((c, i) => {
+          {(p.catalysts || []).map((c, i) => {
             const cs = CAT_STYLE[c.cls] ?? CAT_STYLE.broker;
             return <span key={i} style={{ display: 'inline-flex', padding: '2px 7px', borderRadius: 4, fontSize: 11, fontWeight: 500, background: cs.bg, border: `1px solid ${cs.bdr}`, color: cs.color }}>{c.label}</span>;
           })}

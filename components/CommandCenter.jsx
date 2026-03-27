@@ -172,7 +172,7 @@ export default function CommandCenter({ onNavigate, counts = {}, data = {} }) {
           <div style={{ ...S.card, marginTop: 16 }}>
             <div style={S.cardHdr}>
               <div style={S.cardTitle}>SoCal Industrial News</div>
-              <span style={S.cardAction} onClick={() => alert('Loading latest SoCal industrial news…')}>Load Latest →</span>
+              <span style={S.cardAction} onClick={() => {}}>Load Latest →</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)' }}>
               {news.map((n, i) => (

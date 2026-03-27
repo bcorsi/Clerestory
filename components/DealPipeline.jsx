@@ -37,8 +37,8 @@ export default function DealPipeline({ deals: propDeals, loading, onSelectDeal }
       <div style={S.topbar}>
         <span style={{ fontSize: 13, color: 'var(--ink4)' }}><span style={{ color: 'var(--ink2)', fontWeight: 500 }}>Deal Pipeline</span></span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button style={S.btnGhost} onClick={() => alert('Table View — coming soon')}>Table View</button>
-          <button style={S.btnBlue} onClick={() => alert('New Deal — Supabase form coming soon')}>+ New Deal</button>
+          <button style={S.btnGhost} onClick={() => {}}>Table View</button>
+          <button style={S.btnBlue} onClick={() => {}}>+ New Deal</button>
         </div>
       </div>
 
@@ -51,8 +51,8 @@ export default function DealPipeline({ deals: propDeals, loading, onSelectDeal }
               <div style={S.pageSub}>{deals.length} active deals · ${totalValue.toFixed(1)}M total value · ${wtdComm.toFixed(1)}M weighted commission</div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button style={S.btnGhost} onClick={() => alert('Filter — coming soon')}>Filter</button>
-              <button style={S.btnGhost} onClick={() => alert('Sort — coming soon')}>Sort</button>
+              <button style={S.btnGhost} onClick={() => {}}>Filter</button>
+              <button style={S.btnGhost} onClick={() => {}}>Sort</button>
             </div>
           </div>
 
@@ -90,7 +90,7 @@ export default function DealPipeline({ deals: propDeals, loading, onSelectDeal }
                   {stageDeals.map((d, i) => (
                     <DealCard key={d.id ?? i} deal={d} stageColor={stage.color} onClick={() => onSelectDeal?.(d)} />
                   ))}
-                  <div style={S.colAdd} onClick={() => alert('Add Deal — form coming soon')}>+ Add Deal</div>
+                  <div style={S.colAdd} onClick={() => {}}>+ Add Deal</div>
                 </div>
               );
             })}

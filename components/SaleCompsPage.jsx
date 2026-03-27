@@ -40,8 +40,8 @@ export default function SaleCompsPage({ onNavigate, onSelectComp }) {
       <div style={S.topbar}>
         <span style={{ fontSize: 13, color: 'var(--ink2)', fontWeight: 500 }}>Sale Comps</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button style={S.btnGhost} onClick={() => alert('Import CSV — coming soon')}>Import CSV</button>
-          <button style={S.btnBlue} onClick={() => alert('Add Comp — coming soon')}>+ Add Comp</button>
+          <button style={S.btnGhost} onClick={() => {}}>Import CSV</button>
+          <button style={S.btnBlue} onClick={() => {}}>+ Add Comp</button>
         </div>
       </div>
 

@@ -42,7 +42,7 @@ const CAT_BG = { lease: 'var(--amber-bg)', broker: 'var(--blue-bg)', warn: 'var(
 const CAT_BDR = { lease: 'var(--amber-bdr)', broker: 'var(--blue-bdr)', warn: 'var(--rust-bdr)' };
 const CAT_COLOR = { lease: 'var(--amber)', broker: 'var(--blue)', warn: 'var(--rust)' };
 
-export default function LeadDetail({ lead, onBack, onNavigate }) {
+export default function LeadDetail({ lead, onBack, onNavigate, onConvertToDeal, onCreateProperty, deals, contacts, leaseComps, saleComps, onRefresh, toast }) {
   const [activeTab, setActiveTab] = useState('Timeline');
   const [synthOpen, setSynthOpen] = useState(true);
   const [specsOpen, setSpecsOpen] = useState(false);
@@ -141,13 +141,14 @@ export default function LeadDetail({ lead, onBack, onNavigate }) {
             <div style={S.abSep} />
             <button style={S.btnLink} onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent(l.address + ' ' + l.city)}`)}>📍 Google Maps</button>
             <button style={S.btnLink} onClick={() => window.open(`https://www.costar.com/search#?q=${encodeURIComponent(l.address + (l.city ? ', ' + l.city : ''))}&t=2`)}>🗂 CoStar</button>
-            <button style={S.btnLink} onClick={() => { const apn = l.apn ?? ''; window.open(`https://assessor.lacounty.gov/commonassessment/assessmentinformation/assessmentdetails.aspx?ain=${apn.replace(/-/g,'')}`); }}>🗺 LA County GIS</button>
+            <button style={S.btnLink} onClick={() => { const apn = l.apn ?? l.apns?.[0]; if (apn) { const cleanAPN = String(apn).replace(/-/g,''); window.open(`https://portal.assessor.lacounty.gov/parceldetail/${cleanAPN}`, '_blank'); } else { const addr = encodeURIComponent(`${l.address}, ${l.city}, CA`); window.open(`https://portal.assessor.lacounty.gov/commonassessment/assessmentsearch?SearchType=address&Address=${addr}`, '_blank'); } }}>🗺 LA County GIS</button>
             <div style={S.abSep} />
-            <button style={S.btnGhost} onClick={() => alert('Edit lead — Supabase form coming soon')}>⚙ Edit</button>
-            <button style={S.btnGhost} onClick={() => alert('Export Memo — coming soon')}>↓ Export Memo</button>
-            <button style={S.btnGhost} onClick={() => alert('Running owner search across assessor + CoStar records…')}>🔍 Run Owner Search</button>
+            <button style={S.btnGhost} onClick={() => {}}>⚙ Edit</button>
+            <button style={S.btnGhost} onClick={() => {}}>↓ Export Memo</button>
+            <button style={S.btnGhost} onClick={() => onNavigate?.('owner-search')}>🔍 Run Owner Search</button>
+            <button style={S.btnGhost} onClick={() => onCreateProperty?.(l)}>+ Create Property</button>
             <div style={{ marginLeft: 'auto' }} />
-            <button style={S.btnGreen} onClick={() => onNavigate?.('deals')}>◈ Convert to Deal</button>
+            <button style={S.btnGreen} onClick={() => onConvertToDeal?.(l)}>◈ Convert to Deal</button>
           </div>
 
           {/* LOG PANEL */}
@@ -199,8 +200,8 @@ export default function LeadDetail({ lead, onBack, onNavigate }) {
                 </div>
               )}
               <div style={S.synthFooter}>
-                <button style={S.synthRegen} onClick={() => alert('AI Synthesis regenerated!')}>↻ Regenerate</button>
-                <button style={S.synthRegen} onClick={() => { navigator.clipboard?.writeText(`AI Synthesis: ${l.company} — Owner-user ${l.buildingSF?.toLocaleString() ?? '186,400'} SF, lease expiry ${l.leaseExpiry ?? 'Aug 2027'}, broker intel confirmed.`); alert('Synthesis copied to clipboard'); }}>📋 Copy</button>
+                <button style={S.synthRegen} onClick={() => {}}>↻ Regenerate</button>
+                <button style={S.synthRegen} onClick={() => { navigator.clipboard?.writeText(`AI Synthesis: ${l.company} — Owner-user ${l.buildingSF?.toLocaleString() ?? '186,400'} SF, lease expiry ${l.leaseExpiry ?? 'Aug 2027'}, broker intel confirmed.`); {}; }}>📋 Copy</button>
                 <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: 'var(--ink4)', marginLeft: 'auto' }}>Generated Mar 24, 2026 · 11:02 AM</span>
               </div>
             </div>
@@ -299,7 +300,7 @@ export default function LeadDetail({ lead, onBack, onNavigate }) {
                         <div style={S.actDate}>{a.date}</div>
                       </div>
                     ))}
-                    <div style={S.tlMore} onClick={() => alert('Showing all activities — Supabase pagination coming soon')}><span style={S.tlMoreText}>View all 8 activities & notes →</span></div>
+                    <div style={S.tlMore} onClick={() => {}}><span style={S.tlMoreText}>View all 8 activities & notes →</span></div>
                   </div>
 
                   {/* RIGHT COLUMN */}
@@ -314,7 +315,7 @@ export default function LeadDetail({ lead, onBack, onNavigate }) {
 
                     {/* Catalysts */}
                     <div style={S.card}>
-                      <div style={S.spHdr}>Active Catalysts <span style={S.spHdrA} onClick={() => alert('Add catalyst — coming soon')}>+ Add</span></div>
+                      <div style={S.spHdr}>Active Catalysts <span style={S.spHdrA} onClick={() => {}}>+ Add</span></div>
                       {MOCK_CATALYSTS.map((c, i) => (
                         <div key={i} style={{ ...S.catRow, borderBottom: i < MOCK_CATALYSTS.length - 1 ? '1px solid var(--line2)' : 'none' }}>
                           <span style={{ ...S.cat, background: CAT_BG[c.type], borderColor: CAT_BDR[c.type], color: CAT_COLOR[c.type] }}>{c.label}</span>
@@ -339,14 +340,14 @@ export default function LeadDetail({ lead, onBack, onNavigate }) {
                             <div style={{ fontSize: 11.5, color: 'var(--ink4)', marginTop: 1 }}>{m.sub}</div>
                           </div>
                           <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 17, fontWeight: 700, color: 'var(--blue)' }}>{m.pct}%</div>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', cursor: 'pointer' }} onClick={() => alert('Open buyer record — coming soon')}>Open →</span>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', cursor: 'pointer' }} onClick={() => {}}>Open →</span>
                         </div>
                       ))}
                     </div>
 
                     {/* Owner */}
                     <div style={S.card}>
-                      <div style={S.spHdr}>Owner <span style={S.spHdrA} onClick={() => alert('View owner record — coming soon')}>View Record →</span></div>
+                      <div style={S.spHdr}>Owner <span style={S.spHdrA} onClick={() => {}}>View Record →</span></div>
                       {[
                         ['Company', l.ownerName ?? 'Leegin Creative Leather Inc.'],
                         ['Type', l.ownerType ?? 'Owner-User'],
@@ -457,7 +458,7 @@ function LeadTabContent({ tab, l, onNavigate }) {
     <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--line2)', overflow: 'hidden' }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink2)' }}>{l.address ?? '14022 Nelson Ave E'}, {l.city ?? 'Baldwin Park'}</div>
-        <button style={{ fontSize: 12, color: 'var(--blue)', background: 'none', border: '1px solid var(--blue-bdr)', borderRadius: 6, padding: '5px 11px', cursor: 'pointer', fontFamily: 'inherit' }} onClick={() => alert('View full property record — coming soon')}>View Property →</button>
+        <button style={{ fontSize: 12, color: 'var(--blue)', background: 'none', border: '1px solid var(--blue-bdr)', borderRadius: 6, padding: '5px 11px', cursor: 'pointer', fontFamily: 'inherit' }} onClick={() => {}}>View Property →</button>
       </div>
       {[
         ['Building SF', (l.buildingSF ?? 186400).toLocaleString()],
@@ -485,7 +486,7 @@ function LeadTabContent({ tab, l, onNavigate }) {
         <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '11px 16px', borderBottom: i < arr.length - 1 ? '1px solid var(--line2)' : 'none', gap: 12, cursor: 'pointer' }}
           onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
           onMouseLeave={e => e.currentTarget.style.background = ''}
-          onClick={() => alert(`Download ${f.name} — coming soon`)}>
+          onClick={() => {}}>
           <span style={{ fontSize: 18 }}>📄</span>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink2)' }}>{f.name}</div>

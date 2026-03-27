@@ -18,7 +18,7 @@ export default function TaskDetailPage({ task, onBack, onNavigate }) {
           <span style={{ color: 'var(--ink2)', fontWeight: 500, maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.text ?? 'Task'}</span>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button style={S.btnGhost} onClick={() => alert('Edit Task — coming soon')}>⚙ Edit</button>
+          <button style={S.btnGhost} onClick={() => {}}>⚙ Edit</button>
           <button style={{ ...S.btnGhost, ...(done ? { borderColor: 'var(--green)', color: 'var(--green)', background: 'var(--green-bg)' } : {}) }}
             onClick={() => setDone(!done)}>
             {done ? '✓ Completed' : '○ Mark Complete'}
@@ -74,7 +74,7 @@ export default function TaskDetailPage({ task, onBack, onNavigate }) {
                 ))}
               </div>
               <div style={{ marginTop: 10 }}>
-                <button style={S.btnGhost} onClick={() => alert('Log Activity — coming soon')}>+ Log Activity</button>
+                <button style={S.btnGhost} onClick={() => {}}>+ Log Activity</button>
               </div>
             </div>
           </div>

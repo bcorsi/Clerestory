@@ -11,7 +11,7 @@ function AddLeadModal({ onClose, onSave }) {
   const toggleTag = t => setTags(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
 
   const handleSave = () => {
-    if (!form.company) { alert('Company Name is required'); return; }
+    if (!form.company) { return; }
     const C = (bg, bdr, color, label) => ({ bg, bdr, color, label });
     const catalysts = tags.map(t => t.includes('WARN') ? C('var(--rust-bg)', 'var(--rust-bdr)', 'var(--rust)', '⚠ ' + t) : t.includes('Expiry') ? C('var(--amber-bg)', 'var(--amber-bdr)', 'var(--amber)', t) : t.includes('CapEx') || t.includes('SLB') ? C('var(--purple-bg)', 'var(--purple-bdr)', 'var(--purple)', t) : C('var(--blue-bg)', 'var(--blue-bdr)', 'var(--blue)', t));
     // Pass both the UI-shaped lead AND the raw form data + tags for Supabase
@@ -233,8 +233,8 @@ export default function LeadGenList({ leads: propLeads, loading, onRefresh, toas
               <div style={S.pageSub}>237 leads · 40 hot (A+/A) · 4 active WARN signals</div>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button style={S.btnGhost} onClick={() => alert('Import CSV — coming soon')}>Import CSV</button>
-              <button style={S.btnGhost} onClick={() => alert('Map View — coming soon')}>Map View</button>
+              <button style={S.btnGhost} onClick={() => {}}>Import CSV</button>
+              <button style={S.btnGhost} onClick={() => {}}>Map View</button>
               <button style={{ ...S.btn, background: 'var(--rust)', color: '#fff', borderColor: 'var(--rust)', fontSize: 12 }} onClick={() => setActiveTab('hot')}>⚡ Hot Queue (40)</button>
               <button style={{ ...S.btn, background: 'var(--blue)', color: '#fff', borderColor: 'var(--blue)' }} onClick={() => setShowAddLead(true)}>+ Add Lead</button>
             </div>
@@ -342,8 +342,8 @@ function LeadRow({ lead: l, onClick }) {
       <td style={{ padding: '11px 13px', fontFamily: "'DM Mono',monospace", fontSize: 11, color: 'var(--ink4)' }}>{l.lastContact}</td>
       <td style={{ padding: '11px 13px', verticalAlign: 'middle' }}>
         <div style={{ display: 'flex', gap: 4, opacity: hover ? 1 : 0, transition: 'opacity 0.1s' }}>
-          <button style={S.qaBlue} onClick={e => { e.stopPropagation(); alert(`Log call for ${l.name} — activity logging coming soon`); }}>Call</button>
-          <button style={l.warn ? S.qaRust : S.qaGreen} onClick={e => { e.stopPropagation(); alert(l.warn ? `Calling owner of ${l.name} — coming soon` : `Adding ${l.name} to pipeline — coming soon`); }}>
+          <button style={S.qaBlue} onClick={() => {}}>Call</button>
+          <button style={l.warn ? S.qaRust : S.qaGreen} onClick={() => {}}>
             {l.warn ? 'Call Owner' : 'Pipeline →'}
           </button>
         </div>

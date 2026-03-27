@@ -85,7 +85,11 @@ export default function NewsFeed({ onNavigate }) {
             {filtered.map(a => {
               const ss = SIGNAL_STYLE[a.signalColor] ?? SIGNAL_STYLE['var(--blue)'];
               return (
-                <div key={a.id} style={S.card}>
+                <div key={a.id} style={{ ...S.card, cursor: 'pointer' }}
+                  onClick={() => a.url && a.url !== '#' && window.open(a.url, '_blank')}
+                  onMouseEnter={e => e.currentTarget.style.background = '#F8F6F2'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--card)'}
+                >
                   <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
@@ -93,15 +97,14 @@ export default function NewsFeed({ onNavigate }) {
                         <span style={{ fontSize: 11, color: 'var(--ink4)', fontFamily: "'DM Mono',monospace" }}>{a.source}</span>
                         <span style={{ fontSize: 11, color: 'var(--ink4)', fontFamily: "'DM Mono',monospace" }}>{a.date}</span>
                       </div>
-                      <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--ink2)', lineHeight: 1.4, marginBottom: 6, cursor: 'pointer' }}
-                        onClick={() => a.url !== '#' && window.open(a.url)}>
+                      <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--ink2)', lineHeight: 1.4, marginBottom: 6 }}>
                         {a.title}
                       </div>
                       <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 14, fontStyle: 'italic', color: 'var(--ink4)', lineHeight: 1.55 }}>
                         {a.snippet}
                       </div>
+                      <div style={{ marginTop: 8, fontSize: 12, color: 'var(--blue)', fontWeight: 500 }}>Read more →</div>
                     </div>
-                    <button style={S.btnLink} onClick={() => a.url !== '#' && window.open(a.url)}>Read →</button>
                   </div>
                 </div>
               );

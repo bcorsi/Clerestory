@@ -37,7 +37,16 @@ export default function Accounts({ onSelectAccount, accounts: propAccounts, load
 
   // Use Supabase data when available, fall back to mock
   const accounts = (propAccounts && propAccounts.length > 0) ? propAccounts : MOCK_ACCOUNTS;
-  const filteredAccounts = activeTab === 'all' ? accounts : accounts.filter(a => (a.tabKey || '').includes(activeTab) || (a.account_type || a.type || '').toLowerCase().includes(activeTab));
+  const matchTab = (a, tab) => {
+    const t = (a.account_type || a.type || a.tabKey || '').toLowerCase();
+    if (tab === 'owner-user') return t.includes('owner') && t.includes('user');
+    if (tab === 'institutional') return t.includes('institution') || t.includes('reit');
+    if (tab === 'family') return t.includes('family') || t.includes('private');
+    if (tab === 'buyers') return t.includes('buyer') || t.includes('investor') || t.includes('equity');
+    if (tab === 'tenants') return t.includes('tenant') || t.includes('occupier');
+    return t.includes(tab);
+  };
+  const filteredAccounts = activeTab === 'all' ? accounts : accounts.filter(a => matchTab(a, activeTab));
 
   const handleImportComplete = async ({ importedAccounts }) => {
     for (const acct of (importedAccounts || [])) {

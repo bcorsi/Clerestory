@@ -30,7 +30,8 @@ Reply with ONLY the next action — no preamble.`;
   return data.content?.[0]?.text?.trim() || 'Review lead intel and identify next contact';
 }
 
-export default function LeadGen({ leads, onRefresh, showToast, onLeadClick }) {
+export default function LeadGen({ leads: rawLeads, onRefresh, showToast, onLeadClick }) {
+  const leads = rawLeads || [];
   const [view, setView] = useState('kanban');
   const [converting, setConverting] = useState(null);
   const [expanded, setExpanded] = useState(null);

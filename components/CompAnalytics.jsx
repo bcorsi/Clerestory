@@ -233,10 +233,10 @@ export default function CompAnalytics({ onNavigate, leaseComps: propLeaseComps, 
                     <tr key={c.id || i} style={{ borderBottom: i < filteredLease.length - 1 ? '1px solid var(--line2)' : 'none', cursor: 'pointer' }} onClick={() => onSelectLeaseComp?.(c)} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'} onMouseLeave={e => e.currentTarget.style.background = ''}>
                       <td style={S.td}><div style={{ fontWeight: 500, color: 'var(--ink2)' }}>{c.address}</div><div style={{ fontSize: 11, color: 'var(--ink4)' }}>{c.city}</div></td>
                       <td style={S.td}><span style={S.mktBadge}>{c.market}</span></td>
-                      <td style={{ ...S.td, fontFamily: "'DM Mono',monospace" }}>{c.sf.toLocaleString()}</td>
-                      <td style={{ ...S.td, fontFamily: "'DM Mono',monospace", color: 'var(--blue)', fontWeight: 600 }}>${c.rate.toFixed(2)}</td>
-                      <td style={S.td}>{c.type}</td>
-                      <td style={{ ...S.td, fontFamily: "'DM Mono',monospace" }}>{c.term} mo</td>
+                      <td style={{ ...S.td, fontFamily: "'DM Mono',monospace" }}>{c.sf ? c.sf.toLocaleString() : '—'}</td>
+                      <td style={{ ...S.td, fontFamily: "'DM Mono',monospace", color: 'var(--blue)', fontWeight: 600 }}>{c.rate != null ? `$${c.rate.toFixed(2)}` : '—'}</td>
+                      <td style={S.td}>{c.type || '—'}</td>
+                      <td style={{ ...S.td, fontFamily: "'DM Mono',monospace" }}>{c.term ? `${c.term} mo` : '—'}</td>
                       <td style={{ ...S.td, fontFamily: "'DM Mono',monospace", fontSize: 12 }}>{c.date}</td>
                       <td style={S.td}>{c.tenant}</td>
                     </tr>
@@ -261,10 +261,10 @@ export default function CompAnalytics({ onNavigate, leaseComps: propLeaseComps, 
                     <tr key={c.id || i} style={{ borderBottom: i < filteredSale.length - 1 ? '1px solid var(--line2)' : 'none', cursor: 'pointer' }} onClick={() => onSelectSaleComp?.(c)} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'} onMouseLeave={e => e.currentTarget.style.background = ''}>
                       <td style={S.td}><div style={{ fontWeight: 500, color: 'var(--ink2)' }}>{c.address}</div><div style={{ fontSize: 11, color: 'var(--ink4)' }}>{c.city}</div></td>
                       <td style={S.td}><span style={S.mktBadge}>{c.market}</span></td>
-                      <td style={{ ...S.td, fontFamily: "'DM Mono',monospace" }}>{c.sf.toLocaleString()}</td>
-                      <td style={{ ...S.td, fontFamily: "'DM Mono',monospace", color: 'var(--green)', fontWeight: 600 }}>${(c.price / 1000000).toFixed(1)}M</td>
-                      <td style={{ ...S.td, fontFamily: "'DM Mono',monospace", color: 'var(--blue)', fontWeight: 600 }}>${c.psf}/SF</td>
-                      <td style={{ ...S.td, fontFamily: "'DM Mono',monospace" }}>{c.capRate}%</td>
+                      <td style={{ ...S.td, fontFamily: "'DM Mono',monospace" }}>{c.sf ? c.sf.toLocaleString() : '—'}</td>
+                      <td style={{ ...S.td, fontFamily: "'DM Mono',monospace", color: 'var(--green)', fontWeight: 600 }}>{c.price ? `$${(c.price / 1000000).toFixed(1)}M` : '—'}</td>
+                      <td style={{ ...S.td, fontFamily: "'DM Mono',monospace", color: 'var(--blue)', fontWeight: 600 }}>{c.psf ? `$${c.psf}/SF` : '—'}</td>
+                      <td style={{ ...S.td, fontFamily: "'DM Mono',monospace" }}>{c.capRate ? `${c.capRate}%` : '—'}</td>
                       <td style={S.td}>{c.saleType}</td>
                       <td style={{ ...S.td, fontFamily: "'DM Mono',monospace", fontSize: 12 }}>{c.date}</td>
                     </tr>

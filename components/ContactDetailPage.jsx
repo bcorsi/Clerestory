@@ -28,7 +28,7 @@ const LINKED_LEADS = [
 const ACT_ICONS = { call: '📞', email: '✉', note: '📝', meeting: '🤝' };
 const TABS = ['Timeline', 'Deals', 'Properties', 'Leads', 'Files'];
 
-export default function ContactDetailPage({ contact, onBack, onNavigate, onSelectAccount, onSelectProperty, onSelectDeal }) {
+export default function ContactDetailPage({ contact, onBack, onNavigate, onSelectAccount, onSelectProperty, onSelectDeal, onSelectLead }) {
   const [activeTab, setActiveTab] = useState('Timeline');
   const [notes, setNotes] = useState('');
   const c = contact ? { ...DEFAULT_CONTACT, ...contact } : DEFAULT_CONTACT;
@@ -143,7 +143,8 @@ export default function ContactDetailPage({ contact, onBack, onNavigate, onSelec
                     </div>
                   ))}
                   {LINKED_LEADS.map(l => (
-                    <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 16px', cursor: 'pointer', alignItems: 'center' }}>
+                    <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 16px', cursor: 'pointer', alignItems: 'center' }}
+                      onClick={() => onSelectLead?.({ lead_name: l.name })}>
                       <span style={{ fontSize: 12.5, color: l.color }}>⬤ {l.name}</span>
                       <span style={{ fontSize: 12, color: 'var(--ink4)' }}>Lead →</span>
                     </div>

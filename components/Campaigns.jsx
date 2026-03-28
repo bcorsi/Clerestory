@@ -189,7 +189,7 @@ function CampaignDetail({ campaign, onBack, onNavigate }) {
               </thead>
               <tbody>
                 {(c.targetList || [{ company: 'Sample Target Inc', market: 'IE West', lastContacted: 'Mar 10', status: 'Responded' }, { company: 'Pacific Logistics Co', market: 'SGV', lastContacted: 'Mar 12', status: 'No Response' }, { company: 'Western Mfg Group', market: 'IE East', lastContacted: '—', status: 'Not Contacted' }]).map((t, i) => (
-                  <tr key={i} style={{ borderTop: '1px solid var(--line2)', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                  <tr key={i} style={{ borderTop: '1px solid var(--line2)', cursor: 'pointer' }} onClick={() => onNavigate?.('accounts')} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'} onMouseLeave={e => e.currentTarget.style.background = ''}>
                     <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 500, color: 'var(--ink2)' }}>{t.company}</td>
                     <td style={{ padding: '12px 16px' }}><span style={{ background: 'var(--blue-bg)', color: 'var(--blue)', borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 500 }}>{t.market}</span></td>
                     <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--ink4)' }}>{t.lastContacted}</td>

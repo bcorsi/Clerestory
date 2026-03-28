@@ -178,7 +178,7 @@ export default function PropertiesList({ onSelectProperty, properties: propData,
 
 function PropertyRow({ p, onSelect }) {
   const [hover, setHover] = useState(false);
-  const st = STATUS_STYLE[p.status];
+  const st = STATUS_STYLE[p.status] ?? { bg: 'var(--blue-bg)', bdr: 'var(--blue-bdr)', color: 'var(--blue)', label: p.status || '—' };
   return (
     <tr style={{ borderBottom: '1px solid var(--line2)', cursor: 'pointer', background: hover ? '#F8F6F2' : 'transparent', transition: 'background 0.1s' }}
       onClick={() => onSelect?.(p)}

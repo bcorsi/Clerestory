@@ -24,6 +24,7 @@ export default function OwnerSearchPage({ onNavigate, onSelectAccount, accounts 
   const [webLoading, setWebLoading] = useState(false);
   const [webResult, setWebResult] = useState(null);
   const [localResults, setLocalResults] = useState([]);
+  const [loanMaturity, setLoanMaturity] = useState('');
 
   const handleSearch = async () => {
     if (!query.trim() && !market && !ownerType) return;

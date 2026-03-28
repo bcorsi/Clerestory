@@ -259,7 +259,7 @@ export default function App() {
     if (selectedTask)      return <TaskDetailPage   task={selectedTask} onBack={() => setSelectedTask(null)} onNavigate={navigate} />;
 
     switch (page) {
-      case 'dashboard':    return <CommandCenter onNavigate={navigate} counts={counts} />;
+      case 'dashboard':    return <CommandCenter onNavigate={navigate} counts={counts} properties={properties} deals={deals} leads={leads} tasks={tasks} leaseComps={leaseComps} saleComps={saleComps} accounts={accounts} contacts={contacts} />;
       case 'properties':   return <PropertiesList  {...dataProps} onSelectProperty={openProperty} />;
       case 'leads':        return <LeadGenList     {...dataProps} onSelectLead={openLead} onNavigate={navigate} />;
       case 'deals':        return <DealPipeline    {...dataProps} onSelectDeal={openDeal} />;

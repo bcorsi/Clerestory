@@ -117,8 +117,8 @@ export default function Sidebar({ currentPage, onNavigate, counts = {}, onCollap
 
   return (
     <div style={{ width: w, minHeight: '100vh', background: bg, position: 'fixed', left: 0, top: 0, bottom: 0, zIndex: 100, transition: 'width 0.25s ease', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      {/* Top accent line */}
-      <div style={{ height: 2, background: 'linear-gradient(90deg, transparent, #6480A2, #89A8C6, transparent)', flexShrink: 0 }} />
+      {/* Top accent line — 3px gradient stripe */}
+      <div style={{ height: 3, background: 'linear-gradient(90deg, var(--blue2), var(--blue3))', flexShrink: 0 }} />
 
       {/* Logo zone */}
       <div style={{
@@ -155,7 +155,7 @@ export default function Sidebar({ currentPage, onNavigate, counts = {}, onCollap
           if (item.section) {
             if (collapsed) return null;
             return (
-              <div key={i} style={{ fontSize: 11, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', color: 'rgba(240,235,225,0.38)', padding: '14px 18px 4px', letterSpacing: '0.03em' }}>
+              <div key={i} style={{ fontSize: 8, fontFamily: "'DM Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--sb-label)', padding: '18px 18px 6px' }}>
                 {item.section}
               </div>
             );
@@ -173,8 +173,8 @@ export default function Sidebar({ currentPage, onNavigate, counts = {}, onCollap
                 padding: collapsed ? '10px 0' : '8px 18px',
                 justifyContent: collapsed ? 'center' : 'flex-start',
                 cursor: 'pointer',
-                background: isActive ? 'rgba(100,128,162,0.16)' : 'transparent',
-                borderLeft: isActive ? '2px solid #89A8C6' : '2px solid transparent',
+                background: isActive ? 'rgba(100,128,162,0.12)' : 'transparent',
+                borderLeft: isActive ? '2px solid var(--blue2)' : '2px solid transparent',
                 marginBottom: 1,
                 transition: 'background 0.15s',
               }}
@@ -184,7 +184,7 @@ export default function Sidebar({ currentPage, onNavigate, counts = {}, onCollap
               <span style={{ fontSize: 15, opacity: isActive ? 1 : 0.55, color: '#89A8C6', flexShrink: 0 }}>{item.icon}</span>
               {!collapsed && (
                 <>
-                  <span style={{ fontSize: 13.5, fontFamily: "'Instrument Sans', sans-serif", color: isActive ? 'rgba(245,240,232,0.96)' : 'rgba(240,235,225,0.62)', flex: 1, whiteSpace: 'nowrap' }}>{item.label}</span>
+                  <span style={{ fontSize: 13, fontFamily: "'Instrument Sans', sans-serif", color: isActive ? 'var(--sb-text)' : 'var(--sb-muted)', flex: 1, whiteSpace: 'nowrap' }}>{item.label}</span>
                   {count != null && count > 0 && (
                     <span style={{
                       fontSize: 11, fontFamily: "'DM Mono', monospace",

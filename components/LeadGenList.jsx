@@ -329,13 +329,13 @@ function LeadRow({ lead: l, onClick }) {
         </div>
       </td>
       <td style={{ padding: '11px 13px', verticalAlign: 'middle' }}>
-        <div style={{ fontWeight: 500, fontSize: 14, color: l.warn ? 'var(--rust)' : 'var(--ink2)' }}>{l.name}</div>
-        <div style={{ fontSize: 12, color: 'var(--ink4)', marginTop: 2 }}>{l.addr}</div>
+        <div style={{ fontWeight: 500, fontSize: 14, color: l.warn ? 'var(--rust)' : 'var(--ink2)' }}>{l.name || l.lead_name}</div>
+        <div style={{ fontSize: 12, color: 'var(--ink4)', marginTop: 2 }}>{l.addr || l.address}</div>
       </td>
       <td style={{ padding: '11px 13px', fontSize: 13, color: 'var(--ink3)' }}>{l.market}</td>
       <td style={{ padding: '11px 13px', fontFamily: "'DM Mono',monospace", fontSize: 12.5 }}>{l.sf}</td>
       <td style={{ padding: '11px 13px', verticalAlign: 'middle' }}>
-        {l.catalysts.map((c, ci) => <div key={ci} style={{ marginBottom: ci < l.catalysts.length - 1 ? 3 : 0 }}><span style={{ display: 'inline-flex', padding: '2px 7px', borderRadius: 4, fontSize: 10.5, fontWeight: 500, border: '1px solid', background: c.bg, borderColor: c.bdr, color: c.color }}>{c.label}</span></div>)}
+        {(l.catalysts || (l.catalyst_tags || []).map(t => ({ label: t, bg: 'var(--blue-bg)', bdr: 'var(--blue-bdr)', color: 'var(--blue)' }))).map((c, ci, arr) => <div key={ci} style={{ marginBottom: ci < arr.length - 1 ? 3 : 0 }}><span style={{ display: 'inline-flex', padding: '2px 7px', borderRadius: 4, fontSize: 10.5, fontWeight: 500, border: '1px solid', background: c.bg || 'var(--blue-bg)', borderColor: c.bdr || 'var(--blue-bdr)', color: c.color || 'var(--blue)' }}>{c.label || c}</span></div>)}
       </td>
       <td style={{ padding: '11px 13px', fontSize: 12.5, color: l.warn ? 'var(--rust)' : 'var(--ink4)' }}>{l.source}</td>
       <td style={{ padding: '11px 13px', fontSize: 13, color: 'var(--ink2)' }}>{l.owner}</td>

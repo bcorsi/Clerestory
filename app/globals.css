@@ -298,13 +298,13 @@ body { font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
 .sub-nav {
   display: flex; padding: 0 32px; border-bottom: 1px solid var(--line); background: var(--card);
 }
-.sub-nav-item {
+.sub-nav-item, .sub-tab {
   padding: 13px 15px; font-size: 13px; font-weight: 500;
   color: var(--ink4); cursor: pointer; border-bottom: 2px solid transparent;
   transition: all 0.12s; white-space: nowrap;
 }
-.sub-nav-item:hover { color: var(--ink3); }
-.sub-nav-item.active { color: var(--blue); border-bottom-color: var(--blue2); }
+.sub-nav-item:hover, .sub-tab:hover { color: var(--ink3); }
+.sub-nav-item.active, .sub-tab.active { color: var(--blue); border-bottom-color: var(--blue2); }
 
 /* TABLES */
 table { width: 100%; border-collapse: collapse; }

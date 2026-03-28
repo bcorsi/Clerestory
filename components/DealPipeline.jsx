@@ -1,14 +1,12 @@
 'use client';
 import { useState } from 'react';
+import { DEAL_STAGES, STAGE_COLORS, COMMISSION_VISIBLE_STAGES, fmt } from '../lib/constants';
 
-const STAGES = [
-  { key: 'tracking', label: 'Tracking', color: 'var(--blue)', colorAlpha: 'rgba(78,110,150,0.12)' },
-  { key: 'underwriting', label: 'Underwriting', color: 'var(--purple)', colorAlpha: 'rgba(88,56,160,0.10)' },
-  { key: 'loi', label: 'LOI', color: 'var(--amber)', colorAlpha: 'rgba(140,90,4,0.10)' },
-  { key: 'loi_accepted', label: 'LOI Accepted', color: 'var(--green)', colorAlpha: 'rgba(21,102,54,0.10)' },
-  { key: 'psa', label: 'PSA / Non-Contingent', color: 'var(--green)', colorAlpha: 'rgba(21,102,54,0.14)' },
-  { key: 'due_diligence', label: 'Due Diligence', color: 'var(--rust)', colorAlpha: 'rgba(184,55,20,0.08)' },
-];
+const STAGES = DEAL_STAGES.filter(s => !['Dead', 'Closed Lost'].includes(s)).map(s => ({
+  key: s.toLowerCase().replace(/\s+/g, '_'),
+  label: s,
+  color: STAGE_COLORS[s] || 'var(--ink3)',
+}));
 
 const CAT_STYLES = {
   slb: { bg: 'var(--green-bg)', bdr: 'var(--green-bdr)', color: 'var(--green)', label: 'SLB' },
@@ -82,7 +80,7 @@ export default function DealPipeline({ deals: propDeals, loading, onSelectDeal }
               const stageTotal = stageDeals.reduce((s, d) => s + getVal(d), 0);
               return (
                 <div key={stage.key} style={S.col}>
-                  <div style={{ ...S.colHdr, background: stage.colorAlpha }}>
+                  <div style={{ ...S.colHdr, background: `${stage.color}11` }}>
                     <span style={{ ...S.colTitle, color: stage.color }}>{stage.label}</span>
                     <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, background: 'rgba(255,255,255,0.25)', padding: '2px 7px', borderRadius: 20, color: stage.color }}>{stageDeals.length}</span>
                     {stageTotal > 0 && <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: stage.color, opacity: 0.7 }}>${stageTotal.toFixed(0)}M</span>}
@@ -113,9 +111,12 @@ function DealCard({ deal: d, stageColor, onClick }) {
       <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink2)', marginBottom: 3, paddingLeft: 6 }}>{d.name ?? d.deal_name}</div>
       <div style={{ fontSize: 12, color: 'var(--ink4)', paddingLeft: 6, marginBottom: 8 }}>{d.addr ?? d.address}</div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingLeft: 6 }}>
-        <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>${(d.valueMM ?? (d.deal_value ? (d.deal_value / 1e6).toFixed(1) : 0))}M</div>
+        <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>{fmt.price(d.deal_value || (d.valueMM ? d.valueMM * 1e6 : 0))}</div>
         <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: 'var(--ink4)' }}>{d.prob ?? d.probability ?? 50}% close</div>
       </div>
+      {COMMISSION_VISIBLE_STAGES.includes(d.stage) && d.commission_est && (
+        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: 'var(--green)', background: 'var(--green-bg)', border: '1px solid var(--green-bdr)', borderRadius: 4, padding: '2px 6px', display: 'inline-flex', marginLeft: 6, marginTop: 5 }}>{fmt.price(d.commission_est)} commission</div>
+      )}
       {d.cats?.length > 0 && (
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', paddingLeft: 6, marginTop: 6 }}>
           {d.cats.map(c => {

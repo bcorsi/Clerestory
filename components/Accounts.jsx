@@ -22,15 +22,6 @@ const COLOR_STYLES = {
   purple: { bg: 'var(--purple-bg)', bdr: 'var(--purple-bdr)', color: 'var(--purple)' },
 };
 
-const TABS = [
-  { key: 'all', label: 'All Accounts', count: 68 },
-  { key: 'owner-user', label: 'Owner-User', count: 14 },
-  { key: 'institutional', label: 'Institutional', count: 22 },
-  { key: 'family', label: 'Private Family', count: 18 },
-  { key: 'buyers', label: 'Buyers / Investors' },
-  { key: 'tenants', label: 'Tenants' },
-];
-
 export default function Accounts({ onSelectAccount, accounts: propAccounts, loading, onRefresh, toast }) {
   const [activeTab, setActiveTab] = useState('all');
   const [showImport, setShowImport] = useState(false);
@@ -38,17 +29,30 @@ export default function Accounts({ onSelectAccount, accounts: propAccounts, load
 
   // Use Supabase data when available, fall back to mock
   const accounts = (propAccounts && propAccounts.length > 0) ? propAccounts : MOCK_ACCOUNTS;
-  const matchTab = (a, tab) => {
-    const t = (a.account_type || a.type || a.tabKey || '').toLowerCase().replace(/[\s_-]+/g, '');
-    if (tab === 'owner-user') return t.includes('owneruser') || t.includes('owner-user') || t === 'owneruser';
-    if (tab === 'institutional') return t.includes('institution') || t.includes('reit');
-    if (tab === 'family') return t.includes('family') || t.includes('private');
-    if (tab === 'buyers') return t.includes('buyer') || t.includes('investor') || t.includes('equity') || t.includes('corporate');
-    if (tab === 'tenants') return t.includes('tenant') || t.includes('occupier');
-    return t.includes(tab);
-  };
+
+  // Dynamically generate tabs from actual account_type values in data
+  const typeCounts = {};
+  accounts.forEach(a => {
+    const raw = a.account_type || a.type || a.tabKey || '';
+    const label = raw.trim() || 'Unclassified';
+    typeCounts[label] = (typeCounts[label] || 0) + 1;
+  });
+  // Sort by count descending, Unclassified last
+  const sortedTypes = Object.entries(typeCounts).sort((a, b) => {
+    if (a[0] === 'Unclassified') return 1;
+    if (b[0] === 'Unclassified') return -1;
+    return b[1] - a[1];
+  });
+  const TABS = [
+    { key: 'all', label: 'All Accounts', count: accounts.length },
+    ...sortedTypes.map(([label, count]) => ({ key: label, label, count })),
+  ];
+
   const toggleChip = (c) => setActiveChips(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
-  let filteredAccounts = activeTab === 'all' ? accounts : accounts.filter(a => matchTab(a, activeTab));
+  let filteredAccounts = activeTab === 'all' ? accounts : accounts.filter(a => {
+    const raw = (a.account_type || a.type || a.tabKey || '').trim() || 'Unclassified';
+    return raw === activeTab;
+  });
   if (activeChips.length > 0) {
     filteredAccounts = filteredAccounts.filter(a => {
       const loc = (a.city || a.location || a.market || '').toLowerCase();
@@ -92,17 +96,17 @@ export default function Accounts({ onSelectAccount, accounts: propAccounts, load
           <div style={S.pageHeader}>
             <div>
               <div style={S.pageTitle}>Ac<em style={{ fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic', color: 'var(--blue2)', fontSize: 36, fontWeight: 400 }}>counts</em></div>
-              <div style={S.pageSub}>68 accounts · 14 owner-user · 22 institutional · 12 active deals</div>
+              <div style={S.pageSub}>{accounts.length} accounts{sortedTypes.slice(0, 3).map(([l, c]) => ` · ${c} ${l.toLowerCase()}`).join('')}</div>
             </div>
           </div>
 
           {/* KPI STRIP */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
             {[
-              { icon: '🏢', color: 'blue', val: '68', label: 'Total Accounts' },
-              { icon: '◈', color: 'green', val: '12', label: 'Active Deals', valColor: 'var(--green)' },
-              { icon: '👤', color: 'amber', val: '94', label: 'Total Contacts' },
-              { icon: '⚡', color: 'rust', val: '18', label: 'Hot Leads Linked', valColor: 'var(--rust)' },
+              { icon: '🏢', color: 'blue', val: String(accounts.length), label: 'Total Accounts' },
+              { icon: '◈', color: 'green', val: String(sortedTypes.length), label: 'Account Types', valColor: 'var(--green)' },
+              { icon: '👤', color: 'amber', val: String(accounts.filter(a => a.city || a.location).length), label: 'With Location' },
+              { icon: '⚡', color: 'rust', val: String(accounts.filter(a => a.account_type || a.type).length), label: 'Classified', valColor: 'var(--rust)' },
             ].map((k, i) => (
               <div key={i} style={S.kpiCard}>
                 <div style={{ width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0, background: `var(--${k.color}-bg)`, color: `var(--${k.color})` }}>{k.icon}</div>

@@ -163,8 +163,6 @@ export default function Layout({ children }) {
     </div>
   );
 } 
-  );
-}
 
 function ClerestoryEye() {
   return (

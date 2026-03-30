@@ -176,26 +176,48 @@ export default function Layout({ children }) {
 
 function ClerestoryEye() {
   return (
-    <svg className="cl-eye-mark" width="40" height="40" viewBox="0 0 32 32" fill="none">
-      <circle cx="16" cy="16" r="15" fill="#293A52" />
-      <defs>
-        <linearGradient id="b1" x1="16" y1="6" x2="10" y2="22" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#FFF" stopOpacity=".85"/><stop offset="50%" stopColor="#89A8C6" stopOpacity=".45"/><stop offset="100%" stopColor="#89A8C6" stopOpacity="0"/>
-        </linearGradient>
-        <linearGradient id="b2" x1="16" y1="6" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#FFF" stopOpacity=".85"/><stop offset="50%" stopColor="#89A8C6" stopOpacity=".45"/><stop offset="100%" stopColor="#89A8C6" stopOpacity="0"/>
-        </linearGradient>
-        <linearGradient id="b3" x1="16" y1="5" x2="16" y2="23" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#FFF" stopOpacity=".9"/><stop offset="55%" stopColor="#89A8C6" stopOpacity=".5"/><stop offset="100%" stopColor="#89A8C6" stopOpacity="0"/>
-        </linearGradient>
-      </defs>
-      <polygon points="14,7 16,7 10,23 8,23" fill="url(#b1)"/>
-      <polygon points="16,7 18,7 24,23 22,23" fill="url(#b2)"/>
-      <polygon points="15,6 17,6 18,23 14,23" fill="url(#b3)"/>
-      <path d="M4,16 Q10,9 16,9 Q22,9 28,16 Q22,23 16,23 Q10,23 4,16 Z" fill="none" stroke="#FFF" strokeWidth="1.2" strokeOpacity=".9"/>
-      <circle cx="16" cy="16" r="4.5" fill="#4E6E96"/>
-      <circle cx="14.5" cy="14.5" r="1.2" fill="#FFF" opacity=".7"/>
-    </svg>
+    <div style={{
+      width: 48, height: 48,
+      background: '#293A52',
+      borderRadius: 10,
+      overflow: 'hidden',
+      flexShrink: 0,
+    }}>
+      <svg width="48" height="48" viewBox="0 0 52 52">
+        <defs>
+          <linearGradient id="b1" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#FFFFFF" stopOpacity="1"/>
+            <stop offset="30%" stopColor="#E8F0F8" stopOpacity=".85"/>
+            <stop offset="70%" stopColor="#B8D0E4" stopOpacity=".3"/>
+            <stop offset="100%" stopColor="#89A8C6" stopOpacity="0"/>
+          </linearGradient>
+          <linearGradient id="b2" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#E0ECF6" stopOpacity=".9"/>
+            <stop offset="40%" stopColor="#C0D4E6" stopOpacity=".5"/>
+            <stop offset="100%" stopColor="#A0BADA" stopOpacity="0"/>
+          </linearGradient>
+          <linearGradient id="b3" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#D0E0EE" stopOpacity=".6"/>
+            <stop offset="50%" stopColor="#B0C4DA" stopOpacity=".2"/>
+            <stop offset="100%" stopColor="#89A8C6" stopOpacity="0"/>
+          </linearGradient>
+          <linearGradient id="b4" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#C0D4E6" stopOpacity=".35"/>
+            <stop offset="100%" stopColor="#89A8C6" stopOpacity="0"/>
+          </linearGradient>
+        </defs>
+        <rect x="3" y="3" width="10" height="8" rx="1.5" fill="#A8C0D8"/>
+        <rect x="4" y="3.5" width="4" height="3" rx=".5" fill="#F0F6FB" opacity=".9"/>
+        <rect x="15" y="3" width="10" height="8" rx="1.5" fill="#9AB6D0" opacity=".8"/>
+        <rect x="27" y="3" width="10" height="8" rx="1.5" fill="#9AB6D0" opacity=".5"/>
+        <rect x="39" y="3" width="10" height="8" rx="1.5" fill="#9AB6D0" opacity=".28"/>
+        <rect x="0" y="10" width="52" height="2" fill="#1A2535"/>
+        <polygon points="3,12 13,12 16,50 0,50" fill="url(#b1)" opacity=".95"/>
+        <polygon points="15,12 25,12 26,50 14,50" fill="url(#b2)" opacity=".75"/>
+        <polygon points="27,12 37,12 36,50 26,50" fill="url(#b3)" opacity=".55"/>
+        <polygon points="39,12 49,12 52,50 36,50" fill="url(#b4)" opacity=".4"/>
+      </svg>
+    </div>
   );
 }
 

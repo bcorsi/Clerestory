@@ -10,8 +10,8 @@
 :root {
   /* Colors */
   --bg:             #F4F1EC;   /* parchment — page background */
-  --sidebar-bg:     #F0EDE7;   /* light warm — sidebar */
-  --sidebar-border: rgba(0, 0, 0, 0.07);
+  --sidebar-bg:     #E5E0D6;   /* warm tan — sidebar */
+  --sidebar-border: rgba(0, 0, 0, 0.09);
 
   --card-bg:        #FFFFFF;
   --card-border:    rgba(0, 0, 0, 0.065);

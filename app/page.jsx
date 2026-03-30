@@ -140,7 +140,7 @@ export default function CommandCenter() {
           </em>.
         </h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', color: 'var(--text-tertiary)' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-tertiary)' }}>
             {loading ? '...' : `${fmt(kpis?.activeDeals)} active deals · ${overdueCount > 0 ? `${overdueCount} overdue · ` : ''}${todayCount} tasks today · ${warnAlerts.length} WARN alerts`}
           </span>
           {/* Morning/Evening toggle */}

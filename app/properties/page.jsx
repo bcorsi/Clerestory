@@ -343,7 +343,7 @@ function PropertyRow({ prop, selected, onClick }) {
 
       {/* Tenant */}
       <td style={{ fontSize: 13, color: 'var(--text-primary)', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {prop.tenant || <span style={{ color: 'var(--text-tertiary)' }}>Vacant</span>}
+        {prop.tenant || <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
       </td>
 
       {/* Lease expiry */}

@@ -28,7 +28,7 @@ export default function LeadsPage() {
   const [selectedLead, setSelectedLead] = useState(null);
 
   const [search, setSearch]         = useState('');
-  const [statusFilter, setStatus]   = useState('active');
+  const [statusFilter, setStatus]   = useState('');
   const [sortBy, setSortBy]         = useState('score');
   const [sortDir, setSortDir]       = useState('desc');
   const [page, setPage]             = useState(0);
@@ -42,11 +42,11 @@ export default function LeadsPage() {
       const supabase = createClient();
       let query = supabase
         .from('leads')
-        .select('id, company_name, address, city, score, status, catalyst_tags, contact_name, contact_phone, contact_email, follow_up_date, notes, building_sf, owner, created_at, updated_at', { count: 'exact' })
+        .select('id, lead_name, company, address, city, score, stage, catalyst_tags, decision_maker, phone, email, next_action_date, notes, building_sf, owner, est_value, priority, created_at, updated_at', { count: 'exact' })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-      if (statusFilter) query = query.eq('status', statusFilter);
-      if (search) query = query.or(`company_name.ilike.%${search}%,address.ilike.%${search}%,city.ilike.%${search}%`);
+      if (statusFilter) query = query.eq('stage', statusFilter);
+      if (search) query = query.or(`company.ilike.%${search}%,address.ilike.%${search}%,city.ilike.%${search}%`);
       query = query.order(sortBy, { ascending: sortDir === 'asc', nullsFirst: false });
 
       const { data, error, count } = await query;
@@ -94,11 +94,11 @@ export default function LeadsPage() {
         />
         <div className="cl-tabs" style={{ margin: 0, border: 'none' }}>
           {[
-            { k: 'active',    l: 'Active' },
-            { k: '',          l: 'All' },
-            { k: 'watch',     l: 'Watch' },
-            { k: 'contacted', l: 'Contacted' },
-            { k: 'converted', l: 'Converted' },
+            { k: '',                      l: 'All' },
+            { k: 'New',                   l: 'New' },
+            { k: 'Contacted',             l: 'Contacted' },
+            { k: 'Decision Maker Identified', l: 'Decision Maker' },
+            { k: 'Converted',             l: 'Converted' },
           ].map(f => (
             <button key={f.k} className={`cl-tab ${statusFilter === f.k ? 'cl-tab--active' : ''}`}
               onClick={() => { setStatus(f.k); setPage(0); }} style={{ padding: '6px 12px' }}>
@@ -108,9 +108,9 @@ export default function LeadsPage() {
         </div>
         <select className="cl-select" value={sortBy} onChange={e => setSortBy(e.target.value)}>
           <option value="score">Sort: Score</option>
-          <option value="follow_up_date">Sort: Follow Up</option>
+          <option value="next_action_date">Sort: Follow Up</option>
           <option value="updated_at">Sort: Recent</option>
-          <option value="company_name">Sort: Name</option>
+          <option value="company">Sort: Name</option>
         </select>
       </div>
 
@@ -121,13 +121,13 @@ export default function LeadsPage() {
             <tr>
               {[
                 { key: 'score',        label: 'Score',      width: 80 },
-                { key: 'company_name', label: 'Company',    width: null },
+                { key: 'company', label: 'Company',    width: null },
                 { key: 'address',      label: 'Address',    width: 200 },
                 { key: 'city',         label: 'City',       width: 130 },
                 { key: 'building_sf',  label: 'SF',         width: 100 },
-                { key: 'contact_name', label: 'Contact',    width: 150 },
-                { key: 'status',       label: 'Status',     width: 100 },
-                { key: 'follow_up_date', label: 'Follow Up', width: 110 },
+                { key: 'decision_maker', label: 'Contact',    width: 150 },
+                { key: 'stage',       label: 'Status',     width: 100 },
+                { key: 'next_action_date', label: 'Follow Up', width: 110 },
                 { key: 'catalyst_tags', label: 'Catalysts', width: 200 },
               ].map(col => (
                 <th key={col.key} style={{
@@ -188,9 +188,9 @@ export default function LeadsPage() {
         open={!!selectedId}
         onClose={() => { setSelectedId(null); setSelectedLead(null); }}
         fullPageHref={selectedId ? `/leads/${selectedId}` : undefined}
-        title={selectedLead?.company_name || 'Lead Detail'}
+        title={selectedLead?.lead_name || selectedLead?.company || 'Lead Detail'}
         subtitle={selectedLead ? [selectedLead.address, selectedLead.city].filter(Boolean).join(' · ') : ''}
-        badge={selectedLead?.status ? { label: selectedLead.status, color: 'blue' } : undefined}
+        badge={selectedLead?.stage ? { label: selectedLead.stage, color: 'blue' } : undefined}
       >
         {selectedLead && <LeadDetail lead={selectedLead} onRefresh={loadLeads} />}
       </SlideDrawer>
@@ -202,11 +202,15 @@ export default function LeadsPage() {
 function LeadRow({ lead, selected, onClick }) {
   const tags = Array.isArray(lead.catalyst_tags) ? lead.catalyst_tags : [];
   const scoreColor = lead.score != null ? SCORE_COLOR(lead.score) : 'var(--text-tertiary)';
-  const followUpPast = lead.follow_up_date && new Date(lead.follow_up_date) < new Date();
+  const followUpPast = lead.next_action_date && new Date(lead.next_action_date) < new Date();
 
   const statusColors = {
-    active: 'green', watch: 'blue', contacted: 'amber',
-    cold: 'gray', converted: 'purple', dead: 'gray'
+    'New': 'blue',
+    'Contacted': 'amber',
+    'Decision Maker Identified': 'purple',
+    'Under Review': 'amber',
+    'Converted': 'green',
+    'Killed': 'gray',
   };
 
   return (
@@ -235,9 +239,11 @@ function LeadRow({ lead, selected, onClick }) {
       {/* Company */}
       <td style={{ padding: '12px 14px' }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--blue)', cursor: 'pointer' }}>
-          {lead.company_name || 'Unnamed Lead'}
+          {lead.lead_name || lead.company || 'Unnamed Lead'}
         </div>
-        {lead.owner && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{lead.owner}</div>}
+        {lead.company && lead.lead_name && lead.company !== lead.lead_name && (
+          <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{lead.company}</div>
+        )}
       </td>
 
       {/* Address */}
@@ -257,18 +263,18 @@ function LeadRow({ lead, selected, onClick }) {
 
       {/* Contact */}
       <td style={{ padding: '12px 14px' }}>
-        {lead.contact_name ? (
+        {lead.decision_maker ? (
           <div>
-            <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>{lead.contact_name}</div>
-            {lead.contact_phone && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 1 }}>{lead.contact_phone}</div>}
+            <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>{lead.decision_maker}</div>
+            {lead.phone && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 1 }}>{lead.phone}</div>}
           </div>
         ) : <span style={{ color: 'var(--text-tertiary)', fontSize: 12 }}>—</span>}
       </td>
 
       {/* Status */}
       <td style={{ padding: '12px 14px' }}>
-        <span className={`cl-badge cl-badge-${statusColors[lead.status] || 'gray'}`} style={{ fontSize: 11 }}>
-          {lead.status || '—'}
+        <span className={`cl-badge cl-badge-${statusColors[lead.stage] || 'gray'}`} style={{ fontSize: 11 }}>
+          {lead.stage || '—'}
         </span>
       </td>
 
@@ -277,7 +283,7 @@ function LeadRow({ lead, selected, onClick }) {
         color: followUpPast ? 'var(--rust)' : 'var(--text-secondary)',
         fontWeight: followUpPast ? 600 : 400,
       }}>
-        {lead.follow_up_date ? new Date(lead.follow_up_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
+        {lead.next_action_date ? new Date(lead.next_action_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
         {followUpPast && <span style={{ marginLeft: 4 }}>⚠</span>}
       </td>
 
@@ -333,9 +339,9 @@ function LeadDetail({ lead, onRefresh }) {
           </div>
         )}
         {[
-          { label: 'STATUS',    value: lead.status || '—' },
+          { label: 'STATUS',    value: lead.stage || '—' },
           { label: 'SF',        value: lead.building_sf ? fmt(lead.building_sf) : '—' },
-          { label: 'FOLLOW UP', value: lead.follow_up_date ? new Date(lead.follow_up_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—' },
+          { label: 'FOLLOW UP', value: lead.next_action_date ? new Date(lead.next_action_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—' },
         ].map(kpi => (
           <div key={kpi.label} style={{ background: 'rgba(0,0,0,0.025)', borderRadius: 'var(--radius-md)', padding: '10px 12px', border: '1px solid var(--card-border)' }}>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.1em', color: 'var(--text-tertiary)', marginBottom: 4 }}>{kpi.label}</div>
@@ -374,20 +380,20 @@ function LeadDetail({ lead, onRefresh }) {
       {activeTab === 'overview' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {/* Contact info */}
-          {(lead.contact_name || lead.contact_phone || lead.contact_email) && (
+          {(lead.decision_maker || lead.phone || lead.email) && (
             <div className="cl-card" style={{ padding: '14px 16px' }}>
               <div className="cl-card-title" style={{ marginBottom: 10 }}>CONTACT</div>
-              {lead.contact_name && <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>{lead.contact_name}</div>}
-              {lead.contact_phone && (
+              {lead.decision_maker && <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>{lead.decision_maker}</div>}
+              {lead.phone && (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 3 }}>
                   <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>📞</span>
-                  <a href={`tel:${lead.contact_phone}`} style={{ fontSize: 13, color: 'var(--blue)', textDecoration: 'none' }}>{lead.contact_phone}</a>
+                  <a href={`tel:${lead.phone}`} style={{ fontSize: 13, color: 'var(--blue)', textDecoration: 'none' }}>{lead.phone}</a>
                 </div>
               )}
-              {lead.contact_email && (
+              {lead.email && (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>✉️</span>
-                  <a href={`mailto:${lead.contact_email}`} style={{ fontSize: 13, color: 'var(--blue)', textDecoration: 'none' }}>{lead.contact_email}</a>
+                  <a href={`mailto:${lead.email}`} style={{ fontSize: 13, color: 'var(--blue)', textDecoration: 'none' }}>{lead.email}</a>
                 </div>
               )}
             </div>

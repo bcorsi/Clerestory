@@ -102,17 +102,27 @@ export default function Layout({ children }) {
     <div className="cl-shell">
       {/* Sidebar */}
       <aside className={`cl-sidebar ${collapsed ? 'cl-sidebar--collapsed' : ''}`}>
-        <div className="cl-logo-wrap">
-          <Link href="/" className="cl-logo-link">
-            <ClerestoryEye />
-            {!collapsed && <span className="cl-wordmark" style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>Clerestory</span>}
-          </Link>
-          <button className="cl-collapse-btn" onClick={() => setCollapsed(c => !c)}>
-            {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
-          </button>
+    <div className="cl-logo-wrap">
+  <Link href="/" className="cl-logo-link" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+      <ClerestoryEye />
+      {!collapsed && (
+        <div style={{ fontFamily: "'Instrument Sans', sans-serif", fontSize: 34, fontWeight: 500, color: '#15120D', lineHeight: 1, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center' }}>
+          Clerest<svg width="23" height="34" viewBox="0 0 18 24" style={{ display: 'inline-block', margin: '0 1px' }}><path d="M1,12 C4.5,4.5 13.5,4.5 17,12 C13.5,19.5 4.5,19.5 1,12 Z" fill="none" stroke="#15120D" strokeWidth="1.3"/><circle cx="9" cy="12" r="3.2" fill="#4E6E96"/><circle cx="7.6" cy="10.5" r="0.9" fill="#C8DAE8"/></svg>ry
         </div>
-
-        <nav className="cl-nav">
+      )}
+    </div>
+    {!collapsed && (
+      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 14.5, fontStyle: 'italic', fontWeight: 300, color: '#78726A', marginTop: 10, paddingLeft: 2 }}>
+        See the deal before it's a deal.
+      </div>
+    )}
+  </Link>
+  <button className="cl-collapse-btn" onClick={() => setCollapsed(c => !c)}>
+    {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+  </button>
+</div>    
+            <nav className="cl-nav">
           {NAV_SECTIONS.map(section => (
             <div key={section.label} className="cl-nav-section">
               {!collapsed && <span className="cl-nav-section-label">{section.label}</span>}

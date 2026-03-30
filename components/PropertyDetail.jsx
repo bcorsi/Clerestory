@@ -130,12 +130,12 @@ export default function PropertyDetail({ id, inline = false }) {
         marginBottom: 20,
       }}>
         {[
-          { label: 'SIZE',         value: property.size_sf ? `${Number(property.size_sf).toLocaleString()} SF` : '—' },
+          { label: 'SIZE',         value: property.building_sf ? `${Number(property.building_sf).toLocaleString()} SF` : '—' },
           { label: 'YEAR BUILT',   value: property.year_built || '—' },
-          { label: 'CLEAR HT',     value: property.clear_height_ft ? `${property.clear_height_ft}'` : '—' },
+          { label: 'CLEAR HT',     value: property.clear_height ? `${property.clear_height}'` : '—' },
           { label: 'ZONING',       value: property.zoning || '—' },
-          { label: 'ASKING RENT',  value: property.asking_rent ? `$${Number(property.asking_rent).toFixed(2)}/SF` : '—' },
-          { label: 'LEASE EXP',    value: property.lease_expiry ? new Date(property.lease_expiry).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—' },
+          { label: 'IN-PLACE RENT',  value: property.in_place_rent ? `$${Number(property.in_place_rent).toFixed(2)}/SF` : '—' },
+          { label: 'LEASE EXP',    value: property.lease_expiration ? new Date(property.lease_expiration).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—' },
         ].map(kpi => (
           <div key={kpi.label} style={{
             background: 'rgba(0,0,0,0.025)',
@@ -154,7 +154,7 @@ export default function PropertyDetail({ id, inline = false }) {
       </div>
 
       {/* ── BUILDING SCORE ── */}
-      {property.score != null && (
+      {property.ai_score != null && (
         <div className="cl-card" style={{ marginBottom: 16, padding: '14px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <span className="cl-card-title">BUILDING SCORE</span>
@@ -162,9 +162,9 @@ export default function PropertyDetail({ id, inline = false }) {
               fontFamily: 'var(--font-display)',
               fontSize: 22,
               fontWeight: 700,
-              color: property.score >= 75 ? 'var(--rust)' : property.score >= 50 ? 'var(--amber)' : 'var(--blue)',
+              color: property.ai_score >= 75 ? 'var(--rust)' : property.ai_score >= 50 ? 'var(--amber)' : 'var(--blue)',
             }}>
-              {property.score}
+              {property.ai_score}
             </span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -276,7 +276,7 @@ function OverviewTab({ property }) {
         <div className="cl-card-title" style={{ marginBottom: 8 }}>AI PROPERTY SIGNAL</div>
         <p style={{ fontFamily: 'var(--font-editorial)', fontStyle: 'italic', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
           {property.tenant
-            ? `${property.tenant} occupies ${Number(property.size_sf || 0).toLocaleString()} SF${property.lease_expiry ? `, lease expiring ${new Date(property.lease_expiry).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}` : ''}. ${property.score >= 60 ? 'Strong catalyst signal — recommend proactive outreach to ownership.' : 'Monitor for emerging signals.'}`
+            ? `${property.tenant} occupies ${Number(property.building_sf || 0).toLocaleString()} SF${property.lease_expiration ? `, lease expiring ${new Date(property.lease_expiration).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}` : ''}. ${property.ai_score >= 60 ? 'Strong catalyst signal — recommend proactive outreach to ownership.' : 'Monitor for emerging signals.'}`
             : 'No tenant on record. Vacancy is a primary catalyst — contact owner directly regarding repositioning or sale.'}
         </p>
       </div>

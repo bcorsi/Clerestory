@@ -84,7 +84,7 @@ export default function DealsPage() {
       const supabase = createClient();
       let query = supabase
         .from('deals')
-        .select('id, name, stage, asking_price, commission_est, size_sf, address, city, tenant, created_at, updated_at, property_id, close_date, deal_type, notes')
+        .select('id, deal_name, stage, deal_type, strategy, deal_value, commission_est, commission_rate, address, submarket, priority, close_date, notes, tenant_name, buyer, seller, probability, created_at, updated_at')
         .order('updated_at', { ascending: false });
 
       if (stageFilter === 'active') {
@@ -113,7 +113,7 @@ export default function DealsPage() {
     return acc;
   }, {});
 
-  const totalValue = deals.filter(d => d.asking_price).reduce((s, d) => s + Number(d.asking_price), 0);
+  const totalValue = deals.filter(d => d.deal_value).reduce((s, d) => s + Number(d.deal_value), 0);
   const totalCommission = deals.filter(d => COMMISSION_STAGES.includes(d.stage) && d.commission_est).reduce((s, d) => s + Number(d.commission_est), 0);
   const activeCount = deals.filter(d => !['Closed Won','Closed Lost','Dead'].includes(d.stage)).length;
 
@@ -266,8 +266,8 @@ export default function DealsPage() {
                   <tr key={deal.id} onClick={() => handleSelect(deal)}
                     style={{ background: selectedId === deal.id ? 'rgba(78,110,150,0.05)' : undefined }}>
                     <td>
-                      <div style={{ fontWeight: 500, fontSize: 13 }}>{deal.name}</div>
-                      {deal.address && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 1 }}>{deal.address}{deal.city ? `, ${deal.city}` : ''}</div>}
+                      <div style={{ fontWeight: 500, fontSize: 13 }}>{deal.deal_name}</div>
+                      {deal.address && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 1 }}>{deal.address}{deal.submarket ? `, ${deal.submarket}` : ''}</div>}
                     </td>
                     <td>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, padding: '3px 7px', borderRadius: 'var(--radius-pill)', background: sc.bg, color: sc.color, whiteSpace: 'nowrap' }}>
@@ -276,9 +276,9 @@ export default function DealsPage() {
                     </td>
                     <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{deal.deal_type || '—'}</td>
                     <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>
-                      {deal.size_sf ? `${fmt(deal.size_sf)} SF` : '—'}
+                      {deal.building_sf ? `${fmt(deal.building_sf)} SF` : '—'}
                     </td>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{deal.asking_price ? fmtM(deal.asking_price) : '—'}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{deal.deal_value ? fmtM(deal.deal_value) : '—'}</td>
                     <td>
                       {showComm && deal.commission_est ? (
                         <span className="cl-commission">{fmtM(deal.commission_est)}</span>
@@ -300,7 +300,7 @@ export default function DealsPage() {
         open={!!selectedId}
         onClose={() => { setSelectedId(null); setSelectedDeal(null); }}
         fullPageHref={selectedId ? `/deals/${selectedId}` : undefined}
-        title={selectedDeal?.name || ''}
+        title={selectedDeal?.deal_name || ''}
         subtitle={selectedDeal ? [selectedDeal.address, selectedDeal.city].filter(Boolean).join(' · ') : ''}
         badge={selectedDeal?.stage ? { label: selectedDeal.stage, color: 'blue' } : undefined}
       >
@@ -327,17 +327,17 @@ function DealCard({ deal, selected, onClick }) {
     onMouseLeave={e => { if (!selected) e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)'; }}
     >
       <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, lineHeight: 1.3, color: 'var(--text-primary)' }}>
-        {deal.name}
+        {deal.deal_name}
       </div>
-      {(deal.address || deal.city) && (
+      {(deal.address || deal.submarket) && (
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-tertiary)', marginBottom: 8, letterSpacing: '0.03em' }}>
-          {deal.city || deal.address}
+          {deal.submarket || deal.address}
         </div>
       )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
-        {deal.asking_price && (
+        {deal.deal_value && (
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-secondary)' }}>
-            {fmtM(deal.asking_price)}
+            {fmtM(deal.deal_value)}
           </span>
         )}
         {showComm && deal.commission_est && (
@@ -412,8 +412,8 @@ function DealDetail({ deal, id, onRefresh }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 18 }}>
         {[
           { label: 'TYPE',       value: d.deal_type || '—' },
-          { label: 'SIZE',       value: d.size_sf ? `${fmt(d.size_sf)} SF` : '—' },
-          { label: 'VALUE',      value: d.asking_price ? fmtM(d.asking_price) : '—' },
+          { label: 'SIZE',       value: d.building_sf ? `${fmt(d.building_sf)} SF` : '—' },
+          { label: 'VALUE',      value: d.deal_value ? fmtM(d.deal_value) : '—' },
           { label: 'COMMISSION', value: showComm && d.commission_est ? fmtM(d.commission_est) : '—', color: showComm ? 'var(--green)' : undefined },
         ].map(kpi => (
           <div key={kpi.label} style={{ background: 'rgba(0,0,0,0.025)', borderRadius: 'var(--radius-md)', padding: '10px 12px', border: '1px solid var(--card-border)' }}>
@@ -462,8 +462,8 @@ function DealDetail({ deal, id, onRefresh }) {
           <div className="cl-card" style={{ padding: '14px 16px', borderLeft: '3px solid var(--blue3)' }}>
             <div className="cl-card-title" style={{ marginBottom: 8 }}>UNDERWRITING</div>
             <p style={{ fontFamily: 'var(--font-editorial)', fontStyle: 'italic', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 12 }}>
-              {d.asking_price
-                ? `Deal value ${fmtM(d.asking_price)}${d.size_sf ? ` · ${(Number(d.asking_price)/Number(d.size_sf)).toFixed(0)}/SF implied` : ''}. Run full underwriting model to analyze returns.`
+              {d.deal_value
+                ? `Deal value ${fmtM(d.deal_value)}${d.building_sf ? ` · ${(Number(d.deal_value)/Number(d.building_sf)).toFixed(0)}/SF implied` : ''}. Run full underwriting model to analyze returns.`
                 : 'No underwriting data yet. Add deal value to begin analysis.'}
             </p>
             <button className="cl-btn cl-btn-secondary cl-btn-sm">Export Excel Model</button>

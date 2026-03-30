@@ -29,15 +29,19 @@ const STATUS_COLORS = {
 };
 
 const COLUMNS = [
-  { key: 'ai_score',          label: 'Score',      width: 64,  sortable: true },
-  { key: 'address',        label: 'Address',    width: null, sortable: true },
-  { key: 'city',           label: 'City',       width: 120, sortable: true },
-  { key: 'building_sf',        label: 'SF',         width: 90,  sortable: true },
-  { key: 'tenant',         label: 'Tenant',     width: 160, sortable: true },
-  { key: 'lease_expiration',   label: 'Exp.',       width: 88,  sortable: true },
-  { key: 'in_place_rent',    label: '$/SF',       width: 72,  sortable: true },
-  { key: 'vacancy_status',         label: 'Status',     width: 90,  sortable: false },
-  { key: 'catalyst_tags',  label: 'Catalysts',  width: 160, sortable: false },
+  { key: 'ai_score',        label: 'Score',      width: 80,  sortable: true },
+  { key: 'address',         label: 'Address',    width: null, sortable: true },
+  { key: 'city',            label: 'City',       width: 130, sortable: true },
+  { key: 'prop_type',       label: 'Type',       width: 110, sortable: true },
+  { key: 'building_sf',     label: 'Bldg SF',    width: 100, sortable: true },
+  { key: 'land_acres',      label: 'Acres',      width: 72,  sortable: true },
+  { key: 'clear_height',    label: 'Clear Ht',   width: 80,  sortable: true },
+  { key: 'year_built',      label: 'Year',       width: 70,  sortable: true },
+  { key: 'tenant',          label: 'Tenant',     width: 170, sortable: true },
+  { key: 'lease_expiration',label: 'Exp.',       width: 88,  sortable: true },
+  { key: 'in_place_rent',   label: '$/SF',       width: 72,  sortable: true },
+  { key: 'vacancy_status',  label: 'Status',     width: 110, sortable: false },
+  { key: 'catalyst_tags',   label: 'Catalysts',  width: 180, sortable: false },
 ];
 
 export default function PropertiesPage() {
@@ -68,7 +72,7 @@ export default function PropertiesPage() {
       const supabase = createClient();
       let query = supabase
         .from('properties')
-        .select('id, address, city, zip, building_sf, tenant, lease_expiration, in_place_rent, vacancy_status, ai_score, catalyst_tags, year_built, clear_height, zoning, owner, prop_type', { count: 'exact' })
+        .select('id, address, city, zip, building_sf, land_acres, tenant, lease_expiration, in_place_rent, vacancy_status, ai_score, building_grade, catalyst_tags, year_built, clear_height, zoning, owner, prop_type', { count: 'exact' })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
       if (search) {
@@ -165,14 +169,28 @@ export default function PropertiesPage() {
       </div>
 
       {/* Table */}
-      <div className="cl-table-wrap">
-        <table className="cl-table">
+      <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--card-border)', boxShadow: 'var(--card-shadow)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card-bg)', fontSize: 14, minWidth: 1400 }}>
           <thead>
             <tr>
               {COLUMNS.map(col => (
                 <th
                   key={col.key}
-                  style={{ width: col.width || undefined, cursor: col.sortable ? 'pointer' : 'default' }}
+                  style={{
+                    width: col.width || undefined,
+                    cursor: col.sortable ? 'pointer' : 'default',
+                    background: 'rgba(0,0,0,0.025)',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 10,
+                    fontWeight: 500,
+                    letterSpacing: '0.1em',
+                    color: 'var(--text-tertiary)',
+                    textTransform: 'uppercase',
+                    padding: '12px 14px',
+                    textAlign: 'left',
+                    borderBottom: '1px solid var(--card-border)',
+                    whiteSpace: 'nowrap',
+                  }}
                   onClick={() => col.sortable && handleSort(col.key)}
                 >
                   {col.label}
@@ -245,7 +263,7 @@ export default function PropertiesPage() {
         onClose={handleClose}
         fullPageHref={selectedId ? `/properties/${selectedId}` : undefined}
         title={selectedProp?.address || ''}
-        subtitle={selectedProp ? `${selectedProp.city}${selectedProp.size_sf ? ` · ${Number(selectedProp.size_sf).toLocaleString()} SF` : ''}` : ''}
+        subtitle={selectedProp ? `${selectedProp.city}${selectedProp.building_sf ? ` · ${Number(selectedProp.building_sf).toLocaleString()} SF` : ''}` : ''}
         badge={selectedProp?.vacancy_status ? { label: selectedProp.vacancy_status, color: STATUS_COLORS[selectedProp.vacancy_status] || 'gray' } : undefined}
       >
         {selectedId && <PropertyDetail id={selectedId} inline />}
@@ -258,47 +276,73 @@ export default function PropertiesPage() {
 function PropertyRow({ prop, selected, onClick }) {
   const tags = Array.isArray(prop.catalyst_tags) ? prop.catalyst_tags : [];
 
-  const leaseExpiry = prop.lease_expiration
-    ? new Date(prop.lease_expiration)
-    : null;
-  const monthsToExpiry = leaseExpiry
-    ? Math.round((leaseExpiry - new Date()) / (1000 * 60 * 60 * 24 * 30))
-    : null;
+  const leaseExpiry = prop.lease_expiration ? new Date(prop.lease_expiration) : null;
+  const monthsToExpiry = leaseExpiry ? Math.round((leaseExpiry - new Date()) / (1000 * 60 * 60 * 24 * 30)) : null;
   const expiryUrgent = monthsToExpiry !== null && monthsToExpiry <= 18;
 
   return (
-    <tr
-      onClick={onClick}
-      style={{
-        background: selected ? 'rgba(78, 110, 150, 0.06)' : undefined,
-        outline: selected ? '1px solid rgba(78, 110, 150, 0.2)' : undefined,
-        outlineOffset: -1,
-      }}
+    <tr onClick={onClick} style={{
+      background: selected ? 'rgba(78, 110, 150, 0.06)' : undefined,
+      outline: selected ? '1px solid rgba(78, 110, 150, 0.2)' : undefined,
+      outlineOffset: -1,
+      borderBottom: '1px solid rgba(0,0,0,0.04)',
+      transition: 'background 120ms ease',
+      cursor: 'pointer',
+    }}
+    onMouseEnter={e => { if (!selected) e.currentTarget.style.background = 'rgba(78,110,150,0.03)'; }}
+    onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
     >
-      {/* Score */}
+      {/* Score + Grade */}
       <td>
-        <ScoreRing score={prop.ai_score} />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+          <ScoreRing score={prop.ai_score} />
+          {prop.building_grade && (
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, color: SCORE_COLOR(prop.ai_score || 0) }}>
+              {prop.building_grade}
+            </span>
+          )}
+        </div>
       </td>
 
       {/* Address */}
       <td>
-        <span className="cl-table-link" style={{ fontSize: 13 }}>
+        <span className="cl-table-link" style={{ fontSize: 14, fontWeight: 500 }}>
           {prop.address || '—'}
         </span>
       </td>
 
       {/* City */}
-      <td style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+      <td style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
         {prop.city || '—'}
       </td>
 
-      {/* SF */}
-      <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>
+      {/* Type */}
+      <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+        {prop.prop_type || '—'}
+      </td>
+
+      {/* Bldg SF */}
+      <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>
         {prop.building_sf ? Number(prop.building_sf).toLocaleString() : '—'}
       </td>
 
+      {/* Acres */}
+      <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>
+        {prop.land_acres ? Number(prop.land_acres).toFixed(2) : '—'}
+      </td>
+
+      {/* Clear Height */}
+      <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>
+        {prop.clear_height ? `${prop.clear_height}'` : '—'}
+      </td>
+
+      {/* Year Built */}
+      <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>
+        {prop.year_built || '—'}
+      </td>
+
       {/* Tenant */}
-      <td style={{ fontSize: 12, color: 'var(--text-primary)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <td style={{ fontSize: 13, color: 'var(--text-primary)', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {prop.tenant || <span style={{ color: 'var(--text-tertiary)' }}>Vacant</span>}
       </td>
 
@@ -306,30 +350,25 @@ function PropertyRow({ prop, selected, onClick }) {
       <td>
         {leaseExpiry ? (
           <span style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 11,
+            fontFamily: 'var(--font-mono)', fontSize: 12,
             color: expiryUrgent ? 'var(--rust)' : 'var(--text-secondary)',
             fontWeight: expiryUrgent ? 600 : 400,
           }}>
             {leaseExpiry.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
-            {expiryUrgent && monthsToExpiry <= 6 && (
-              <span style={{ marginLeft: 3 }}>⚠</span>
-            )}
+            {expiryUrgent && monthsToExpiry <= 6 && <span style={{ marginLeft: 3 }}>⚠</span>}
           </span>
-        ) : (
-          <span style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>—</span>
-        )}
+        ) : <span style={{ color: 'var(--text-tertiary)', fontSize: 12 }}>—</span>}
       </td>
 
       {/* Rent */}
-      <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>
+      <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>
         {prop.in_place_rent ? `$${Number(prop.in_place_rent).toFixed(2)}` : '—'}
       </td>
 
       {/* Status */}
       <td>
         {prop.vacancy_status ? (
-          <span className={`cl-badge cl-badge-${STATUS_COLORS[prop.vacancy_status] || 'gray'}`}>
+          <span className={`cl-badge cl-badge-${STATUS_COLORS[prop.vacancy_status] || 'gray'}`} style={{ fontSize: 11 }}>
             {prop.vacancy_status}
           </span>
         ) : '—'}
@@ -342,47 +381,42 @@ function PropertyRow({ prop, selected, onClick }) {
             const cat = typeof tag === 'object' ? tag.category : 'asset';
             const lbl = typeof tag === 'object' ? tag.tag : tag;
             return (
-              <span key={i} className={`cl-catalyst cl-catalyst--${cat || 'asset'}`}>
+              <span key={i} className={`cl-catalyst cl-catalyst--${cat || 'asset'}`} style={{ fontSize: 10 }}>
                 {lbl}
               </span>
             );
           })}
           {tags.length > 3 && (
-            <span className="cl-badge cl-badge-gray" style={{ fontSize: 9 }}>
-              +{tags.length - 3}
-            </span>
+            <span className="cl-badge cl-badge-gray" style={{ fontSize: 10 }}>+{tags.length - 3}</span>
           )}
         </div>
       </td>
     </tr>
   );
 }
-
 // ─── SCORE RING ───────────────────────────────────────────
 function ScoreRing({ score }) {
   if (score == null) return <span style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>—</span>;
-  const r = 10;
+  const r = 14;
   const circ = 2 * Math.PI * r;
   const filled = (score / 100) * circ;
   const color = SCORE_COLOR(score);
 
   return (
-    <div className="cl-score-ring" style={{ width: 28, height: 28 }}>
-      <svg width="28" height="28" viewBox="0 0 28 28">
-        <circle cx="14" cy="14" r={r} fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="2.5" />
+    <div className="cl-score-ring" style={{ width: 36, height: 36 }}>
+      <svg width="36" height="36" viewBox="0 0 36 36">
+        <circle cx="18" cy="18" r={r} fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="2.5" />
         <circle
-          cx="14" cy="14" r={r}
+          cx="18" cy="18" r={r}
           fill="none"
           stroke={color}
           strokeWidth="2.5"
           strokeDasharray={`${filled} ${circ - filled}`}
           strokeLinecap="round"
-          transform="rotate(-90 14 14)"
+          transform="rotate(-90 18 18)"
         />
       </svg>
-      <span className="cl-score-ring-value" style={{ fontSize: 9, color }}>
-        {score}
-      </span>
+      <span className="cl-score-ring-value" style={{ fontSize: 10, color }}>{score}</span>
     </div>
   );
 }

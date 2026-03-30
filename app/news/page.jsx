@@ -78,10 +78,41 @@ export default function NewsFeedPage() {
   async function fetchLatestNews() {
     setLoading(true);
     try {
-      await fetch('/api/news', { method: 'POST' });
+      const res = await fetch('/api/news', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (data.articles && data.articles.length > 0) {
+        setArticles(data.articles);
+      } else {
+        await loadArticles();
+      }
+    } catch(e) {
+      console.error(e);
       await loadArticles();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function addKeyword() {
+    const kw = prompt('Enter keyword to track:');
+    if (!kw?.trim()) return;
+    try {
+      const supabase = createClient();
+      await supabase.from('news_keywords').insert({ keyword: kw.trim() });
+      loadKeywords();
     } catch(e) { console.error(e); }
-    finally { setLoading(false); }
+  }
+
+  async function removeKeyword(id) {
+    try {
+      const supabase = createClient();
+      await supabase.from('news_keywords').delete().eq('id', id);
+      loadKeywords();
+    } catch(e) { console.error(e); }
   }
 
   const categories = ['WARN', 'REIT', 'MARKET', 'BESS', 'DEAL', 'TENANT', 'BUYER', 'POLICY'];
@@ -184,11 +215,15 @@ export default function NewsFeedPage() {
               ) : (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {keywords.map(kw => (
-                    <span key={kw.id} className="cl-badge cl-badge-blue" style={{ fontSize: 11 }}>{kw.keyword}</span>
+                    <span key={kw.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                      className="cl-badge cl-badge-blue" style={{ fontSize: 11 }}>
+                      {kw.keyword}
+                      <span onClick={() => removeKeyword(kw.id)} style={{ cursor: 'pointer', opacity: 0.6, marginLeft: 2 }}>×</span>
+                    </span>
                   ))}
                 </div>
               )}
-              <button className="cl-btn cl-btn-secondary cl-btn-sm" style={{ marginTop: 12, width: '100%' }}>
+              <button className="cl-btn cl-btn-secondary cl-btn-sm" onClick={addKeyword} style={{ marginTop: 12, width: '100%' }}>
                 + Add Keyword
               </button>
             </div>

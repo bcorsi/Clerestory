@@ -67,7 +67,12 @@ function CardHeader({ title, action, actionHref }) {
 // ── MAIN PAGE ─────────────────────────────────────────────
 export default function CommandCenter() {
   const hour = new Date().getHours();
-  const [brief, setBrief] = useState(hour >= 5 && hour < 17 ? 'morning' : 'evening');
+  const [brief, setBrief] = useState(() => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('cl_brief') || (hour >= 5 && hour < 17 ? 'morning' : 'evening');
+  }
+  return hour >= 5 && hour < 17 ? 'morning' : 'evening';
+});
   const [loading, setLoading] = useState(true);
   const [kpis, setKpis] = useState(null);
   const [pipeline, setPipeline] = useState([]);
@@ -146,7 +151,7 @@ export default function CommandCenter() {
           {/* Morning/Evening toggle */}
           <div style={{ display: 'flex', gap: 3, background: 'rgba(0,0,0,0.05)', borderRadius: 20, padding: 3, marginLeft: 'auto' }}>
             {['morning','evening'].map(b => (
-              <button key={b} onClick={() => setBrief(b)} style={{
+              <button key={b} onClick={() => { setBrief(b); localStorage.setItem('cl_brief', b); }} style={{
                 padding: '5px 14px', borderRadius: 16,
                 fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 500,
                 border: 'none', cursor: 'pointer', transition: 'all 0.15s',

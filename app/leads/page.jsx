@@ -29,7 +29,7 @@ export default function LeadsPage() {
 
   const [search, setSearch]         = useState('');
   const [statusFilter, setStatus]   = useState('');
-  const [sortBy, setSortBy]         = useState('score');
+  const [sortBy, setSortBy]         = useState('updated_at');
   const [sortDir, setSortDir]       = useState('desc');
   const [page, setPage]             = useState(0);
   const PAGE_SIZE = 50;
@@ -42,7 +42,7 @@ export default function LeadsPage() {
       const supabase = createClient();
       let query = supabase
         .from('leads')
-        .select('id, lead_name, company, address, city, score, stage, catalyst_tags, decision_maker, phone, email, next_action_date, notes, building_sf, owner, est_value, priority, created_at, updated_at', { count: 'exact' })
+        .select('id, lead_name, stage, address, city, submarket, score, priority, tier, company, decision_maker, phone, email, catalyst_tags, next_action_date, last_contact_date, est_value, building_sf, notes, owner, prop_type, created_at, updated_at', { count: 'exact' })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
       if (statusFilter) query = query.eq('stage', statusFilter);
@@ -94,11 +94,12 @@ export default function LeadsPage() {
         />
         <div className="cl-tabs" style={{ margin: 0, border: 'none' }}>
           {[
-            { k: '',                      l: 'All' },
-            { k: 'New',                   l: 'New' },
-            { k: 'Contacted',             l: 'Contacted' },
-            { k: 'Decision Maker Identified', l: 'Decision Maker' },
-            { k: 'Converted',             l: 'Converted' },
+            { k: '',                        l: 'All' },
+            { k: 'New',                     l: 'New' },
+            { k: 'Researching',             l: 'Researching' },
+            { k: 'Decision Maker Identified', l: 'DM Found' },
+            { k: 'Contacted',               l: 'Contacted' },
+            { k: 'Converted',               l: 'Converted' },
           ].map(f => (
             <button key={f.k} className={`cl-tab ${statusFilter === f.k ? 'cl-tab--active' : ''}`}
               onClick={() => { setStatus(f.k); setPage(0); }} style={{ padding: '6px 12px' }}>
@@ -206,9 +207,10 @@ function LeadRow({ lead, selected, onClick }) {
 
   const statusColors = {
     'New': 'blue',
+    'Researching': 'blue',
+    'Decision Maker Identified': 'amber',
     'Contacted': 'amber',
-    'Decision Maker Identified': 'purple',
-    'Under Review': 'amber',
+    'Follow Up': 'amber',
     'Converted': 'green',
     'Killed': 'gray',
   };
@@ -241,9 +243,7 @@ function LeadRow({ lead, selected, onClick }) {
         <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--blue)', cursor: 'pointer' }}>
           {lead.lead_name || lead.company || 'Unnamed Lead'}
         </div>
-        {lead.company && lead.lead_name && lead.company !== lead.lead_name && (
-          <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{lead.company}</div>
-        )}
+        {lead.company && lead.lead_name && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{lead.company}</div>}
       </td>
 
       {/* Address */}

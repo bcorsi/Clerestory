@@ -604,14 +604,66 @@ function WarnDetail({ notice, onCreateLead, onSearchProperty, onClose }) {
             </p>
           </div>
 
+          {/* Inline property search results */}
+          {propResults !== null && (
+            <div className="cl-card" style={{ padding: '14px 16px', marginBottom: 12 }}>
+              <div className="cl-card-title" style={{ marginBottom: 10 }}>
+                PROPERTY DATABASE RESULTS {propResults.length > 0 ? `— ${propResults.length} MATCH${propResults.length > 1 ? 'ES' : ''}` : '— NO MATCHES'}
+              </div>
+              {propResults.length === 0 ? (
+                <p style={{ fontSize: 13, color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                  No properties found matching "{notice.company}" or "{(notice.address || '').split(',')[0]}". This company may not be in your tracked database yet.
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {propResults.map(p => (
+                    <div key={p.id} style={{ padding: '10px 12px', background: 'rgba(78,110,150,0.04)', borderRadius: 8, border: '1px solid rgba(78,110,150,0.12)' }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--blue)', marginBottom: 3 }}>{p.address}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                        {p.city && <span>{p.city}</span>}
+                        {p.building_sf && <span>{Number(p.building_sf).toLocaleString()} SF</span>}
+                        {p.tenant && <span>Tenant: {p.tenant}</span>}
+                        {p.owner && <span>Owner: {p.owner}</span>}
+                        {p.vacancy_status && <span className={`cl-badge cl-badge-${p.vacancy_status === 'Vacant' ? 'rust' : 'green'}`} style={{ fontSize: 9 }}>{p.vacancy_status}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Why this matters */}
           <div className="cl-card" style={{ padding: '14px 16px', borderLeft: '3px solid var(--purple)' }}>
-            <div className="cl-card-title" style={{ marginBottom: 8 }}>WHY THIS MATTERS</div>
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, fontFamily: 'var(--font-editorial)', fontStyle: 'italic' }}>
-              A WARN filing means this tenant is contracting. If they occupy the building, the owner may face vacancy in 60 days.
-              That creates a window to approach the owner before the building hits the market — when you have an information edge
-              every other broker lacks.
-            </p>
+            <div className="cl-card-title" style={{ marginBottom: 10 }}>WHY THIS MATTERS</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 16, flexShrink: 0 }}>⚡</span>
+                <p style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.6, fontWeight: 500 }}>
+                  {notice.company} filed a WARN notice affecting {notice.employees ? `${Number(notice.employees).toLocaleString()} workers` : 'an unknown number of workers'} — effective {fmtDate(notice.effective_date)}.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 16, flexShrink: 0 }}>🏭</span>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  {window60 !== null && window60 > 0
+                    ? `You have ${window60} days before vacancy hits. That's your window to approach the owner before this building goes to market.`
+                    : window60 !== null && window60 <= 0
+                    ? `The effective date has passed — vacancy may already be occurring. Contact the property owner immediately.`
+                    : `The 60-day window is your edge. Other brokers won't know until the space appears on CoStar.`
+                  }
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 16, flexShrink: 0 }}>{notice.matched_property_id ? '✅' : '🔎'}</span>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  {notice.matched_property_id
+                    ? `This filing is matched to a property in your database. Create a lead to start tracking outreach.`
+                    : `This property is not yet in your database. Use Search Property Database above to check, or create a lead and research the owner directly.`
+                  }
+                </p>
+              </div>
+            </div>
           </div>
         </>
       )}

@@ -80,7 +80,7 @@ export default function PropertyDetail({ id, inline = false }) {
       // Leads
       const { data: lds } = await supabase
         .from('leads')
-        .select('id, company_name, status, score, catalyst_tags')
+        .select('id, lead_name, company, stage, score, catalyst_tags')
         .eq('property_id', propId)
         .limit(5);
       setLeads(lds || []);
@@ -130,12 +130,12 @@ export default function PropertyDetail({ id, inline = false }) {
         marginBottom: 20,
       }}>
         {[
-          { label: 'SIZE',         value: property.building_sf ? `${Number(property.building_sf).toLocaleString()} SF` : '—' },
+          { label: 'SIZE',         value: property.size_sf ? `${Number(property.size_sf).toLocaleString()} SF` : '—' },
           { label: 'YEAR BUILT',   value: property.year_built || '—' },
-          { label: 'CLEAR HT',     value: property.clear_height ? `${property.clear_height}'` : '—' },
+          { label: 'CLEAR HT',     value: property.clear_height_ft ? `${property.clear_height_ft}'` : '—' },
           { label: 'ZONING',       value: property.zoning || '—' },
-          { label: 'IN-PLACE RENT',  value: property.in_place_rent ? `$${Number(property.in_place_rent).toFixed(2)}/SF` : '—' },
-          { label: 'LEASE EXP',    value: property.lease_expiration ? new Date(property.lease_expiration).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—' },
+          { label: 'ASKING RENT',  value: property.asking_rent ? `$${Number(property.asking_rent).toFixed(2)}/SF` : '—' },
+          { label: 'LEASE EXP',    value: property.lease_expiry ? new Date(property.lease_expiry).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—' },
         ].map(kpi => (
           <div key={kpi.label} style={{
             background: 'rgba(0,0,0,0.025)',
@@ -154,7 +154,7 @@ export default function PropertyDetail({ id, inline = false }) {
       </div>
 
       {/* ── BUILDING SCORE ── */}
-      {property.ai_score != null && (
+      {property.score != null && (
         <div className="cl-card" style={{ marginBottom: 16, padding: '14px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <span className="cl-card-title">BUILDING SCORE</span>
@@ -162,9 +162,9 @@ export default function PropertyDetail({ id, inline = false }) {
               fontFamily: 'var(--font-display)',
               fontSize: 22,
               fontWeight: 700,
-              color: property.ai_score >= 75 ? 'var(--rust)' : property.ai_score >= 50 ? 'var(--amber)' : 'var(--blue)',
+              color: property.score >= 75 ? 'var(--rust)' : property.score >= 50 ? 'var(--amber)' : 'var(--blue)',
             }}>
-              {property.ai_score}
+              {property.score}
             </span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -276,7 +276,7 @@ function OverviewTab({ property }) {
         <div className="cl-card-title" style={{ marginBottom: 8 }}>AI PROPERTY SIGNAL</div>
         <p style={{ fontFamily: 'var(--font-editorial)', fontStyle: 'italic', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
           {property.tenant
-            ? `${property.tenant} occupies ${Number(property.building_sf || 0).toLocaleString()} SF${property.lease_expiration ? `, lease expiring ${new Date(property.lease_expiration).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}` : ''}. ${property.ai_score >= 60 ? 'Strong catalyst signal — recommend proactive outreach to ownership.' : 'Monitor for emerging signals.'}`
+            ? `${property.tenant} occupies ${Number(property.size_sf || 0).toLocaleString()} SF${property.lease_expiry ? `, lease expiring ${new Date(property.lease_expiry).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}` : ''}. ${property.score >= 60 ? 'Strong catalyst signal — recommend proactive outreach to ownership.' : 'Monitor for emerging signals.'}`
             : 'No tenant on record. Vacancy is a primary catalyst — contact owner directly regarding repositioning or sale.'}
         </p>
       </div>
@@ -458,8 +458,8 @@ function LeadsTab({ leads }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {leads.map(l => (
         <div key={l.id} className="cl-card" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{l.company_name || 'Unnamed Lead'}</span>
-          <span className={`cl-badge cl-badge-${l.status === 'active' ? 'green' : 'gray'}`}>{l.status}</span>
+          <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{l.lead_name || l.company || 'Unnamed Lead'}</span>
+          <span className={`cl-badge cl-badge-${l.stage === 'New' || l.stage === 'Contacted' ? 'blue' : l.stage === 'Converted' ? 'green' : 'gray'}`}>{l.stage || '—'}</span>
           {l.score != null && (
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-secondary)' }}>
               Score: {l.score}

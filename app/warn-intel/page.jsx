@@ -392,7 +392,7 @@ function WarnDetail({ notice, onCreateLead, onSearchProperty, onClose }) {
     is_in_market:   notice.is_in_market || false,
     research_notes: notice.research_notes || '',
   });
-
+  const [leadCreated, setLeadCreated] = useState(!!notice.converted_lead_id);
   const days = daysSince(notice.notice_date);
   const window60 = notice.effective_date
     ? Math.floor((new Date(notice.effective_date) - new Date()) / (1000 * 60 * 60 * 24))

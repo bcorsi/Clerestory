@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import SlideDrawer from '@/components/SlideDrawer';
+import { CATALYST_TAGS, CATALYST_CATEGORIES } from '@/lib/constants';
 
 function fmt(n) { return n != null ? Number(n).toLocaleString() : '—'; }
 function fmtDate(d) {
@@ -20,6 +21,7 @@ export default function WarnIntelPage() {
   const [total, setTotal]             = useState(0);
   const [selectedId, setSelectedId]   = useState(null);
   const [selectedNotice, setSelectedNotice] = useState(null);
+  const [warnModalNotice, setWarnModalNotice] = useState(null);
 
   const [search, setSearch]           = useState('');
   const [filter, setFilter]           = useState('all');
@@ -39,7 +41,7 @@ export default function WarnIntelPage() {
         .order('notice_date', { ascending: false });
 
       if (search) query = query.or(`company.ilike.%${search}%,county.ilike.%${search}%,address.ilike.%${search}%`);
-      if (filter === 'new') query = query.eq('converted_lead_id', false);
+      if (filter === 'new') query = query.is('converted_lead_id', null);
       if (filter === 'matched') query = query.not('matched_property_id', 'is', null);
 
       const { data, error, count } = await query;
@@ -54,49 +56,6 @@ export default function WarnIntelPage() {
     }
   }
 
-  async function createLead(notice) {
-    try {
-      const supabase = createClient();
-
-      // Auto-search for matched property
-      let matchedPropertyId = notice.matched_property_id || null;
-      if (!matchedPropertyId && notice.address) {
-        const streetAddress = notice.address.split(',')[0];
-        const { data: propMatches } = await supabase
-          .from('properties')
-          .select('id')
-          .or(`address.ilike.%${streetAddress}%,tenant.ilike.%${notice.company}%,owner.ilike.%${notice.company}%`)
-          .limit(1);
-        if (propMatches && propMatches.length > 0) {
-          matchedPropertyId = propMatches[0].id;
-          await supabase.from('warn_notices').update({ matched_property_id: matchedPropertyId }).eq('id', notice.id);
-        }
-      }
-
-      const { data: lead, error } = await supabase.from('leads').insert({
-        lead_name: notice.company,
-        company: notice.company,
-        address: notice.address,
-        city: notice.county,
-        stage: 'New',
-        priority: 'Medium',
-        catalyst_tags: JSON.stringify([{ tag: 'WARN Act Filing', category: 'owner', priority: 'high' }]),
-        notes: `WARN filing: ${fmt(notice.employees)} workers affected. Notice: ${fmtDate(notice.notice_date)}. Effective: ${fmtDate(notice.effective_date)}.${matchedPropertyId ? ' Matched to tracked property.' : ''}`,
-        ...(matchedPropertyId ? { property_id: matchedPropertyId } : {}),
-      }).select('id').single();
-
-      if (error) throw error;
-      if (lead?.id) {
-        await supabase.from('warn_notices').update({ converted_lead_id: lead.id }).eq('id', notice.id);
-      }
-      loadNotices();
-      alert(`Lead created for ${notice.company}${matchedPropertyId ? ' — matched to tracked property!' : '.'}`);
-    } catch(e) {
-      console.error('Create lead error:', e);
-      alert('Error creating lead. Check console.');
-    }
-  }
-
   async function handleImportCSV(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -104,7 +63,6 @@ export default function WarnIntelPage() {
     const lines = text.trim().split('\n');
     const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim().toLowerCase());
 
-    // Map common CA EDD WARN CSV column names
     const col = (name) => {
       const aliases = {
         company:        ['company', 'employer', 'employer name', 'company name'],
@@ -282,7 +240,6 @@ export default function WarnIntelPage() {
                   onMouseEnter={e => { if (selectedId !== notice.id) e.currentTarget.style.background = 'rgba(78,110,150,0.03)'; }}
                   onMouseLeave={e => { if (selectedId !== notice.id) e.currentTarget.style.background = isNew ? 'rgba(184,55,20,0.02)' : 'transparent'; }}
                 >
-                  {/* Status */}
                   <td style={{ padding: '12px 14px' }}>
                     {isNew ? (
                       <span className="cl-badge cl-badge-rust" style={{ fontSize: 10 }}>NEW</span>
@@ -290,8 +247,6 @@ export default function WarnIntelPage() {
                       <span className="cl-badge cl-badge-gray" style={{ fontSize: 10 }}>LOGGED</span>
                     )}
                   </td>
-
-                  {/* Company */}
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
                       {notice.company}
@@ -302,51 +257,37 @@ export default function WarnIntelPage() {
                       </div>
                     )}
                   </td>
-
-                  {/* City */}
                   <td style={{ padding: '12px 14px', fontSize: 13, color: 'var(--text-secondary)' }}>
-                    {notice.city || '—'}
+                    {notice.city || notice.county || '—'}
                   </td>
-
-                  {/* Address */}
                   <td style={{ padding: '12px 14px', fontSize: 13, color: 'var(--text-secondary)' }}>
                     {notice.address || '—'}
                   </td>
-
-                  {/* Workers */}
                   <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: 13,
                     color: (notice.employees || 0) >= 200 ? 'var(--rust)' : 'var(--text-secondary)',
                     fontWeight: (notice.employees || 0) >= 200 ? 600 : 400,
                   }}>
                     {notice.employees ? fmt(notice.employees) : '—'}
                   </td>
-
-                  {/* Notice date */}
                   <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: 12,
                     color: isUrgent ? 'var(--rust)' : 'var(--text-secondary)',
                     fontWeight: isUrgent ? 600 : 400,
                   }}>
                     {fmtDate(notice.notice_date)}
                   </td>
-
-                  {/* Effective date */}
                   <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>
                     {fmtDate(notice.effective_date)}
                   </td>
-
-                  {/* Days since */}
                   <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: 12,
                     color: days !== null && days <= 7 ? 'var(--rust)' : days !== null && days <= 30 ? 'var(--amber)' : 'var(--text-tertiary)',
                   }}>
                     {days !== null ? `${days}d ago` : '—'}
                   </td>
-
-                  {/* Action */}
                   <td style={{ padding: '12px 14px' }} onClick={e => e.stopPropagation()}>
                     {isNew ? (
                       <button
                         className="cl-btn cl-btn-primary cl-btn-sm"
-                        onClick={() => createLead(notice)}
+                        onClick={() => setWarnModalNotice(notice)}
                         style={{ fontSize: 11 }}
                       >
                         + Create Lead
@@ -384,8 +325,29 @@ export default function WarnIntelPage() {
         subtitle={selectedNotice ? [selectedNotice.address, selectedNotice.county].filter(Boolean).join(' · ') : ''}
         badge={{ label: 'WARN', color: 'rust' }}
       >
-        {selectedNotice && <WarnDetail notice={selectedNotice} onCreateLead={createLead} onSearchProperty={searchPropertyDatabase} onClose={() => { setSelectedId(null); setSelectedNotice(null); }} />}
+        {selectedNotice && (
+          <WarnDetail
+            notice={selectedNotice}
+            onCreateLead={() => setWarnModalNotice(selectedNotice)}
+            onSearchProperty={searchPropertyDatabase}
+            onClose={() => { setSelectedId(null); setSelectedNotice(null); }}
+          />
+        )}
       </SlideDrawer>
+
+      {/* Create Lead Modal */}
+      {warnModalNotice && (
+        <CreateLeadFromWarnModal
+          notice={warnModalNotice}
+          onClose={() => setWarnModalNotice(null)}
+          onSuccess={() => {
+            setWarnModalNotice(null);
+            setSelectedId(null);
+            setSelectedNotice(null);
+            loadNotices();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -425,9 +387,9 @@ function WarnDetail({ notice, onCreateLead, onSearchProperty, onClose }) {
         .or(`address.ilike.%${streetAddress}%,tenant.ilike.%${notice.company}%,owner.ilike.%${notice.company}%`)
         .limit(5);
       setPropResults(data || []);
-      // Auto-link first match to the notice
       if (data && data.length > 0 && !notice.matched_property_id) {
-        await supabase.from('warn_notices').update({ matched_property_id: data[0].id }).eq('id', notice.id);
+        const supabase2 = createClient();
+        await supabase2.from('warn_notices').update({ matched_property_id: data[0].id }).eq('id', notice.id);
       }
     } catch(e) { console.error(e); setPropResults([]); }
     finally { setPropSearching(false); }
@@ -486,306 +448,6 @@ function WarnDetail({ notice, onCreateLead, onSearchProperty, onClose }) {
         </div>
       )}
 
-// ── CREATE LEAD FROM WARN MODAL ───────────────────────────────
-
-import { CATALYST_TAGS, CATALYST_CATEGORIES, getCatalystStyle } from '@/lib/constants';
-
-function CreateLeadFromWarnModal({ notice, onClose, onSuccess }) {
-  const supabase = createClient();
-  const [saving, setSaving] = useState(false);
-
-  // Auto-suggested catalysts based on WARN filing
-  const autoSuggested = [
-    'WARN Notice',
-    'M&A — Acquisition',
-    'Relocation Risk',
-  ];
-
-  // If matched property has data, add asset signals
-  const [matchedProp, setMatchedProp] = useState(null);
-  const [selectedTags, setSelectedTags] = useState(autoSuggested);
-  const [form, setForm] = useState({
-    lead_name: notice.company || '',
-    company: notice.company || '',
-    address: notice.address || '',
-    city: notice.county || '',
-    stage: 'New',
-    priority: 'High',
-    source: 'WARN Intel',
-    notes: `WARN filing: ${notice.employees ? Number(notice.employees).toLocaleString() : '—'} workers affected. Notice: ${notice.notice_date || '—'}. Effective: ${notice.effective_date || '—'}.`,
-  });
-
-  useEffect(() => {
-    // Search for matched property and pull its data
-    async function findProperty() {
-      if (!notice.address && !notice.company) return;
-      const streetAddress = (notice.address || '').split(',')[0];
-      const { data } = await supabase
-        .from('properties')
-        .select('id, address, city, building_sf, clear_height, year_built, lease_expiration, owner_type, tenant')
-        .or(`address.ilike.%${streetAddress}%,tenant.ilike.%${notice.company}%,owner.ilike.%${notice.company}%`)
-        .limit(1)
-        .single();
-      if (data) {
-        setMatchedProp(data);
-        // Add asset signals based on property data
-        const extra = [];
-        if (data.lease_expiration) {
-          const months = Math.round((new Date(data.lease_expiration) - new Date()) / (1000 * 60 * 60 * 24 * 30));
-          if (months <= 12) extra.push('Lease Exp < 12 Mo');
-          else if (months <= 24) extra.push('Lease Exp 12–24 Mo');
-        }
-        if (data.owner_type === 'Owner-User') extra.push('SLB Potential');
-        if (extra.length > 0) setSelectedTags(prev => [...new Set([...prev, ...extra])]);
-      }
-    }
-    findProperty();
-  }, []);
-
-  function toggleTag(key) {
-    setSelectedTags(prev =>
-      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
-    );
-  }
-
-  // Calculate score from selected tags
-  const score = Math.min(100, selectedTags.reduce((s, key) => {
-    const tag = CATALYST_TAGS.find(t => t.key === key);
-    return s + (tag?.scoreBoost || 5);
-  }, matchedProp ? 20 : 10));
-
-  async function handleCreate() {
-    setSaving(true);
-    try {
-      const catalystPayload = selectedTags.map(key => {
-        const tag = CATALYST_TAGS.find(t => t.key === key);
-        return {
-          tag: tag?.label || key,
-          category: tag ? tag.category.toLowerCase().split(' ')[0] : 'owner',
-          priority: tag?.priority?.toLowerCase() || 'medium',
-        };
-      });
-
-      const { data: lead, error } = await supabase.from('leads').insert({
-        lead_name: form.lead_name,
-        company: form.company,
-        address: form.address,
-        city: form.city,
-        stage: form.stage,
-        priority: form.priority,
-        source: form.source,
-        score,
-        catalyst_tags: JSON.stringify(catalystPayload),
-        notes: form.notes,
-        ...(matchedProp ? { property_id: matchedProp.id } : {}),
-      }).select('id').single();
-
-      if (error) throw error;
-
-      // Mark WARN notice as converted
-      await supabase.from('warn_notices')
-        .update({ converted_lead_id: lead.id })
-        .eq('id', notice.id);
-
-      onSuccess(lead.id);
-    } catch(e) {
-      console.error('Create lead error:', e);
-      alert('Error creating lead: ' + e.message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const inputStyle = {
-    width: '100%', padding: '8px 10px',
-    background: 'rgba(0,0,0,0.025)', border: '1px solid var(--card-border)',
-    borderRadius: 8, fontFamily: 'var(--font-ui)', fontSize: 13,
-    color: 'var(--text-primary)', outline: 'none',
-  };
-  const labelStyle = {
-    fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em',
-    color: 'var(--text-tertiary)', textTransform: 'uppercase',
-    marginBottom: 4, display: 'block',
-  };
-
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 200,
-      background: 'rgba(0,0,0,0.4)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: 24,
-    }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{
-        background: 'var(--bg)', borderRadius: 16,
-        width: '100%', maxWidth: 680,
-        maxHeight: '90vh', overflowY: 'auto',
-        boxShadow: '0 24px 64px rgba(0,0,0,0.2)',
-      }}>
-        {/* Header */}
-        <div style={{
-          background: '#EDE8E0', borderBottom: '1px solid rgba(0,0,0,0.08)',
-          padding: '16px 24px', display: 'flex', alignItems: 'center',
-          justifyContent: 'space-between', borderRadius: '16px 16px 0 0',
-        }}>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>
-              Create Lead from WARN Filing
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-              {notice.company}
-            </div>
-          </div>
-          <button onClick={onClose} style={{ fontSize: 18, color: 'var(--text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1 }}>×</button>
-        </div>
-
-        <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-          {/* Matched property banner */}
-          {matchedProp && (
-            <div style={{
-              background: 'rgba(24,112,66,0.06)', border: '1px solid rgba(24,112,66,0.2)',
-              borderRadius: 10, padding: '12px 16px',
-              display: 'flex', alignItems: 'center', gap: 10,
-            }}>
-              <span style={{ fontSize: 16 }}>✓</span>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--green)' }}>
-                  Matched to tracked property
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 1 }}>
-                  {matchedProp.address} · {matchedProp.building_sf ? Number(matchedProp.building_sf).toLocaleString() + ' SF' : ''}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Lead details form */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={labelStyle}>Lead Name</label>
-              <input style={inputStyle} value={form.lead_name}
-                onChange={e => setForm(f => ({ ...f, lead_name: e.target.value }))} />
-            </div>
-            <div>
-              <label style={labelStyle}>Company</label>
-              <input style={inputStyle} value={form.company}
-                onChange={e => setForm(f => ({ ...f, company: e.target.value }))} />
-            </div>
-            <div>
-              <label style={labelStyle}>City / County</label>
-              <input style={inputStyle} value={form.city}
-                onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
-            </div>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={labelStyle}>Address</label>
-              <input style={inputStyle} value={form.address}
-                onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
-            </div>
-            <div>
-              <label style={labelStyle}>Stage</label>
-              <select style={inputStyle} value={form.stage}
-                onChange={e => setForm(f => ({ ...f, stage: e.target.value }))}>
-                {['New', 'Researching', 'Decision Maker Identified', 'Contacted'].map(s => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Priority</label>
-              <select style={inputStyle} value={form.priority}
-                onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
-                {['Critical', 'High', 'Medium', 'Low'].map(p => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-            </div>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={labelStyle}>Notes</label>
-              <textarea style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }}
-                value={form.notes}
-                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
-            </div>
-          </div>
-
-          {/* Catalyst tags */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <label style={{ ...labelStyle, marginBottom: 0 }}>Catalyst Tags</label>
-              <div style={{
-                fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700,
-                color: score >= 70 ? 'var(--rust)' : score >= 50 ? 'var(--amber)' : 'var(--blue)',
-              }}>
-                Score: {score}
-              </div>
-            </div>
-
-            {/* Tags by category */}
-            {Object.keys(CATALYST_CATEGORIES).map(cat => {
-              const catTags = CATALYST_TAGS.filter(t => t.category === cat);
-              const style = CATALYST_CATEGORIES[cat];
-              return (
-                <div key={cat} style={{ marginBottom: 14 }}>
-                  <div style={{
-                    fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em',
-                    textTransform: 'uppercase', color: style.color,
-                    marginBottom: 8,
-                  }}>
-                    {cat}
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {catTags.map(tag => {
-                      const selected = selectedTags.includes(tag.key);
-                      const isAuto = autoSuggested.includes(tag.key);
-                      return (
-                        <div
-                          key={tag.key}
-                          onClick={() => toggleTag(tag.key)}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 5,
-                            padding: '4px 10px', borderRadius: 20, cursor: 'pointer',
-                            fontSize: 11, fontWeight: 500,
-                            border: `1.5px solid ${selected ? style.color : 'rgba(0,0,0,0.12)'}`,
-                            background: selected ? style.bg : 'transparent',
-                            color: selected ? style.color : 'var(--text-tertiary)',
-                            transition: 'all 0.12s',
-                            fontFamily: 'var(--font-mono)',
-                          }}
-                        >
-                          {isAuto && selected && <span style={{ fontSize: 8 }}>★</span>}
-                          {tag.label}
-                          {tag.priority === 'HIGH' && (
-                            <span style={{ fontSize: 8, opacity: 0.7 }}>●</span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', fontStyle: 'italic', marginTop: 4 }}>
-              ★ Auto-suggested from WARN filing · Score updates as you select tags
-            </div>
-          </div>
-
-          {/* Footer actions */}
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 8, borderTop: '1px solid rgba(0,0,0,0.07)' }}>
-            <button className="cl-btn cl-btn-secondary" onClick={onClose}>Cancel</button>
-            <button
-              className="cl-btn cl-btn-primary"
-              onClick={handleCreate}
-              disabled={saving}
-              style={{ minWidth: 140 }}
-            >
-              {saving ? 'Creating…' : `⚡ Create Lead (Score: ${score})`}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-      
       {/* KPI grid */}
       {!editing && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 18 }}>
@@ -805,14 +467,20 @@ function CreateLeadFromWarnModal({ notice, onClose, onSuccess }) {
       {/* Actions */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {!notice.converted_lead_id && !editing && (
-          <button className="cl-btn cl-btn-primary cl-btn-sm" onClick={() => { onCreateLead(notice); onClose(); }}>
+          <button className="cl-btn cl-btn-primary cl-btn-sm" onClick={onCreateLead}>
             ⚡ Create Lead from Filing
           </button>
         )}
-        {!editing && <button className="cl-btn cl-btn-secondary cl-btn-sm" onClick={searchProperties}>
-          {propSearching ? '🔍 Searching…' : '🔍 Search Property Database'}
-        </button>}
-        {!editing && <button className="cl-btn cl-btn-secondary cl-btn-sm" onClick={() => window.open(`/owner-search?q=${encodeURIComponent(notice.company)}`, '_blank')}>📋 Research Company</button>}
+        {!editing && (
+          <button className="cl-btn cl-btn-secondary cl-btn-sm" onClick={searchProperties}>
+            {propSearching ? '🔍 Searching…' : '🔍 Search Property Database'}
+          </button>
+        )}
+        {!editing && (
+          <button className="cl-btn cl-btn-secondary cl-btn-sm" onClick={() => window.open(`/owner-search?q=${encodeURIComponent(notice.company)}`, '_blank')}>
+            📋 Research Company
+          </button>
+        )}
         <button className="cl-btn cl-btn-secondary cl-btn-sm" onClick={() => setEditing(e => !e)}>
           ✏️ {editing ? 'Cancel Edit' : 'Edit Filing'}
         </button>
@@ -876,7 +544,6 @@ function CreateLeadFromWarnModal({ notice, onClose, onSuccess }) {
         </div>
       ) : (
         <>
-          {/* Read-only details */}
           <div className="cl-card" style={{ padding: '14px 16px', marginBottom: 12 }}>
             <div className="cl-card-title" style={{ marginBottom: 10 }}>FILING DETAILS</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -901,7 +568,6 @@ function CreateLeadFromWarnModal({ notice, onClose, onSuccess }) {
             </div>
           </div>
 
-          {/* Research Notes */}
           <div className="cl-card" style={{ padding: '14px 16px', marginBottom: 12 }}>
             <div className="cl-card-title" style={{ marginBottom: 8 }}>RESEARCH NOTES</div>
             <p style={{ fontSize: 13, color: notice.research_notes ? 'var(--text-secondary)' : 'var(--text-tertiary)', lineHeight: 1.6, fontStyle: notice.research_notes ? 'normal' : 'italic' }}>
@@ -909,7 +575,6 @@ function CreateLeadFromWarnModal({ notice, onClose, onSuccess }) {
             </p>
           </div>
 
-          {/* Inline property search results */}
           {propResults !== null && (
             <div className="cl-card" style={{ padding: '14px 16px', marginBottom: 12 }}>
               <div className="cl-card-title" style={{ marginBottom: 10 }}>
@@ -917,7 +582,7 @@ function CreateLeadFromWarnModal({ notice, onClose, onSuccess }) {
               </div>
               {propResults.length === 0 ? (
                 <p style={{ fontSize: 13, color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
-                  No properties found matching "{notice.company}" or "{(notice.address || '').split(',')[0]}". This company may not be in your tracked database yet.
+                  No properties found matching "{notice.company}" or "{(notice.address || '').split(',')[0]}".
                 </p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -938,7 +603,6 @@ function CreateLeadFromWarnModal({ notice, onClose, onSuccess }) {
             </div>
           )}
 
-          {/* Why this matters */}
           <div className="cl-card" style={{ padding: '14px 16px', borderLeft: '3px solid var(--purple)' }}>
             <div className="cl-card-title" style={{ marginBottom: 10 }}>WHY THIS MATTERS</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -974,6 +638,252 @@ function CreateLeadFromWarnModal({ notice, onClose, onSuccess }) {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+// ── CREATE LEAD FROM WARN MODAL ───────────────────────────────
+function CreateLeadFromWarnModal({ notice, onClose, onSuccess }) {
+  const [saving, setSaving] = useState(false);
+  const [matchedProp, setMatchedProp] = useState(null);
+
+  const autoSuggested = ['WARN Notice', 'M&A — Acquisition', 'Relocation Risk'];
+  const [selectedTags, setSelectedTags] = useState(autoSuggested);
+  const [form, setForm] = useState({
+    lead_name: notice.company || '',
+    company:   notice.company || '',
+    address:   notice.address || '',
+    city:      notice.county || '',
+    stage:     'New',
+    priority:  'High',
+    source:    'WARN Intel',
+    notes:     `WARN filing: ${notice.employees ? Number(notice.employees).toLocaleString() : '—'} workers affected. Notice: ${notice.notice_date || '—'}. Effective: ${notice.effective_date || '—'}.`,
+  });
+
+  useEffect(() => {
+    async function findProperty() {
+      if (!notice.address && !notice.company) return;
+      try {
+        const supabase = createClient();
+        const streetAddress = (notice.address || '').split(',')[0];
+        const { data } = await supabase
+          .from('properties')
+          .select('id, address, city, building_sf, lease_expiration, owner_type, tenant')
+          .or(`address.ilike.%${streetAddress}%,tenant.ilike.%${notice.company}%,owner.ilike.%${notice.company}%`)
+          .limit(1)
+          .single();
+        if (data) {
+          setMatchedProp(data);
+          const extra = [];
+          if (data.lease_expiration) {
+            const months = Math.round((new Date(data.lease_expiration) - new Date()) / (1000 * 60 * 60 * 24 * 30));
+            if (months <= 12) extra.push('Lease Exp < 12 Mo');
+            else if (months <= 24) extra.push('Lease Exp 12–24 Mo');
+          }
+          if (data.owner_type === 'Owner-User') extra.push('SLB Potential');
+          if (extra.length > 0) setSelectedTags(prev => [...new Set([...prev, ...extra])]);
+        }
+      } catch(e) { /* no match found */ }
+    }
+    findProperty();
+  }, []);
+
+  function toggleTag(key) {
+    setSelectedTags(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+  }
+
+  const score = Math.min(100, selectedTags.reduce((s, key) => {
+    const tag = CATALYST_TAGS.find(t => t.key === key);
+    return s + (tag?.scoreBoost || 5);
+  }, matchedProp ? 20 : 10));
+
+  async function handleCreate() {
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      const catalystPayload = selectedTags.map(key => {
+        const tag = CATALYST_TAGS.find(t => t.key === key);
+        return {
+          tag:      tag?.label || key,
+          category: tag ? tag.category.toLowerCase().split(' ')[0] : 'owner',
+          priority: tag?.priority?.toLowerCase() || 'medium',
+        };
+      });
+
+      const { data: lead, error } = await supabase.from('leads').insert({
+        lead_name:     form.lead_name,
+        company:       form.company,
+        address:       form.address,
+        city:          form.city,
+        stage:         form.stage,
+        priority:      form.priority,
+        source:        form.source,
+        score,
+        catalyst_tags: JSON.stringify(catalystPayload),
+        notes:         form.notes,
+        ...(matchedProp ? { property_id: matchedProp.id } : {}),
+      }).select('id').single();
+
+      if (error) throw error;
+
+      await supabase.from('warn_notices')
+        .update({ converted_lead_id: lead.id })
+        .eq('id', notice.id);
+
+      onSuccess(lead.id);
+    } catch(e) {
+      console.error('Create lead error:', e);
+      alert('Error creating lead: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const inputStyle = {
+    width: '100%', padding: '8px 10px',
+    background: 'rgba(0,0,0,0.025)', border: '1px solid var(--card-border)',
+    borderRadius: 8, fontFamily: 'var(--font-ui)', fontSize: 13,
+    color: 'var(--text-primary)', outline: 'none',
+  };
+  const labelStyle = {
+    fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em',
+    color: 'var(--text-tertiary)', textTransform: 'uppercase',
+    marginBottom: 4, display: 'block',
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 200,
+      background: 'rgba(0,0,0,0.4)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 24,
+    }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{
+        background: 'var(--bg)', borderRadius: 16,
+        width: '100%', maxWidth: 680,
+        maxHeight: '90vh', overflowY: 'auto',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.2)',
+      }}>
+        <div style={{
+          background: '#EDE8E0', borderBottom: '1px solid rgba(0,0,0,0.08)',
+          padding: '16px 24px', display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', borderRadius: '16px 16px 0 0',
+        }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>Create Lead from WARN Filing</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>{notice.company}</div>
+          </div>
+          <button onClick={onClose} style={{ fontSize: 20, color: 'var(--text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1 }}>×</button>
+        </div>
+
+        <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+          {matchedProp && (
+            <div style={{
+              background: 'rgba(24,112,66,0.06)', border: '1px solid rgba(24,112,66,0.2)',
+              borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              <span>✓</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--green)' }}>Matched to tracked property</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 1 }}>
+                  {matchedProp.address}{matchedProp.building_sf ? ` · ${Number(matchedProp.building_sf).toLocaleString()} SF` : ''}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Lead Name</label>
+              <input style={inputStyle} value={form.lead_name} onChange={e => setForm(f => ({ ...f, lead_name: e.target.value }))} />
+            </div>
+            <div>
+              <label style={labelStyle}>Company</label>
+              <input style={inputStyle} value={form.company} onChange={e => setForm(f => ({ ...f, company: e.target.value }))} />
+            </div>
+            <div>
+              <label style={labelStyle}>City / County</label>
+              <input style={inputStyle} value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Address</label>
+              <input style={inputStyle} value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
+            </div>
+            <div>
+              <label style={labelStyle}>Stage</label>
+              <select style={inputStyle} value={form.stage} onChange={e => setForm(f => ({ ...f, stage: e.target.value }))}>
+                {['New', 'Researching', 'Decision Maker Identified', 'Contacted'].map(s => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Priority</label>
+              <select style={inputStyle} value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
+                {['Critical', 'High', 'Medium', 'Low'].map(p => <option key={p}>{p}</option>)}
+              </select>
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Notes</label>
+              <textarea style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }}
+                value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+            </div>
+          </div>
+
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <label style={{ ...labelStyle, marginBottom: 0 }}>Catalyst Tags</label>
+              <div style={{
+                fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700,
+                color: score >= 70 ? 'var(--rust)' : score >= 50 ? 'var(--amber)' : 'var(--blue)',
+              }}>
+                Score: {score}
+              </div>
+            </div>
+            {Object.keys(CATALYST_CATEGORIES).map(cat => {
+              const catTags = CATALYST_TAGS.filter(t => t.category === cat);
+              const style = CATALYST_CATEGORIES[cat];
+              return (
+                <div key={cat} style={{ marginBottom: 14 }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: style.color, marginBottom: 8 }}>
+                    {cat}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {catTags.map(tag => {
+                      const selected = selectedTags.includes(tag.key);
+                      const isAuto = autoSuggested.includes(tag.key);
+                      return (
+                        <div key={tag.key} onClick={() => toggleTag(tag.key)} style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          padding: '4px 10px', borderRadius: 20, cursor: 'pointer',
+                          fontSize: 11, fontWeight: 500, fontFamily: 'var(--font-mono)',
+                          border: `1.5px solid ${selected ? style.color : 'rgba(0,0,0,0.12)'}`,
+                          background: selected ? style.bg : 'transparent',
+                          color: selected ? style.color : 'var(--text-tertiary)',
+                          transition: 'all 0.12s',
+                        }}>
+                          {isAuto && selected && <span style={{ fontSize: 8 }}>★</span>}
+                          {tag.label}
+                          {tag.priority === 'HIGH' && <span style={{ fontSize: 8, opacity: 0.6 }}>●</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', fontStyle: 'italic', marginTop: 4 }}>
+              ★ Auto-suggested from WARN filing · Score updates as you select tags
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 8, borderTop: '1px solid rgba(0,0,0,0.07)' }}>
+            <button className="cl-btn cl-btn-secondary" onClick={onClose}>Cancel</button>
+            <button className="cl-btn cl-btn-primary" onClick={handleCreate} disabled={saving} style={{ minWidth: 160 }}>
+              {saving ? 'Creating…' : `⚡ Create Lead (Score: ${score})`}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

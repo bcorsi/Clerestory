@@ -57,18 +57,108 @@ export default function WarnIntelPage() {
   async function createLead(notice) {
     try {
       const supabase = createClient();
-      await supabase.from('leads').insert({
+
+      // Auto-search for matched property
+      let matchedPropertyId = notice.matched_property_id || null;
+      if (!matchedPropertyId && notice.address) {
+        const streetAddress = notice.address.split(',')[0];
+        const { data: propMatches } = await supabase
+          .from('properties')
+          .select('id')
+          .or(`address.ilike.%${streetAddress}%,tenant.ilike.%${notice.company}%,owner.ilike.%${notice.company}%`)
+          .limit(1);
+        if (propMatches && propMatches.length > 0) {
+          matchedPropertyId = propMatches[0].id;
+          await supabase.from('warn_notices').update({ matched_property_id: matchedPropertyId }).eq('id', notice.id);
+        }
+      }
+
+      const { data: lead, error } = await supabase.from('leads').insert({
+        lead_name: notice.company,
         company: notice.company,
         address: notice.address,
         city: notice.county,
-        status: 'active',
+        stage: 'New',
+        priority: 'Medium',
         catalyst_tags: [{ tag: 'WARN Act Filing', category: 'owner', priority: 'high' }],
-        notes: `WARN filing: ${fmt(notice.employees)} workers. Notice date: ${fmtDate(notice.notice_date)}. Effective date: ${fmtDate(notice.effective_date)}.`,
-      });
-      await supabase.from('warn_notices').update({ converted_lead_id: null }).eq('id', notice.id);
+        notes: `WARN filing: ${fmt(notice.employees)} workers affected. Notice: ${fmtDate(notice.notice_date)}. Effective: ${fmtDate(notice.effective_date)}.${matchedPropertyId ? ' Matched to tracked property.' : ''}`,
+        ...(matchedPropertyId ? { property_id: matchedPropertyId } : {}),
+      }).select('id').single();
+
+      if (error) throw error;
+      if (lead?.id) {
+        await supabase.from('warn_notices').update({ converted_lead_id: lead.id }).eq('id', notice.id);
+      }
       loadNotices();
+      alert(`Lead created for ${notice.company}${matchedPropertyId ? ' — matched to tracked property!' : '.'}`);
     } catch(e) {
       console.error('Create lead error:', e);
+      alert('Error creating lead. Check console.');
+    }
+  }
+
+  async function handleImportCSV(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const text = await file.text();
+    const lines = text.trim().split('\n');
+    const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim().toLowerCase());
+
+    // Map common CA EDD WARN CSV column names
+    const col = (name) => {
+      const aliases = {
+        company:        ['company', 'employer', 'employer name', 'company name'],
+        notice_date:    ['notice date', 'notice_date', 'warn date', 'date'],
+        effective_date: ['effective date', 'effective_date', 'layoff date'],
+        employees:      ['employees', 'employees affected', 'workers', 'layoff count', '# employees'],
+        address:        ['address', 'street address', 'location'],
+        county:         ['county', 'city', 'location city'],
+      };
+      const list = aliases[name] || [name];
+      for (const a of list) {
+        const idx = headers.indexOf(a);
+        if (idx >= 0) return idx;
+      }
+      return -1;
+    };
+
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const vals = lines[i].split(',').map(v => v.replace(/^"|"$/g, '').trim());
+      if (!vals[col('company')]) continue;
+      rows.push({
+        company:        vals[col('company')] || null,
+        notice_date:    vals[col('notice_date')] || null,
+        effective_date: vals[col('effective_date')] || null,
+        employees:      parseInt(vals[col('employees')]) || null,
+        address:        vals[col('address')] || null,
+        county:         vals[col('county')] || null,
+        is_industrial:  false,
+        is_in_market:   false,
+      });
+    }
+
+    if (rows.length === 0) { alert('No valid rows found in CSV.'); return; }
+
+    const supabase = createClient();
+    const { error } = await supabase.from('warn_notices').upsert(rows, { onConflict: 'company,notice_date', ignoreDuplicates: true });
+    if (error) { alert(`Import error: ${error.message}`); return; }
+    alert(`Imported ${rows.length} WARN filings.`);
+    loadNotices();
+    e.target.value = '';
+  }
+    const supabase = createClient();
+    const streetAddress = (notice.address || '').split(',')[0];
+    const { data } = await supabase
+      .from('properties')
+      .select('id, address, city, tenant, owner, building_sf')
+      .or(`address.ilike.%${streetAddress}%,tenant.ilike.%${notice.company}%,owner.ilike.%${notice.company}%`)
+      .limit(5);
+    if (data && data.length > 0) {
+      const matches = data.map(p => `• ${p.address} (${p.city || ''}) — ${p.tenant || p.owner || 'No tenant/owner'}`).join('\n');
+      alert(`Found ${data.length} match(es):\n\n${matches}`);
+    } else {
+      alert(`No matches found for "${notice.company}" or "${streetAddress}"`);
     }
   }
 
@@ -86,6 +176,10 @@ export default function WarnIntelPage() {
           </p>
         </div>
         <div className="cl-page-actions">
+          <label className="cl-btn cl-btn-secondary cl-btn-sm" style={{ cursor: 'pointer' }}>
+            📥 Import CSV
+            <input type="file" accept=".csv" style={{ display: 'none' }} onChange={handleImportCSV} />
+          </label>
           <button className="cl-btn cl-btn-secondary cl-btn-sm" onClick={loadNotices}>↻ Refresh</button>
         </div>
       </div>
@@ -287,16 +381,29 @@ export default function WarnIntelPage() {
         subtitle={selectedNotice ? [selectedNotice.address, selectedNotice.city].filter(Boolean).join(' · ') : ''}
         badge={{ label: 'WARN', color: 'rust' }}
       >
-        {selectedNotice && <WarnDetail notice={selectedNotice} onCreateLead={createLead} onClose={() => { setSelectedId(null); setSelectedNotice(null); }} />}
+        {selectedNotice && <WarnDetail notice={selectedNotice} onCreateLead={createLead} onSearchProperty={searchPropertyDatabase} onClose={() => { setSelectedId(null); setSelectedNotice(null); }} />}
       </SlideDrawer>
     </div>
   );
 }
 
 // ── WARN DETAIL (drawer) ──────────────────────────────────
-function WarnDetail({ notice, onCreateLead, onClose }) {
+function WarnDetail({ notice, onCreateLead, onSearchProperty, onClose }) {
+  const [editing, setEditing] = useState(false);
+  const [notes, setNotes] = useState(notice.research_notes || '');
+  const [saving, setSaving] = useState(false);
   const days = daysSince(notice.notice_date);
   const window60 = notice.effective_date ? Math.floor((new Date(notice.effective_date) - new Date()) / (1000 * 60 * 60 * 24)) : null;
+
+  async function saveNotes() {
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      await supabase.from('warn_notices').update({ research_notes: notes }).eq('id', notice.id);
+      setEditing(false);
+    } catch(e) { console.error(e); }
+    finally { setSaving(false); }
+  }
 
   return (
     <div>
@@ -341,8 +448,9 @@ function WarnDetail({ notice, onCreateLead, onClose }) {
             ⚡ Create Lead from Filing
           </button>
         )}
-        <button className="cl-btn cl-btn-secondary cl-btn-sm">🔍 Search Property Database</button>
-        <button className="cl-btn cl-btn-secondary cl-btn-sm">📋 Research Company</button>
+        <button className="cl-btn cl-btn-secondary cl-btn-sm" onClick={() => onSearchProperty(notice)}>🔍 Search Property Database</button>
+        <button className="cl-btn cl-btn-secondary cl-btn-sm" onClick={() => window.location.href = `/owner-search?q=${encodeURIComponent(notice.company)}`}>📋 Research Company</button>
+        <button className="cl-btn cl-btn-secondary cl-btn-sm" onClick={() => setEditing(e => !e)}>✏️ {editing ? 'Cancel' : 'Edit Notes'}</button>
       </div>
 
       {/* Details */}
@@ -366,6 +474,38 @@ function WarnDetail({ notice, onCreateLead, onClose }) {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Research Notes */}
+      <div className="cl-card" style={{ padding: '14px 16px', marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <div className="cl-card-title">RESEARCH NOTES</div>
+        </div>
+        {editing ? (
+          <div>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Add notes about this filing — matched property, outreach status, owner intel..."
+              style={{
+                width: '100%', minHeight: 100, padding: '8px 10px',
+                background: 'rgba(0,0,0,0.025)', border: '1px solid var(--card-border)',
+                borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-ui)', fontSize: 13,
+                color: 'var(--text-primary)', resize: 'vertical', outline: 'none',
+              }}
+            />
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button className="cl-btn cl-btn-primary cl-btn-sm" onClick={saveNotes} disabled={saving}>
+                {saving ? 'Saving…' : 'Save Notes'}
+              </button>
+              <button className="cl-btn cl-btn-secondary cl-btn-sm" onClick={() => setEditing(false)}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <p style={{ fontSize: 13, color: notes ? 'var(--text-secondary)' : 'var(--text-tertiary)', lineHeight: 1.6, fontStyle: notes ? 'normal' : 'italic' }}>
+            {notes || 'No notes yet. Click Edit Notes to add research.'}
+          </p>
+        )}
       </div>
 
       {/* Why this matters */}

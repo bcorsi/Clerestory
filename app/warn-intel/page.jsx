@@ -38,9 +38,9 @@ export default function WarnIntelPage() {
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
         .order('notice_date', { ascending: false });
 
-      if (search) query = query.or(`company_name.ilike.%${search}%,city.ilike.%${search}%,address.ilike.%${search}%`);
-      if (filter === 'new') query = query.eq('lead_created', false);
-      if (filter === 'matched') query = query.not('property_id', 'is', null);
+      if (search) query = query.or(`company.ilike.%${search}%,county.ilike.%${search}%,address.ilike.%${search}%`);
+      if (filter === 'new') query = query.eq('converted_lead_id', false);
+      if (filter === 'matched') query = query.not('matched_property_id', 'is', null);
 
       const { data, error, count } = await query;
       if (error) throw error;
@@ -58,14 +58,14 @@ export default function WarnIntelPage() {
     try {
       const supabase = createClient();
       await supabase.from('leads').insert({
-        company_name: notice.company_name,
+        company: notice.company,
         address: notice.address,
-        city: notice.city,
+        city: notice.county,
         status: 'active',
         catalyst_tags: [{ tag: 'WARN Act Filing', category: 'owner', priority: 'high' }],
-        notes: `WARN filing: ${fmt(notice.layoff_count)} workers. Notice date: ${fmtDate(notice.notice_date)}. Effective date: ${fmtDate(notice.effective_date)}.`,
+        notes: `WARN filing: ${fmt(notice.employees)} workers. Notice date: ${fmtDate(notice.notice_date)}. Effective date: ${fmtDate(notice.effective_date)}.`,
       });
-      await supabase.from('warn_notices').update({ lead_created: true }).eq('id', notice.id);
+      await supabase.from('warn_notices').update({ converted_lead_id: null }).eq('id', notice.id);
       loadNotices();
     } catch(e) {
       console.error('Create lead error:', e);
@@ -73,7 +73,7 @@ export default function WarnIntelPage() {
   }
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
-  const newCount = notices.filter(n => !n.lead_created).length;
+  const newCount = notices.filter(n => !n.converted_lead_id).length;
 
   return (
     <div>
@@ -172,7 +172,7 @@ export default function WarnIntelPage() {
               </td></tr>
             ) : notices.map(notice => {
               const days = daysSince(notice.notice_date);
-              const isNew = !notice.lead_created;
+              const isNew = !notice.converted_lead_id;
               const isUrgent = days !== null && days <= 14;
 
               return (
@@ -198,9 +198,9 @@ export default function WarnIntelPage() {
                   {/* Company */}
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
-                      {notice.company_name}
+                      {notice.company}
                     </div>
-                    {notice.property_id && (
+                    {notice.matched_property_id && (
                       <div style={{ fontSize: 11, color: 'var(--green)', marginTop: 2, fontFamily: 'var(--font-mono)' }}>
                         ✓ Property matched
                       </div>
@@ -219,10 +219,10 @@ export default function WarnIntelPage() {
 
                   {/* Workers */}
                   <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: 13,
-                    color: (notice.layoff_count || 0) >= 200 ? 'var(--rust)' : 'var(--text-secondary)',
-                    fontWeight: (notice.layoff_count || 0) >= 200 ? 600 : 400,
+                    color: (notice.employees || 0) >= 200 ? 'var(--rust)' : 'var(--text-secondary)',
+                    fontWeight: (notice.employees || 0) >= 200 ? 600 : 400,
                   }}>
-                    {notice.layoff_count ? fmt(notice.layoff_count) : '—'}
+                    {notice.employees ? fmt(notice.employees) : '—'}
                   </td>
 
                   {/* Notice date */}
@@ -283,7 +283,7 @@ export default function WarnIntelPage() {
       <SlideDrawer
         open={!!selectedId}
         onClose={() => { setSelectedId(null); setSelectedNotice(null); }}
-        title={selectedNotice?.company_name || 'WARN Filing'}
+        title={selectedNotice?.company || 'WARN Filing'}
         subtitle={selectedNotice ? [selectedNotice.address, selectedNotice.city].filter(Boolean).join(' · ') : ''}
         badge={{ label: 'WARN', color: 'rust' }}
       >
@@ -323,7 +323,7 @@ function WarnDetail({ notice, onCreateLead, onClose }) {
       {/* KPI grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 18 }}>
         {[
-          { label: 'WORKERS',     value: notice.layoff_count ? fmt(notice.layoff_count) : '—' },
+          { label: 'WORKERS',     value: notice.employees ? fmt(notice.employees) : '—' },
           { label: 'NOTICE DATE', value: fmtDate(notice.notice_date) },
           { label: 'EFFECTIVE',   value: fmtDate(notice.effective_date) },
         ].map(kpi => (
@@ -336,7 +336,7 @@ function WarnDetail({ notice, onCreateLead, onClose }) {
 
       {/* Actions */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-        {!notice.lead_created && (
+        {!notice.converted_lead_id && (
           <button className="cl-btn cl-btn-primary cl-btn-sm" onClick={() => { onCreateLead(notice); onClose(); }}>
             ⚡ Create Lead from Filing
           </button>
@@ -350,10 +350,10 @@ function WarnDetail({ notice, onCreateLead, onClose }) {
         <div className="cl-card-title" style={{ marginBottom: 10 }}>FILING DETAILS</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {[
-            { label: 'Company', value: notice.company_name },
+            { label: 'Company', value: notice.company },
             { label: 'Address', value: notice.address || '—' },
             { label: 'City', value: notice.city || '—' },
-            { label: 'Workers Affected', value: notice.layoff_count ? fmt(notice.layoff_count) : '—' },
+            { label: 'Workers Affected', value: notice.employees ? fmt(notice.employees) : '—' },
             { label: 'Notice Date', value: fmtDate(notice.notice_date) },
             { label: 'Effective Date', value: fmtDate(notice.effective_date) },
             { label: 'Days Since Filing', value: days !== null ? `${days} days ago` : '—' },

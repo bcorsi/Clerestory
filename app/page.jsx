@@ -100,7 +100,7 @@ export default function CommandCenter() {
         { data: warnData },
       ] = await Promise.all([
         supabase.from('properties').select('*', { count: 'exact', head: true }),
-        supabase.from('leads').select('*', { count: 'exact', head: true }).not('stage', 'in' '("Converted", "Killed")' ),
+        supabase.from('leads').select('*', { count: 'exact', head: true }).not('stage', 'in', '("Converted", "Killed")' ),
         supabase.from('deals').select('*', { count: 'exact', head: true }).not('stage', 'in', '("Closed Won","Closed Lost","Dead")'),
         supabase.from('deals').select('id,deal_name,stage,deal_value,commission_est,updated_at').not('stage', 'in', '("Closed Won","Closed Lost","Dead")').order('updated_at', { ascending: false }).limit(6),
         supabase.from('tasks').select('id,title,due_date,priority,status').neq('status','done').lte('due_date', tomorrow).order('due_date', { ascending: true }).limit(6),

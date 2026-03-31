@@ -832,7 +832,7 @@ button {
     justify-content: center;
     padding: 18px 8px 16px;
   }
-  .cl-collapse-btn { display: none; }
+  .cl-collapse-btn { display: flex; }
   .cl-nav-item {
     justify-content: center;
     padding: 8px;

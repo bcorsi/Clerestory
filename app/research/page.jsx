@@ -279,7 +279,7 @@ function CampaignDetail({ campaign, onClose, onUpdate, onFullPage }) {
         notes:      [
           target.business_type && `Business: ${target.business_type}`,
           target.apn && `APN: ${target.apn}`,
-          target.acreage && `Acreage: ${target.acreage} AC`,
+          target.land_acres && `Acreage: ${target.land_acres} AC`,
           target.notes,
         ].filter(Boolean).join('\n'),
         phone:      target.phone || null,
@@ -468,7 +468,7 @@ function CampaignDetail({ campaign, onClose, onUpdate, onFullPage }) {
                 </span>
                 <button className="cl-btn cl-btn-secondary cl-btn-sm" onClick={() => {
                   const csv = ['Owner,Address,APN,Acreage,Status,Phone,Email,Notes']
-                    .concat(targets.map(t => [t.owner, t.address, t.apn, t.acreage, t.outreach_status, t.phone, t.email, t.notes].map(v => `"${v || ''}"`).join(',')))
+                    .concat(targets.map(t => [t.owner, t.address, t.apn, t.land_acres, t.outreach_status, t.phone, t.email, t.notes].map(v => `"${v || ''}"`).join(',')))
                     .join('\n');
                   const blob = new Blob([csv], { type: 'text/csv' });
                   const url = URL.createObjectURL(blob);
@@ -502,7 +502,7 @@ function CampaignDetail({ campaign, onClose, onUpdate, onFullPage }) {
                           </div>
                           <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>
                             {[target.address, target.city].filter(Boolean).join(', ')}
-                            {target.acreage ? ` · ${target.acreage} AC` : ''}
+                            {target.land_acres ? ` · ${target.land_acres} AC` : ''}
                             {target.apn ? ` · APN: ${target.apn}` : ''}
                           </div>
                           {target.business_type && (

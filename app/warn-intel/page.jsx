@@ -15,6 +15,35 @@ function daysSince(d) {
   return Math.floor((new Date() - new Date(d)) / (1000 * 60 * 60 * 24));
 }
 
+const PROP_TYPES = [
+  'Warehouse / Distribution',
+  'Manufacturing',
+  'Flex / R&D',
+  'Food Processing',
+  'Cold Storage / Refrigerated',
+  'Truck Terminal',
+  'IOS (Outdoor Storage)',
+  'Office',
+  'Retail',
+  'Other',
+];
+
+const RELATED_INDUSTRIES = [
+  'Manufacturing',
+  'Wholesale Trade',
+  'Retail Trade',
+  'Transportation & Warehousing',
+  'Construction',
+  'Food & Beverage',
+  'Technology',
+  'Healthcare',
+  'Finance & Insurance',
+  'Professional Services',
+  'Government',
+  'Education',
+  'Other',
+];
+
 export default function WarnIntelPage() {
   const [notices, setNotices]               = useState([]);
   const [loading, setLoading]               = useState(true);
@@ -65,12 +94,13 @@ export default function WarnIntelPage() {
 
     const col = (name) => {
       const aliases = {
-        company:        ['company', 'employer', 'employer name', 'company name'],
-        notice_date:    ['notice date', 'notice_date', 'warn date', 'date'],
-        effective_date: ['effective date', 'effective_date', 'layoff date'],
-        employees:      ['employees', 'employees affected', 'workers', 'layoff count', '# employees'],
-        address:        ['address', 'street address', 'location'],
-        county:         ['county', 'city', 'location city'],
+        company:          ['company', 'employer', 'employer name', 'company name'],
+        notice_date:      ['notice date', 'notice_date', 'warn date', 'date'],
+        effective_date:   ['effective date', 'effective_date', 'layoff date'],
+        employees:        ['employees', 'employees affected', 'workers', 'layoff count', '# employees'],
+        address:          ['address', 'street address', 'location'],
+        county:           ['county', 'city', 'location city'],
+        related_industry: ['industry', 'related industry', 'naics', 'sector'],
       };
       const list = aliases[name] || [name];
       for (const a of list) {
@@ -85,14 +115,15 @@ export default function WarnIntelPage() {
       const vals = lines[i].split(',').map(v => v.replace(/^"|"$/g, '').trim());
       if (!vals[col('company')]) continue;
       rows.push({
-        company:        vals[col('company')] || null,
-        notice_date:    vals[col('notice_date')] || null,
-        effective_date: vals[col('effective_date')] || null,
-        employees:      parseInt(vals[col('employees')]) || null,
-        address:        vals[col('address')] || null,
-        county:         vals[col('county')] || null,
-        is_industrial:  false,
-        is_in_market:   false,
+        company:          vals[col('company')] || null,
+        notice_date:      vals[col('notice_date')] || null,
+        effective_date:   vals[col('effective_date')] || null,
+        employees:        parseInt(vals[col('employees')]) || null,
+        address:          vals[col('address')] || null,
+        county:           vals[col('county')] || null,
+        related_industry: col('related_industry') >= 0 ? vals[col('related_industry')] || null : null,
+        is_industrial:    false,
+        is_in_market:     false,
       });
     }
 
@@ -189,8 +220,8 @@ export default function WarnIntelPage() {
               {[
                 { label: 'Status',      width: 90 },
                 { label: 'Company',     width: null },
-                { label: 'City',        width: 140 },
-                { label: 'Address',     width: 220 },
+                { label: 'Industry',    width: 150 },
+                { label: 'City',        width: 130 },
                 { label: 'Workers',     width: 100 },
                 { label: 'Notice Date', width: 130 },
                 { label: 'Effective',   width: 130 },
@@ -239,7 +270,6 @@ export default function WarnIntelPage() {
                   onMouseEnter={e => { if (selectedId !== notice.id) e.currentTarget.style.background = 'rgba(78,110,150,0.03)'; }}
                   onMouseLeave={e => { if (selectedId !== notice.id) e.currentTarget.style.background = isNew ? 'rgba(184,55,20,0.02)' : 'transparent'; }}
                 >
-                  {/* Status */}
                   <td style={{ padding: '18px 18px' }}>
                     {isNew ? (
                       <span className="cl-badge cl-badge-rust" style={{ fontSize: 11 }}>NEW</span>
@@ -247,8 +277,6 @@ export default function WarnIntelPage() {
                       <span className="cl-badge cl-badge-gray" style={{ fontSize: 11 }}>LOGGED</span>
                     )}
                   </td>
-
-                  {/* Company */}
                   <td style={{ padding: '18px 18px' }}>
                     <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>
                       {notice.company}
@@ -258,19 +286,18 @@ export default function WarnIntelPage() {
                         ✓ Property matched
                       </div>
                     )}
+                    {notice.prop_type && (
+                      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
+                        {notice.prop_type}
+                      </div>
+                    )}
                   </td>
-
-                  {/* City */}
+                  <td style={{ padding: '18px 18px', fontSize: 13, color: 'var(--text-secondary)' }}>
+                    {notice.related_industry || '—'}
+                  </td>
                   <td style={{ padding: '18px 18px', fontSize: 14, color: 'var(--text-secondary)' }}>
                     {notice.city || notice.county || '—'}
                   </td>
-
-                  {/* Address */}
-                  <td style={{ padding: '18px 18px', fontSize: 13, color: 'var(--text-secondary)' }}>
-                    {notice.address || '—'}
-                  </td>
-
-                  {/* Workers */}
                   <td style={{
                     padding: '18px 18px', fontFamily: 'var(--font-mono)', fontSize: 14,
                     color: (notice.employees || 0) >= 200 ? 'var(--rust)' : 'var(--text-secondary)',
@@ -278,8 +305,6 @@ export default function WarnIntelPage() {
                   }}>
                     {notice.employees ? fmt(notice.employees) : '—'}
                   </td>
-
-                  {/* Notice date */}
                   <td style={{
                     padding: '18px 18px', fontFamily: 'var(--font-mono)', fontSize: 13,
                     color: isUrgent ? 'var(--rust)' : 'var(--text-secondary)',
@@ -287,21 +312,15 @@ export default function WarnIntelPage() {
                   }}>
                     {fmtDate(notice.notice_date)}
                   </td>
-
-                  {/* Effective date */}
                   <td style={{ padding: '18px 18px', fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-secondary)' }}>
                     {fmtDate(notice.effective_date)}
                   </td>
-
-                  {/* Days since */}
                   <td style={{
                     padding: '18px 18px', fontFamily: 'var(--font-mono)', fontSize: 13,
                     color: days !== null && days <= 7 ? 'var(--rust)' : days !== null && days <= 30 ? 'var(--amber)' : 'var(--text-tertiary)',
                   }}>
                     {days !== null ? `${days}d ago` : '—'}
                   </td>
-
-                  {/* Action */}
                   <td style={{ padding: '18px 18px' }} onClick={e => e.stopPropagation()}>
                     {isNew ? (
                       <button
@@ -377,22 +396,25 @@ export default function WarnIntelPage() {
 
 // ── WARN DETAIL (drawer) ──────────────────────────────────────
 function WarnDetail({ notice, onCreateLead, onSearchProperty, onClose }) {
-  const [editing, setEditing]         = useState(false);
-  const [saving, setSaving]           = useState(false);
-  const [propResults, setPropResults] = useState(null);
+  const [editing, setEditing]             = useState(false);
+  const [saving, setSaving]               = useState(false);
+  const [propResults, setPropResults]     = useState(null);
   const [propSearching, setPropSearching] = useState(false);
+  const [leadCreated, setLeadCreated]     = useState(!!notice.converted_lead_id);
   const [form, setForm] = useState({
-    company:        notice.company || '',
-    address:        notice.address || '',
-    county:         notice.county || '',
-    employees:      notice.employees || '',
-    notice_date:    notice.notice_date || '',
-    effective_date: notice.effective_date || '',
-    is_industrial:  notice.is_industrial || false,
-    is_in_market:   notice.is_in_market || false,
-    research_notes: notice.research_notes || '',
+    company:          notice.company || '',
+    address:          notice.address || '',
+    county:           notice.county || '',
+    employees:        notice.employees || '',
+    notice_date:      notice.notice_date || '',
+    effective_date:   notice.effective_date || '',
+    is_industrial:    notice.is_industrial || false,
+    is_in_market:     notice.is_in_market || false,
+    prop_type:        notice.prop_type || '',
+    related_industry: notice.related_industry || '',
+    research_notes:   notice.research_notes || '',
   });
-  const [leadCreated, setLeadCreated] = useState(!!notice.converted_lead_id);
+
   const days = daysSince(notice.notice_date);
   const window60 = notice.effective_date
     ? Math.floor((new Date(notice.effective_date) - new Date()) / (1000 * 60 * 60 * 24))
@@ -425,15 +447,17 @@ function WarnDetail({ notice, onCreateLead, onSearchProperty, onClose }) {
     try {
       const supabase = createClient();
       await supabase.from('warn_notices').update({
-        company:        form.company,
-        address:        form.address,
-        county:         form.county,
-        employees:      parseInt(form.employees) || null,
-        notice_date:    form.notice_date || null,
-        effective_date: form.effective_date || null,
-        is_industrial:  form.is_industrial,
-        is_in_market:   form.is_in_market,
-        research_notes: form.research_notes,
+        company:          form.company,
+        address:          form.address,
+        county:           form.county,
+        employees:        parseInt(form.employees) || null,
+        notice_date:      form.notice_date || null,
+        effective_date:   form.effective_date || null,
+        is_industrial:    form.is_industrial,
+        is_in_market:     form.is_in_market,
+        prop_type:        form.prop_type || null,
+        related_industry: form.related_industry || null,
+        research_notes:   form.research_notes,
       }).eq('id', notice.id);
       setEditing(false);
     } catch(e) { console.error(e); }
@@ -453,7 +477,6 @@ function WarnDetail({ notice, onCreateLead, onSearchProperty, onClose }) {
 
   return (
     <div>
-      {/* 60-day window alert */}
       {window60 !== null && window60 > 0 && (
         <div style={{
           background: window60 <= 30 ? 'rgba(184,55,20,0.08)' : 'rgba(168,112,16,0.08)',
@@ -473,7 +496,6 @@ function WarnDetail({ notice, onCreateLead, onSearchProperty, onClose }) {
         </div>
       )}
 
-      {/* KPI grid */}
       {!editing && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 20 }}>
           {[
@@ -489,10 +511,9 @@ function WarnDetail({ notice, onCreateLead, onSearchProperty, onClose }) {
         </div>
       )}
 
-      {/* Actions */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 22, flexWrap: 'wrap' }}>
-        {!notice.converted_lead_id && !editing && (
-          <button className="cl-btn cl-btn-primary cl-btn-sm" onClick={onCreateLead}>
+        {!leadCreated && !editing && (
+          <button className="cl-btn cl-btn-primary cl-btn-sm" onClick={() => { onCreateLead(); setLeadCreated(true); }}>
             ⚡ Create Lead from Filing
           </button>
         )}
@@ -517,7 +538,6 @@ function WarnDetail({ notice, onCreateLead, onSearchProperty, onClose }) {
         )}
       </div>
 
-      {/* Edit form */}
       {editing ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -548,6 +568,22 @@ function WarnDetail({ notice, onCreateLead, onSearchProperty, onClose }) {
               <input style={inputStyle} type="date" value={form.effective_date} onChange={e => setField('effective_date', e.target.value)} />
             </div>
           </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={labelStyle}>Property Type</label>
+              <select style={inputStyle} value={form.prop_type} onChange={e => setField('prop_type', e.target.value)}>
+                <option value="">Unknown / Not Set</option>
+                {PROP_TYPES.map(t => <option key={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Related Industry</label>
+              <select style={inputStyle} value={form.related_industry} onChange={e => setField('related_industry', e.target.value)}>
+                <option value="">Unknown / Not Set</option>
+                {RELATED_INDUSTRIES.map(i => <option key={i}>{i}</option>)}
+              </select>
+            </div>
+          </div>
           <div style={{ display: 'flex', gap: 20 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
               <input type="checkbox" checked={form.is_industrial} onChange={e => setField('is_industrial', e.target.checked)} />
@@ -570,7 +606,6 @@ function WarnDetail({ notice, onCreateLead, onSearchProperty, onClose }) {
         </div>
       ) : (
         <>
-          {/* Filing details */}
           <div className="cl-card" style={{ padding: '16px 18px', marginBottom: 14 }}>
             <div className="cl-card-title" style={{ marginBottom: 12 }}>FILING DETAILS</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -582,6 +617,8 @@ function WarnDetail({ notice, onCreateLead, onSearchProperty, onClose }) {
                 { label: 'Notice Date',      value: fmtDate(notice.notice_date) },
                 { label: 'Effective Date',   value: fmtDate(notice.effective_date) },
                 { label: 'Days Since',       value: days !== null ? `${days} days ago` : '—' },
+                { label: 'Property Type',    value: notice.prop_type || '—' },
+                { label: 'Related Industry', value: notice.related_industry || '—' },
                 { label: 'Industrial',       value: notice.is_industrial ? 'Yes' : 'No' },
                 { label: 'In Market',        value: notice.is_in_market ? 'Yes' : 'No' },
               ].map(row => (
@@ -595,7 +632,6 @@ function WarnDetail({ notice, onCreateLead, onSearchProperty, onClose }) {
             </div>
           </div>
 
-          {/* Research notes */}
           <div className="cl-card" style={{ padding: '16px 18px', marginBottom: 14 }}>
             <div className="cl-card-title" style={{ marginBottom: 10 }}>RESEARCH NOTES</div>
             <p style={{
@@ -607,7 +643,6 @@ function WarnDetail({ notice, onCreateLead, onSearchProperty, onClose }) {
             </p>
           </div>
 
-          {/* Property search results */}
           {propResults !== null && (
             <div className="cl-card" style={{ padding: '16px 18px', marginBottom: 14 }}>
               <div className="cl-card-title" style={{ marginBottom: 12 }}>
@@ -640,7 +675,6 @@ function WarnDetail({ notice, onCreateLead, onSearchProperty, onClose }) {
             </div>
           )}
 
-          {/* Why this matters */}
           <div className="cl-card" style={{ padding: '16px 18px', borderLeft: '3px solid var(--purple)' }}>
             <div className="cl-card-title" style={{ marginBottom: 12 }}>WHY THIS MATTERS</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -684,7 +718,7 @@ function WarnDetail({ notice, onCreateLead, onSearchProperty, onClose }) {
 
 // ── CREATE LEAD FROM WARN MODAL ───────────────────────────────
 function CreateLeadFromWarnModal({ notice, onClose, onSuccess }) {
-  const [saving, setSaving]         = useState(false);
+  const [saving, setSaving]           = useState(false);
   const [matchedProp, setMatchedProp] = useState(null);
 
   const autoSuggested = ['WARN Notice', 'M&A — Acquisition', 'Relocation Risk'];
@@ -757,7 +791,6 @@ function CreateLeadFromWarnModal({ notice, onClose, onSuccess }) {
         city:          form.city,
         stage:         form.stage,
         priority:      form.priority,
-        source:        form.source,
         score,
         catalyst_tags: JSON.stringify(catalystPayload),
         notes:         form.notes,
@@ -804,24 +837,19 @@ function CreateLeadFromWarnModal({ notice, onClose, onSuccess }) {
         maxHeight: '90vh', overflowY: 'auto',
         boxShadow: '0 24px 64px rgba(0,0,0,0.2)',
       }}>
-        {/* Modal header */}
         <div style={{
           background: '#EDE8E0', borderBottom: '1px solid rgba(0,0,0,0.08)',
           padding: '18px 24px', display: 'flex', alignItems: 'center',
           justifyContent: 'space-between', borderRadius: '16px 16px 0 0',
         }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>
-              Create Lead from WARN Filing
-            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>Create Lead from WARN Filing</div>
             <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 3 }}>{notice.company}</div>
           </div>
           <button onClick={onClose} style={{ fontSize: 22, color: 'var(--text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1 }}>×</button>
         </div>
 
         <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 22 }}>
-
-          {/* Matched property banner */}
           {matchedProp && (
             <div style={{
               background: 'rgba(24,112,66,0.06)', border: '1px solid rgba(24,112,66,0.2)',
@@ -837,7 +865,6 @@ function CreateLeadFromWarnModal({ notice, onClose, onSuccess }) {
             </div>
           )}
 
-          {/* Lead form */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Lead Name</label>
@@ -874,7 +901,6 @@ function CreateLeadFromWarnModal({ notice, onClose, onSuccess }) {
             </div>
           </div>
 
-          {/* Catalyst tags */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <label style={{ ...labelStyle, marginBottom: 0 }}>Catalyst Tags</label>
@@ -890,10 +916,7 @@ function CreateLeadFromWarnModal({ notice, onClose, onSuccess }) {
               const catStyle = CATALYST_CATEGORIES[cat];
               return (
                 <div key={cat} style={{ marginBottom: 16 }}>
-                  <div style={{
-                    fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em',
-                    textTransform: 'uppercase', color: catStyle.color, marginBottom: 8,
-                  }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: catStyle.color, marginBottom: 8 }}>
                     {cat}
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -925,7 +948,6 @@ function CreateLeadFromWarnModal({ notice, onClose, onSuccess }) {
             </div>
           </div>
 
-          {/* Footer */}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 10, borderTop: '1px solid rgba(0,0,0,0.07)' }}>
             <button className="cl-btn cl-btn-secondary" onClick={onClose}>Cancel</button>
             <button className="cl-btn cl-btn-primary" onClick={handleCreate} disabled={saving} style={{ minWidth: 180 }}>

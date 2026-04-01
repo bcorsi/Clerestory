@@ -53,19 +53,30 @@ export default function LeadDetail({ lead, leadId, onBack, onNavigate, onConvert
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
 
-  useEffect(() => {
-    if (leadId && !lead) {
-      setFetchLoading(true);
-      import('@/lib/supabase').then(({ createClient }) => {
-        const supabase = createClient();
-        supabase.from('leads').select('*').eq('id', leadId).single()
-          .then(({ data, error }) => {
-            if (!error && data) setFetchedLead(data);
-            setFetchLoading(false);
-          });
-      });
-    }
-  }, [leadId]);
+  const [warnNotice, setWarnNotice] = useState(null);
+
+useEffect(() => {
+  if (leadId && !lead) {
+    setFetchLoading(true);
+    import('@/lib/supabase').then(({ createClient }) => {
+      const supabase = createClient();
+      supabase.from('leads').select('*').eq('id', leadId).single()
+        .then(({ data, error }) => {
+          if (!error && data) {
+            setFetchedLead(data);
+            // Fetch linked WARN notice
+            supabase.from('warn_notices')
+              .select('id, company, notice_date, effective_date, employees')
+              .eq('converted_lead_id', leadId)
+              .limit(1)
+              .single()
+              .then(({ data: warn }) => { if (warn) setWarnNotice(warn); });
+          }
+          setFetchLoading(false);
+        });
+    });
+  }
+}, [leadId]);
 
   const l = lead ?? fetchedLead ?? MOCK_LEAD;
 
@@ -186,6 +197,24 @@ export default function LeadDetail({ lead, leadId, onBack, onNavigate, onConvert
           )}
 
           <div style={S.inner}>
+
+  {/* WARN Notice link */}
+  {warnNotice && (
+    <div style={{ background: 'var(--rust-bg)', border: '1px solid var(--rust-bdr)', borderRadius: 10, padding: '14px 18px', marginBottom: 16, borderLeft: '3px solid var(--rust)', display: 'flex', alignItems: 'center', gap: 12 }}>
+      <span style={{ fontSize: 18 }}>⚡</span>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--rust)', marginBottom: 3 }}>Linked WARN Filing</div>
+        <div style={{ fontSize: 13, color: 'var(--ink2)' }}>{warnNotice.company}</div>
+        <div style={{ fontSize: 12, color: 'var(--ink4)', marginTop: 2 }}>
+          {warnNotice.employees ? `${Number(warnNotice.employees).toLocaleString()} workers` : ''}
+          {warnNotice.notice_date ? ` · Filed ${new Date(warnNotice.notice_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
+        </div>
+      </div>
+      <a href={`/warn-intel/${warnNotice.id}`} style={{ fontSize: 12, color: 'var(--blue)', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' }}>
+        View Filing →
+      </a>
+    </div>
+  )}
 
             {/* AI SYNTHESIS */}
             <div style={S.synthCard}>

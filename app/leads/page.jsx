@@ -66,6 +66,7 @@ export default function LeadsPage() {
   const [sortBy, setSortBy]             = useState('score');
   const [sortDir, setSortDir]           = useState('desc');
   const [page, setPage]                 = useState(0);
+  const [showImport, setShowImport]     = useState(false);
   const PAGE_SIZE = 50;
 
   useEffect(() => { loadLeads(); }, [stageTab, search, activeCatalystFilter, sortBy, sortDir, page]);
@@ -150,7 +151,7 @@ export default function LeadsPage() {
           </p>
         </div>
         <div className="cl-page-actions">
-          <button className="cl-btn cl-btn-secondary cl-btn-sm" onClick={() => alert('Import CSV — coming soon')}>Import CSV</button>
+          <button className="cl-btn cl-btn-secondary cl-btn-sm" onClick={() => setShowImport(true)}>Import CSV</button>
           <button className="cl-btn cl-btn-primary cl-btn-sm" onClick={() => router.push('/leads/new')}>+ New Lead</button>
         </div>
       </div>
@@ -303,6 +304,7 @@ export default function LeadsPage() {
           />
         )}
       </SlideDrawer>
+      {showImport && <ImportCSVModal onClose={() => setShowImport(false)} onImported={() => { loadLeads(); loadKpis(); }} />}
     </div>
   );
 }
@@ -432,6 +434,196 @@ function ScoreRing({ score }) {
           strokeDasharray={`${filled} ${circ - filled}`} strokeLinecap="round" transform="rotate(-90 17 17)" />
       </svg>
       <span style={{ position: 'absolute', fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600, color }}>{score}</span>
+    </div>
+  );
+}
+
+// ── IMPORT CSV MODAL ──────────────────────────────────────
+function ImportCSVModal({ onClose, onImported }) {
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState([]);
+  const [headers, setHeaders] = useState([]);
+  const [importing, setImporting] = useState(false);
+  const [done, setDone] = useState(0);
+  const [error, setError] = useState('');
+
+  // Expected columns → leads table mapping
+  const FIELD_MAP = {
+    'lead_name': 'lead_name', 'name': 'lead_name', 'lead name': 'lead_name',
+    'company': 'company', 'company name': 'company',
+    'address': 'address', 'street': 'address',
+    'city': 'city',
+    'market': 'market',
+    'building_sf': 'building_sf', 'building sf': 'building_sf', 'sf': 'building_sf', 'sq ft': 'building_sf',
+    'land_acres': 'land_acres', 'land acres': 'land_acres', 'acres': 'land_acres',
+    'clear_height': 'clear_height', 'clear height': 'clear_height', 'clear ht': 'clear_height',
+    'dock_doors': 'dock_doors', 'dock doors': 'dock_doors', 'docks': 'dock_doors',
+    'year_built': 'year_built', 'year built': 'year_built',
+    'zoning': 'zoning',
+    'owner_type': 'owner_type', 'owner type': 'owner_type',
+    'stage': 'stage',
+    'priority': 'priority',
+    'notes': 'notes',
+    'phone': 'phone',
+    'email': 'email',
+    'decision_maker': 'decision_maker', 'decision maker': 'decision_maker', 'contact': 'decision_maker',
+  };
+
+  function parseCSV(text) {
+    const lines = text.trim().split('\n');
+    const hdrs = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+    const rows = lines.slice(1).map(line => {
+      const vals = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+      const obj = {};
+      hdrs.forEach((h, i) => { obj[h] = vals[i] || ''; });
+      return obj;
+    }).filter(r => Object.values(r).some(v => v));
+    return { hdrs, rows };
+  }
+
+  function handleFile(f) {
+    setFile(f);
+    setError('');
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const { hdrs, rows } = parseCSV(e.target.result);
+        setHeaders(hdrs);
+        setPreview(rows.slice(0, 5));
+      } catch (err) {
+        setError('Could not parse CSV — check format and try again.');
+      }
+    };
+    reader.readAsText(f);
+  }
+
+  async function handleImport() {
+    if (!file) return;
+    setImporting(true);
+    setDone(0);
+    try {
+      const sb = createClient();
+      const reader = new FileReader();
+      reader.onload = async e => {
+        const { rows } = parseCSV(e.target.result);
+        let count = 0;
+        for (const row of rows) {
+          const record = { stage: 'New', priority: 'Medium', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+          Object.entries(row).forEach(([k, v]) => {
+            const mapped = FIELD_MAP[k.toLowerCase()];
+            if (mapped && v) {
+              if (['building_sf', 'dock_doors', 'grade_doors', 'year_built', 'parking_spaces'].includes(mapped)) {
+                record[mapped] = parseInt(v.replace(/,/g, '')) || null;
+              } else if (['land_acres', 'clear_height'].includes(mapped)) {
+                record[mapped] = parseFloat(v) || null;
+              } else {
+                record[mapped] = v;
+              }
+            }
+          });
+          if (!record.lead_name && !record.company) continue;
+          if (!record.lead_name) record.lead_name = record.company;
+          await sb.from('leads').insert(record);
+          count++;
+          setDone(count);
+        }
+        onImported?.();
+        onClose();
+      };
+      reader.readAsText(file);
+    } catch (err) {
+      setError('Import failed: ' + err.message);
+      setImporting(false);
+    }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ background: 'var(--card-bg)', borderRadius: 12, border: '1px solid var(--card-border)', boxShadow: '0 8px 40px rgba(0,0,0,0.18)', width: '100%', maxWidth: 640, maxHeight: '80vh', overflow: 'auto' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--card-border)' }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>Import Leads from CSV</div>
+            <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>Columns: lead_name, company, address, city, market, building_sf, clear_height, dock_doors, stage, priority, notes</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--text-tertiary)', lineHeight: 1 }}>×</button>
+        </div>
+
+        <div style={{ padding: '20px' }}>
+          {/* Drop zone */}
+          <div
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+            onClick={() => document.getElementById('csv-file-input').click()}
+            style={{ border: '2px dashed var(--card-border)', borderRadius: 8, padding: '32px 20px', textAlign: 'center', cursor: 'pointer', background: file ? 'rgba(78,110,150,0.04)' : 'transparent', transition: 'background 120ms ease', marginBottom: 16 }}
+          >
+            <input id="csv-file-input" type="file" accept=".csv" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) handleFile(e.target.files[0]); }} />
+            {file ? (
+              <div>
+                <div style={{ fontSize: 24, marginBottom: 6 }}>📄</div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>{file.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>{preview.length}+ rows detected · click to change</div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
+                <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Drop CSV file here or click to browse</div>
+                <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>Accepts .csv files</div>
+              </div>
+            )}
+          </div>
+
+          {error && <div style={{ padding: '8px 12px', background: 'rgba(184,55,20,0.08)', border: '1px solid rgba(184,55,20,0.2)', borderRadius: 6, color: 'var(--rust)', fontSize: 12, marginBottom: 12 }}>{error}</div>}
+
+          {/* Preview table */}
+          {preview.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', marginBottom: 8 }}>Preview (first 5 rows)</div>
+              <div style={{ overflowX: 'auto', borderRadius: 6, border: '1px solid var(--card-border)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                  <thead>
+                    <tr>
+                      {headers.map(h => (
+                        <th key={h} style={{ padding: '6px 10px', background: 'rgba(0,0,0,0.03)', borderBottom: '1px solid var(--card-border)', textAlign: 'left', fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600, color: FIELD_MAP[h] ? 'var(--blue)' : 'var(--text-tertiary)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                          {h}{FIELD_MAP[h] ? ' ✓' : ' —'}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.map((row, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+                        {headers.map(h => (
+                          <td key={h} style={{ padding: '5px 10px', color: 'var(--text-secondary)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {row[h] || <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 6 }}>
+                Columns marked ✓ will be imported. Unrecognized columns will be skipped.
+              </div>
+            </div>
+          )}
+
+          {importing && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', color: 'var(--blue)', fontSize: 13 }}>
+              <div className="cl-spinner" />Importing… {done} lead{done !== 1 ? 's' : ''} added
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '14px 20px', borderTop: '1px solid var(--card-border)', background: 'rgba(0,0,0,0.01)' }}>
+          <button className="cl-btn cl-btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="cl-btn cl-btn-primary" onClick={handleImport} disabled={!file || importing}>
+            {importing ? `Importing ${done}…` : `Import ${preview.length > 0 ? preview.length + '+' : ''} Leads`}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

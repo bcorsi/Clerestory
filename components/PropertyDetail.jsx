@@ -24,6 +24,7 @@ const SCORE_FACTORS = [
 ];
 
 export default function PropertyDetail({ id, inline = false }) {
+  const [warnNotice, setWarnNotice] = useState(null);
   const [property, setProperty]   = useState(null);
   const [loading, setLoading]     = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
@@ -85,6 +86,15 @@ export default function PropertyDetail({ id, inline = false }) {
         .limit(5);
       setLeads(lds || []);
 
+    // Linked WARN notice
+    const { data: warnMatch } = await supabase
+      .from('warn_notices')
+      .select('id, company, notice_date, effective_date, employees, converted_lead_id')
+      .eq('matched_property_id', propId)
+      .limit(1)
+      .single();
+    setWarnNotice(warnMatch || null);
+      
       // Nearby lease comps (same city)
       if (prop?.city) {
         const { data: comps } = await supabase
@@ -247,7 +257,7 @@ export default function PropertyDetail({ id, inline = false }) {
 
       {/* ── TAB CONTENT ── */}
       <div style={{ minHeight: 200 }}>
-        {activeTab === 'overview' && <OverviewTab property={property} />}
+        {activeTab === 'overview' && <OverviewTab property={property} warnNotice={warnNotice} />}
         {activeTab === 'timeline' && <TimelineTab activities={activities} />}
         {activeTab === 'comps' && <CompsTab comps={leaseComps} />}
         {activeTab === 'contacts' && <ContactsTab contacts={contacts} />}
@@ -261,7 +271,27 @@ export default function PropertyDetail({ id, inline = false }) {
 
 // ─── TAB PANELS ───────────────────────────────────────────
 
-function OverviewTab({ property }) {
+function OverviewTab({ property, warnNotice }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+      {/* WARN Notice link */}
+      {warnNotice && (
+        <div className="cl-card" style={{ padding: '14px 16px', borderLeft: '3px solid var(--rust)' }}>
+          <div className="cl-card-title" style={{ marginBottom: 10 }}>⚡ LINKED WARN FILING</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
+            {warnNotice.company}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
+            {warnNotice.employees ? `${Number(warnNotice.employees).toLocaleString()} workers affected` : ''}{' '}
+            {warnNotice.notice_date ? `· Filed ${new Date(warnNotice.notice_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
+          </div>
+          <a href={`/warn-intel/${warnNotice.id}`} style={{ fontSize: 12, color: 'var(--blue)', textDecoration: 'none', fontWeight: 500 }}>
+            View WARN Filing →
+          </a>
+        </div>
+      )}
+      
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {property.notes && (

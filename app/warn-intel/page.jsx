@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import SlideDrawer from '@/components/SlideDrawer';
 import { CATALYST_TAGS, CATALYST_CATEGORIES } from '@/lib/constants';
@@ -16,35 +17,19 @@ function daysSince(d) {
 }
 
 const PROP_TYPES = [
-  'Warehouse / Distribution',
-  'Manufacturing',
-  'Flex / R&D',
-  'Food Processing',
-  'Cold Storage / Refrigerated',
-  'Truck Terminal',
-  'IOS (Outdoor Storage)',
-  'Office',
-  'Retail',
-  'Other',
+  'Warehouse / Distribution', 'Manufacturing', 'Flex / R&D', 'Food Processing',
+  'Cold Storage / Refrigerated', 'Truck Terminal', 'IOS (Outdoor Storage)',
+  'Office', 'Retail', 'Other',
 ];
 
 const RELATED_INDUSTRIES = [
-  'Manufacturing',
-  'Wholesale Trade',
-  'Retail Trade',
-  'Transportation & Warehousing',
-  'Construction',
-  'Food & Beverage',
-  'Technology',
-  'Healthcare',
-  'Finance & Insurance',
-  'Professional Services',
-  'Government',
-  'Education',
-  'Other',
+  'Manufacturing', 'Wholesale Trade', 'Retail Trade', 'Transportation & Warehousing',
+  'Construction', 'Food & Beverage', 'Technology', 'Healthcare',
+  'Finance & Insurance', 'Professional Services', 'Government', 'Education', 'Other',
 ];
 
 export default function WarnIntelPage() {
+  const router = useRouter();
   const [notices, setNotices]               = useState([]);
   const [loading, setLoading]               = useState(true);
   const [total, setTotal]                   = useState(0);
@@ -70,8 +55,10 @@ export default function WarnIntelPage() {
         .order('notice_date', { ascending: false });
 
       if (search) query = query.or(`company.ilike.%${search}%,county.ilike.%${search}%,address.ilike.%${search}%`);
-      if (filter === 'new') query = query.is('converted_lead_id', null);
+      if (filter === 'new')     query = query.is('converted_lead_id', null).is('is_dead', null);
       if (filter === 'matched') query = query.not('matched_property_id', 'is', null);
+      if (filter === 'logged')  query = query.not('converted_lead_id', 'is', null);
+      if (filter === 'dead')    query = query.eq('is_dead', true);
 
       const { data, error, count } = await query;
       if (error) throw error;
@@ -83,6 +70,12 @@ export default function WarnIntelPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function markDead(noticeId) {
+    const supabase = createClient();
+    await supabase.from('warn_notices').update({ is_dead: true }).eq('id', noticeId);
+    setNotices(prev => prev.map(n => n.id === noticeId ? { ...n, is_dead: true } : n));
   }
 
   async function handleImportCSV(e) {
@@ -153,7 +146,15 @@ export default function WarnIntelPage() {
   }
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
-  const newCount = notices.filter(n => !n.converted_lead_id).length;
+  const newCount = notices.filter(n => !n.converted_lead_id && !n.is_dead).length;
+
+  const FILTERS = [
+    { k: 'all',     l: 'All Filings' },
+    { k: 'new',     l: '🔴 New' },
+    { k: 'matched', l: 'Property Matched' },
+    { k: 'logged',  l: '✓ Logged' },
+    { k: 'dead',    l: 'Dead' },
+  ];
 
   return (
     <div>
@@ -174,7 +175,7 @@ export default function WarnIntelPage() {
         </div>
       </div>
 
-      {/* WARN explanation banner */}
+      {/* WARN banner */}
       <div style={{
         background: 'rgba(88,56,160,0.06)', border: '1px solid rgba(88,56,160,0.15)',
         borderRadius: 10, padding: '14px 18px', marginBottom: 20,
@@ -199,11 +200,7 @@ export default function WarnIntelPage() {
           style={{ maxWidth: 320 }}
         />
         <div className="cl-tabs" style={{ margin: 0, border: 'none' }}>
-          {[
-            { k: 'all',     l: 'All Filings' },
-            { k: 'new',     l: '🔴 New' },
-            { k: 'matched', l: 'Property Matched' },
-          ].map(f => (
+          {FILTERS.map(f => (
             <button key={f.k} className={`cl-tab ${filter === f.k ? 'cl-tab--active' : ''}`}
               onClick={() => { setFilter(f.k); setPage(0); }} style={{ padding: '6px 14px' }}>
               {f.l}
@@ -218,7 +215,7 @@ export default function WarnIntelPage() {
           <thead>
             <tr>
               {[
-                { label: 'Status',      width: 90 },
+                { label: 'Status',      width: 100 },
                 { label: 'Company',     width: null },
                 { label: 'Industry',    width: 150 },
                 { label: 'City',        width: 130 },
@@ -226,7 +223,7 @@ export default function WarnIntelPage() {
                 { label: 'Notice Date', width: 130 },
                 { label: 'Effective',   width: 130 },
                 { label: 'Days Since',  width: 110 },
-                { label: 'Action',      width: 150 },
+                { label: 'Action',      width: 160 },
               ].map(col => (
                 <th key={col.label} style={{
                   width: col.width || undefined,
@@ -256,29 +253,43 @@ export default function WarnIntelPage() {
               </td></tr>
             ) : notices.map(notice => {
               const days = daysSince(notice.notice_date);
-              const isNew = !notice.converted_lead_id;
+              const isNew = !notice.converted_lead_id && !notice.is_dead;
+              const isLogged = !!notice.converted_lead_id;
+              const isDead = !!notice.is_dead;
               const isUrgent = days !== null && days <= 14;
 
               return (
                 <tr key={notice.id}
                   onClick={() => { setSelectedId(notice.id); setSelectedNotice(notice); }}
                   style={{
-                    background: selectedId === notice.id ? 'rgba(78,110,150,0.06)' : isNew ? 'rgba(184,55,20,0.02)' : undefined,
+                    background: isDead ? 'rgba(0,0,0,0.02)' : selectedId === notice.id ? 'rgba(78,110,150,0.06)' : isNew ? 'rgba(184,55,20,0.02)' : undefined,
                     borderBottom: '1px solid rgba(0,0,0,0.05)',
                     cursor: 'pointer', transition: 'background 120ms',
+                    opacity: isDead ? 0.5 : 1,
                   }}
                   onMouseEnter={e => { if (selectedId !== notice.id) e.currentTarget.style.background = 'rgba(78,110,150,0.03)'; }}
-                  onMouseLeave={e => { if (selectedId !== notice.id) e.currentTarget.style.background = isNew ? 'rgba(184,55,20,0.02)' : 'transparent'; }}
+                  onMouseLeave={e => { if (selectedId !== notice.id) e.currentTarget.style.background = isDead ? 'rgba(0,0,0,0.02)' : isNew ? 'rgba(184,55,20,0.02)' : 'transparent'; }}
                 >
+                  {/* Status */}
                   <td style={{ padding: '18px 18px' }}>
-                    {isNew ? (
-                      <span className="cl-badge cl-badge-rust" style={{ fontSize: 11 }}>NEW</span>
+                    {isDead ? (
+                      <span className="cl-badge cl-badge-gray" style={{ fontSize: 11 }}>DEAD</span>
+                    ) : isLogged ? (
+                      <span
+                        className="cl-badge cl-badge-green"
+                        style={{ fontSize: 11, cursor: 'pointer' }}
+                        onClick={e => { e.stopPropagation(); router.push(`/leads/${notice.converted_lead_id}`); }}
+                      >
+                        ✓ LOGGED
+                      </span>
                     ) : (
-                      <span className="cl-badge cl-badge-gray" style={{ fontSize: 11 }}>LOGGED</span>
+                      <span className="cl-badge cl-badge-rust" style={{ fontSize: 11 }}>NEW</span>
                     )}
                   </td>
+
+                  {/* Company */}
                   <td style={{ padding: '18px 18px' }}>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: isDead ? 'var(--text-tertiary)' : 'var(--text-primary)' }}>
                       {notice.company}
                     </div>
                     {notice.matched_property_id && (
@@ -292,12 +303,18 @@ export default function WarnIntelPage() {
                       </div>
                     )}
                   </td>
+
+                  {/* Industry */}
                   <td style={{ padding: '18px 18px', fontSize: 13, color: 'var(--text-secondary)' }}>
                     {notice.related_industry || '—'}
                   </td>
+
+                  {/* City */}
                   <td style={{ padding: '18px 18px', fontSize: 14, color: 'var(--text-secondary)' }}>
                     {notice.city || notice.county || '—'}
                   </td>
+
+                  {/* Workers */}
                   <td style={{
                     padding: '18px 18px', fontFamily: 'var(--font-mono)', fontSize: 14,
                     color: (notice.employees || 0) >= 200 ? 'var(--rust)' : 'var(--text-secondary)',
@@ -305,6 +322,8 @@ export default function WarnIntelPage() {
                   }}>
                     {notice.employees ? fmt(notice.employees) : '—'}
                   </td>
+
+                  {/* Notice date */}
                   <td style={{
                     padding: '18px 18px', fontFamily: 'var(--font-mono)', fontSize: 13,
                     color: isUrgent ? 'var(--rust)' : 'var(--text-secondary)',
@@ -312,28 +331,50 @@ export default function WarnIntelPage() {
                   }}>
                     {fmtDate(notice.notice_date)}
                   </td>
+
+                  {/* Effective */}
                   <td style={{ padding: '18px 18px', fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-secondary)' }}>
                     {fmtDate(notice.effective_date)}
                   </td>
+
+                  {/* Days since */}
                   <td style={{
                     padding: '18px 18px', fontFamily: 'var(--font-mono)', fontSize: 13,
                     color: days !== null && days <= 7 ? 'var(--rust)' : days !== null && days <= 30 ? 'var(--amber)' : 'var(--text-tertiary)',
                   }}>
                     {days !== null ? `${days}d ago` : '—'}
                   </td>
+
+                  {/* Action */}
                   <td style={{ padding: '18px 18px' }} onClick={e => e.stopPropagation()}>
-                    {isNew ? (
+                    {isDead ? (
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-tertiary)' }}>—</span>
+                    ) : isLogged ? (
                       <button
-                        className="cl-btn cl-btn-primary cl-btn-sm"
-                        onClick={() => setWarnModalNotice(notice)}
-                        style={{ fontSize: 12 }}
+                        className="cl-btn cl-btn-secondary cl-btn-sm"
+                        onClick={() => router.push(`/leads/${notice.converted_lead_id}`)}
+                        style={{ fontSize: 11 }}
                       >
-                        + Create Lead
+                        View Lead →
                       </button>
                     ) : (
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-tertiary)' }}>
-                        Lead created
-                      </span>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          className="cl-btn cl-btn-primary cl-btn-sm"
+                          onClick={() => setWarnModalNotice(notice)}
+                          style={{ fontSize: 11 }}
+                        >
+                          + Create Lead
+                        </button>
+                        <button
+                          className="cl-btn cl-btn-secondary cl-btn-sm"
+                          onClick={() => { if (confirm('Mark this filing as dead?')) markDead(notice.id); }}
+                          style={{ fontSize: 11, color: 'var(--text-tertiary)' }}
+                          title="Mark as dead"
+                        >
+                          ✕
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -366,17 +407,17 @@ export default function WarnIntelPage() {
         badge={{ label: 'WARN', color: 'rust' }}
       >
         {selectedNotice && (
-        <WarnDetail
-  notice={selectedNotice}
-  onCreateLead={() => setWarnModalNotice(selectedNotice)}
-  onPropertyMatched={(propertyId) => {
-    setNotices(prev => prev.map(n =>
-      n.id === selectedNotice?.id ? { ...n, matched_property_id: propertyId } : n
-    ));
-  }}
-  onSearchProperty={searchPropertyDatabase}
-  onClose={() => { setSelectedId(null); setSelectedNotice(null); }}
-/>
+          <WarnDetail
+            notice={selectedNotice}
+            onCreateLead={() => setWarnModalNotice(selectedNotice)}
+            onPropertyMatched={(propertyId) => {
+              setNotices(prev => prev.map(n =>
+                n.id === selectedNotice?.id ? { ...n, matched_property_id: propertyId } : n
+              ));
+            }}
+            onSearchProperty={searchPropertyDatabase}
+            onClose={() => { setSelectedId(null); setSelectedNotice(null); }}
+          />
         )}
       </SlideDrawer>
 
@@ -440,10 +481,10 @@ function WarnDetail({ notice, onCreateLead, onPropertyMatched, onSearchProperty,
         .limit(5);
       setPropResults(data || []);
       if (data && data.length > 0 && !notice.matched_property_id) {
-  const supabase2 = createClient();
-  await supabase2.from('warn_notices').update({ matched_property_id: data[0].id }).eq('id', notice.id);
-  onPropertyMatched?.(data[0].id);
-}
+        const supabase2 = createClient();
+        await supabase2.from('warn_notices').update({ matched_property_id: data[0].id }).eq('id', notice.id);
+        onPropertyMatched?.(data[0].id);
+      }
     } catch(e) { console.error(e); setPropResults([]); }
     finally { setPropSearching(false); }
   }
@@ -763,7 +804,7 @@ function CreateLeadFromWarnModal({ notice, onClose, onSuccess }) {
           if (data.owner_type === 'Owner-User') extra.push('SLB Potential');
           if (extra.length > 0) setSelectedTags(prev => [...new Set([...prev, ...extra])]);
         }
-      } catch(e) { /* no match found */ }
+      } catch(e) { /* no match */ }
     }
     findProperty();
   }, []);

@@ -1,517 +1,911 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
-import SlideDrawer from '@/components/SlideDrawer';
-import LeadDetail from '@/components/LeadDetail';
-
-const SCORE_COLOR = (score) =>
-  score >= 85 ? 'var(--rust)' : score >= 70 ? 'var(--blue)' : score >= 55 ? 'var(--amber)' : 'var(--text-tertiary)';
-
-const MARKET_FILTERS = ['SGV', 'IE West', 'IE East', 'Long Beach', 'OC'];
-const CATALYST_FILTERS = ['⚠ WARN', 'Lease Expiry', 'NOD Filed', 'CapEx Signal', 'SLB Potential', 'Owner-User'];
-const SIZE_FILTERS = ['50K+ SF', '100K+ SF', '200K+ SF'];
-
-function getCatalystColor(tag) {
-  const t = (tag?.tag || tag || '').toLowerCase();
-  if (t.includes('warn') || t.includes('distress') || t.includes('nod') || t.includes('bankruptcy')) return { bg: 'var(--rust-bg)', bdr: 'var(--rust-bdr)', color: 'var(--rust)' };
-  if (t.includes('lease') || t.includes('expir') || t.includes('capex') || t.includes('vacancy')) return { bg: 'rgba(140,90,4,0.1)', bdr: 'rgba(140,90,4,0.25)', color: 'var(--amber)' };
-  if (t.includes('slb') || t.includes('sale-lease') || t.includes('owner-user') || t.includes('long hold')) return { bg: 'rgba(78,110,150,0.1)', bdr: 'rgba(78,110,150,0.25)', color: 'var(--blue)' };
-  if (t.includes('m&a') || t.includes('acquisition') || t.includes('infrastructure') || t.includes('bess')) return { bg: 'rgba(88,56,160,0.1)', bdr: 'rgba(88,56,160,0.25)', color: 'var(--purple)' };
-  return { bg: 'rgba(78,110,150,0.08)', bdr: 'rgba(78,110,150,0.2)', color: 'var(--blue)' };
-}
+import { getCatalystStyle, getScoreRing, CATALYST_TAGS } from '@/lib/catalyst-constants';
 
 function parseCatalysts(raw) {
   if (!raw) return [];
-  if (Array.isArray(raw)) return raw;
+  if (Array.isArray(raw)) return raw.map(c => typeof c === 'string' ? { tag: c } : c);
   if (typeof raw === 'string') {
     try {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
-      return [parsed];
-    } catch {
-      // Plain string tag
-      return [{ tag: raw }];
-    }
+      const p = JSON.parse(raw);
+      if (Array.isArray(p)) return p.map(c => typeof c === 'string' ? { tag: c } : c);
+      return [typeof p === 'string' ? { tag: p } : p];
+    } catch { return [{ tag: raw }]; }
   }
   if (typeof raw === 'object') return [raw];
   return [];
 }
 
-export default function LeadsPage() {
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function fmtShort(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+function fmtSF(n) {
+  if (!n) return '—';
+  return Number(n).toLocaleString() + ' SF';
+}
+function fmtMoney(n) {
+  if (!n) return '—';
+  const num = Number(n);
+  if (num >= 1_000_000) return '$' + (num / 1_000_000).toFixed(1) + 'M';
+  if (num >= 1_000) return '$' + (num / 1_000).toFixed(0) + 'K';
+  return '$' + num.toLocaleString();
+}
+
+const WARN_STAGES = ['WARN notice filed', 'Closure confirmed permanent', 'Identify decision maker', 'Contact property owner', 'Qualify relocation needs', 'Convert to active deal'];
+const STD_STAGES  = ['New', 'Researching', 'Decision Maker Identified', 'Contacted', 'Converted'];
+
+const ICON_BG    = { call: 'var(--blue-bg)', note: 'var(--amber-bg)', alert: 'var(--rust-bg)', email: 'rgba(88,56,160,0.1)', task: 'var(--green-bg)' };
+const ICON_COLOR = { call: 'var(--blue)', note: 'var(--amber)', alert: 'var(--rust)', email: 'var(--purple)', task: 'var(--green)' };
+const ICON_EMOJI = { call: '📞', note: '📝', alert: '⚠', email: '✉', task: '✓' };
+
+const TABS = ['Timeline', 'APNs', 'Lease Comps', 'Contacts', 'Properties', 'Files'];
+
+export default function LeadDetail({ lead, onClose, onRefresh, fullPage = false }) {
   const router = useRouter();
-  const [leads, setLeads] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('all');
-  const [activeFilters, setActiveFilters] = useState([]);
-  const [search, setSearch] = useState('');
-  const [sort, setSort] = useState('score');
-  const [selectedLead, setSelectedLead] = useState(null);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const mapRef = useRef(null);
+  const mapInst = useRef(null);
 
-  useEffect(() => { loadLeads(); }, []);
+  const [activities,     setActivities]    = useState([]);
+  const [contacts,       setContacts]      = useState([]);
+  const [apns,           setApns]          = useState([]);
+  const [synth,          setSynth]         = useState(lead?.ai_synthesis || '');
+  const [synthTs,        setSynthTs]       = useState(lead?.ai_synthesis_at || null);
+  const [synthOpen,      setSynthOpen]     = useState(true);
+  const [synthLoading,   setSynthLoading]  = useState(false);
+  const [specsOpen,      setSpecsOpen]     = useState(false);
+  const [activeTab,      setActiveTab]     = useState('Timeline');
+  const [logPanel,       setLogPanel]      = useState(null);
+  const [logText,        setLogText]       = useState('');
+  const [logContact,     setLogContact]    = useState('');
+  const [editing,        setEditing]       = useState(false);
+  const [editingSpecs,   setEditingSpecs]  = useState(false);
+  const [saving,         setSaving]        = useState(false);
+  const [showTagPicker,  setShowTagPicker] = useState(false);
+  const [cadence,        setCadence]       = useState(lead?.cadence || '');
+  const [nextFollowUp,   setNextFollowUp]  = useState(lead?.follow_up_date || '');
+  const [newApn,         setNewApn]        = useState('');
+  const [addingApn,      setAddingApn]     = useState(false);
+  const [oneDriveUrl,    setOneDriveUrl]   = useState(lead?.onedrive_url || '');
+  const [savingDrive,    setSavingDrive]   = useState(false);
 
-  async function loadLeads() {
-    setLoading(true);
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('leads')
-        .select('*')
-        .order('score', { ascending: false });
-      if (error) throw error;
-      setLeads(data || []);
-    } catch(e) {
-      console.error('Leads error:', e);
-      setLeads([]);
-    } finally {
-      setLoading(false);
-    }
+  const [form, setForm] = useState({
+    lead_name: lead?.lead_name || '', company: lead?.company || '', address: lead?.address || '',
+    city: lead?.city || '', market: lead?.market || '', building_sf: lead?.building_sf || '',
+    land_acres: lead?.land_acres || '', clear_height: lead?.clear_height || '',
+    dock_doors: lead?.dock_doors || '', grade_doors: lead?.grade_doors || '',
+    year_built: lead?.year_built || '', zoning: lead?.zoning || '', power_amps: lead?.power_amps || '',
+    parking_spaces: lead?.parking_spaces || '', stage: lead?.stage || 'New',
+    priority: lead?.priority || 'Medium', owner_type: lead?.owner_type || '',
+    source: lead?.source || '', score: lead?.score || '', notes: lead?.notes || '',
+    decision_maker: lead?.decision_maker || '', phone: lead?.phone || '', email: lead?.email || '',
+    lat: lead?.lat || '', lng: lead?.lng || '',
+  });
+
+  // Separate specs form for the building score card edit
+  const [specsForm, setSpecsForm] = useState({
+    building_sf: lead?.building_sf || '', land_acres: lead?.land_acres || '',
+    clear_height: lead?.clear_height || '', dock_doors: lead?.dock_doors || '',
+    grade_doors: lead?.grade_doors || '', year_built: lead?.year_built || '',
+    zoning: lead?.zoning || '', power_amps: lead?.power_amps || '',
+    parking_spaces: lead?.parking_spaces || '', prop_type: lead?.prop_type || '',
+    sprinklers: lead?.sprinklers || '', lot_sf: lead?.lot_sf || '',
+  });
+
+  const l = lead || {};
+  const catalysts = parseCatalysts(l.catalyst_tags);
+  const score = l.score || 0;
+  const { grade } = getScoreRing(score);
+  const isWarn = catalysts.some(c => (c?.tag || '').toLowerCase().includes('warn'));
+  const isOverdue = nextFollowUp && new Date(nextFollowUp) < new Date();
+  const stages = isWarn ? WARN_STAGES : STD_STAGES;
+
+  const stageIdx = isWarn ? (() => {
+    const s = (l.stage || '').toLowerCase();
+    if (s.includes('convert') || s.includes('active deal')) return 5;
+    if (s.includes('qualify')) return 4;
+    if (s.includes('contact')) return 3;
+    if (s.includes('decision') || s.includes('dm')) return 2;
+    if (s.includes('permanent') || s.includes('confirm')) return 1;
+    return 0;
+  })() : Math.max(0, STD_STAGES.indexOf(l.stage || 'New'));
+
+  // Estimated value calculation
+  const estValue = l.est_value
+    ? fmtMoney(l.est_value)
+    : l.building_sf
+      ? '$' + (Math.round(Number(l.building_sf) * 260 / 100000) / 10).toFixed(1) + 'M est.'
+      : '—';
+
+  useEffect(() => { if (l.id) { loadActivities(); loadContacts(); loadApns(); } }, [l.id]);
+
+  // Leaflet satellite map
+  useEffect(() => {
+    if (typeof window === 'undefined' || mapInst.current || !mapRef.current) return;
+    import('leaflet').then(Lmod => {
+      const L = Lmod.default || Lmod;
+      if (mapInst.current) return;
+      const lat = parseFloat(l.lat) || 34.0522;
+      const lng = parseFloat(l.lng) || -117.9310;
+      const map = L.map(mapRef.current, { center: [lat, lng], zoom: 16, zoomControl: false, scrollWheelZoom: false, dragging: false, doubleClickZoom: false, attributionControl: false });
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 20 }).addTo(map);
+      const icon = L.divIcon({ className: '', html: '<div style="width:14px;height:14px;border-radius:50%;background:#B83714;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.5);"></div>', iconSize: [14, 14], iconAnchor: [7, 7] });
+      L.marker([lat, lng], { icon }).addTo(map);
+      mapInst.current = map;
+    }).catch(e => console.error('Leaflet:', e));
+    return () => { if (mapInst.current) { mapInst.current.remove(); mapInst.current = null; } };
+  }, [l.lat, l.lng]);
+
+  async function loadActivities() {
+    try { const sb = createClient(); const { data } = await sb.from('activities').select('*').eq('lead_id', l.id).order('created_at', { ascending: false }).limit(30); setActivities(data || []); } catch {}
+  }
+  async function loadContacts() {
+    try { const sb = createClient(); const { data } = await sb.from('contacts').select('*').eq('lead_id', l.id); setContacts(data || []); } catch {}
+  }
+  async function loadApns() {
+    try { const sb = createClient(); const { data } = await sb.from('property_apns').select('*').eq('lead_id', l.id); setApns(data || []); } catch {}
   }
 
-  const allLeads = leads.map(l => ({
-    ...l,
-    _catalysts: parseCatalysts(l.catalyst_tags),
-    _hot: (l.score || 0) >= 80,
-    _warn: parseCatalysts(l.catalyst_tags).some(t => (t?.tag || t || '').toLowerCase().includes('warn')),
-  }));
+  async function addApn() {
+    if (!newApn.trim()) return;
+    setAddingApn(true);
+    try {
+      const sb = createClient();
+      await sb.from('property_apns').insert({ lead_id: l.id, apn: newApn.trim() });
+      setNewApn('');
+      loadApns();
+    } catch (e) { alert('Error: ' + e.message); }
+    finally { setAddingApn(false); }
+  }
 
-  const filtered = allLeads.filter(l => {
-    if (activeTab === 'hot') return l._hot;
-    if (activeTab === 'warn') return l._warn;
-    if (activeTab === 'new') return l.stage === 'New';
-    if (activeTab === 'researching') return l.stage === 'Researching';
-    if (activeTab === 'dm_found') return l.stage === 'Decision Maker Identified';
-    if (activeTab === 'contacted') return l.stage === 'Contacted';
-    if (activeTab === 'converted') return l.stage === 'Converted';
-    return !['Converted', 'Killed'].includes(l.stage);
-  }).filter(l => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (l.lead_name || '').toLowerCase().includes(q) ||
-           (l.company || '').toLowerCase().includes(q) ||
-           (l.address || '').toLowerCase().includes(q) ||
-           (l.city || '').toLowerCase().includes(q);
-  }).sort((a, b) => {
-    if (sort === 'score') return (b.score || 0) - (a.score || 0);
-    if (sort === 'date') return new Date(b.created_at) - new Date(a.created_at);
-    if (sort === 'followup') return new Date(a.follow_up_date || '9999') - new Date(b.follow_up_date || '9999');
-    return 0;
-  });
+  async function removeApn(apnId) {
+    if (!confirm('Remove this APN?')) return;
+    try {
+      const sb = createClient();
+      await sb.from('property_apns').delete().eq('id', apnId);
+      loadApns();
+    } catch (e) { alert('Error: ' + e.message); }
+  }
 
-  const hotCount = allLeads.filter(l => l._hot).length;
-  const warnCount = allLeads.filter(l => l._warn).length;
-  const newCount = allLeads.filter(l => l.stage === 'New').length;
-  const convertedCount = allLeads.filter(l => l.stage === 'Converted').length;
+  async function saveOneDrive() {
+    setSavingDrive(true);
+    try {
+      const sb = createClient();
+      await sb.from('leads').update({ onedrive_url: oneDriveUrl || null }).eq('id', l.id);
+      onRefresh?.();
+    } catch (e) { alert('Error: ' + e.message); }
+    finally { setSavingDrive(false); }
+  }
 
-  const TABS = [
-    { key: 'all', label: 'All', count: allLeads.filter(l => !['Converted','Killed'].includes(l.stage)).length },
-    { key: 'new', label: 'New', count: newCount },
-    { key: 'researching', label: 'Researching', count: allLeads.filter(l => l.stage === 'Researching').length },
-    { key: 'dm_found', label: 'DM Found', count: allLeads.filter(l => l.stage === 'Decision Maker Identified').length },
-    { key: 'contacted', label: 'Contacted', count: allLeads.filter(l => l.stage === 'Contacted').length },
-    { key: 'hot', label: '⚡ Hot A+/A', count: hotCount, hot: true },
-    { key: 'warn', label: '⚠ WARN', count: warnCount, warn: true },
-    { key: 'converted', label: 'Converted', count: convertedCount },
-  ];
+  async function runSynthesis() {
+    setSynthLoading(true);
+    try {
+      const acts = activities.slice(0, 5).map(a => `${a.type}: ${a.notes || ''}`).join(' | ');
+      const prompt = `Senior CRE broker analyzing industrial real estate lead in SGV/IE Southern California.
 
-  return (
-    <div style={{ fontFamily: 'var(--font-ui)' }}>
+LEAD: ${l.lead_name || l.company} | ${l.address || '—'}, ${l.city || ''}
+Market: ${l.market || '—'} | SF: ${l.building_sf ? Number(l.building_sf).toLocaleString() + ' SF' : '—'} | Clear: ${l.clear_height ? l.clear_height + "'" : '—'} | Docks: ${l.dock_doors || '—'} | Built: ${l.year_built || '—'}
+Owner: ${l.owner_type || '—'} | Stage: ${l.stage || 'New'} | Score: ${score}/100 (${grade})
+Catalysts: ${catalysts.map(c => c?.tag || c).join(', ') || 'None'}
+Notes: ${l.notes || 'None'} | DM: ${l.decision_maker || 'Not identified'}
+Activity: ${acts || 'None'}
 
-      {/* PAGE HEADER */}
-      <div style={{ padding: '22px 0 16px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 4 }}>
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 300, color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1 }}>
-            Lead <em style={{ fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic', color: 'var(--blue)', fontSize: 36, fontWeight: 400 }}>Gen</em>
-          </h1>
-          <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 14, fontStyle: 'italic', color: 'var(--text-tertiary)', marginTop: 4 }}>
-            {loading ? 'Loading…' : `${allLeads.filter(l => !['Converted','Killed'].includes(l.stage)).length} leads · ${hotCount} hot · ${warnCount} WARN signals`}
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search company, address…"
-            style={{ padding: '7px 13px', borderRadius: 8, border: '1px solid var(--card-border)', background: 'var(--card-bg)', fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--text-primary)', outline: 'none', width: 240 }}
-          />
-          <select
-            value={sort}
-            onChange={e => setSort(e.target.value)}
-            style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid var(--card-border)', background: 'var(--card-bg)', fontFamily: 'var(--font-ui)', fontSize: 13, cursor: 'pointer', outline: 'none' }}
-          >
-            <option value="score">Sort: Score</option>
-            <option value="date">Sort: Date Added</option>
-            <option value="followup">Sort: Follow-up</option>
-          </select>
-          <button
-            className="cl-btn cl-btn-primary"
-            onClick={() => setShowAddModal(true)}
-            style={{ fontSize: 13 }}
-          >
-            + New Lead
-          </button>
-        </div>
-      </div>
+Write synthesis with these exact sections:
+Current Situation (2-3 bullets starting with –)
+Key Contacts (1-2 bullets starting with –)
+Recommended Next Steps (3 numbered: 1. Today: ... 2. 48 hrs: ... 3. Week 1: ...)
+Critical insight sentence at end (bold key phrase)
 
-      {/* KPI STRIP */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 20 }}>
-        {[
-          { icon: '◉', label: 'Total Leads', val: allLeads.filter(l => !['Converted','Killed'].includes(l.stage)).length, color: 'blue' },
-          { icon: '⚡', label: 'Hot — A+/A', val: hotCount, color: 'rust' },
-          { icon: '⚠', label: 'WARN Matched', val: warnCount, color: 'amber' },
-          { icon: '◈', label: 'Converted', val: convertedCount, color: 'green' },
-          { icon: '↗', label: 'New This Week', val: allLeads.filter(l => { const d = new Date(l.created_at); const week = new Date(); week.setDate(week.getDate()-7); return d > week; }).length, color: 'purple' },
-        ].map((k, i) => (
-          <div key={i} style={{ background: 'var(--card-bg)', borderRadius: 10, border: '1px solid var(--card-border)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: 'var(--card-shadow)' }}>
-            <div style={{ width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, background: `var(--${k.color}-bg)`, color: `var(--${k.color})`, flexShrink: 0 }}>{k.icon}</div>
-            <div>
-              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 26, fontWeight: 700, color: k.color === 'rust' ? 'var(--rust)' : 'var(--text-primary)', lineHeight: 1 }}>{k.val}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 3 }}>{k.label}</div>
-            </div>
-          </div>
-        ))}
-      </div>
+Be specific, reference actual data, 180 words max.`;
 
-      {/* TABS */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--card-border)', marginBottom: 0 }}>
-        {TABS.map(t => (
-          <button key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            style={{
-              padding: '9px 14px', fontSize: 13.5, cursor: 'pointer',
-              borderBottom: activeTab === t.key ? '2px solid var(--blue)' : '2px solid transparent',
-              marginBottom: -1, background: 'none', border: 'none',
-              borderBottomWidth: 2, borderBottomStyle: 'solid',
-              borderBottomColor: activeTab === t.key ? 'var(--blue)' : 'transparent',
-              color: activeTab === t.key ? 'var(--blue)' : 'var(--text-tertiary)',
-              fontWeight: activeTab === t.key ? 500 : 400,
-              fontFamily: 'var(--font-ui)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5,
-            }}>
-            {t.label}
-            <span style={{
-              fontFamily: 'var(--font-mono)', fontSize: 10,
-              background: t.warn ? 'var(--rust-bg)' : t.hot ? 'var(--rust-bg)' : 'rgba(0,0,0,0.06)',
-              border: `1px solid ${t.warn || t.hot ? 'var(--rust-bdr)' : 'rgba(0,0,0,0.1)'}`,
-              color: t.warn || t.hot ? 'var(--rust)' : 'var(--text-tertiary)',
-              borderRadius: 20, padding: '1px 6px',
-            }}>{t.count}</span>
-          </button>
-        ))}
-      </div>
+      const res = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt, mode: 'synthesis' }) });
+      const data = await res.json();
+      const text = data.result || data.content || 'Synthesis unavailable.';
+      setSynth(text); setSynthTs(new Date().toISOString());
+      const sb = createClient();
+      await sb.from('leads').update({ ai_synthesis: text, ai_synthesis_at: new Date().toISOString() }).eq('id', l.id);
+      onRefresh?.();
+    } catch { setSynth('Unable to generate synthesis — check AI API connection.'); }
+    finally { setSynthLoading(false); }
+  }
 
-      {/* TABLE */}
-      <div style={{ background: 'var(--card-bg)', borderRadius: '0 0 12px 12px', border: '1px solid var(--card-border)', borderTop: 'none', overflow: 'hidden', boxShadow: 'var(--card-shadow)' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: 'rgba(0,0,0,0.025)', borderBottom: '1px solid var(--card-border)' }}>
-              {['Score', 'Company / Address', 'City', 'SF', 'Stage', 'Catalysts', 'Follow Up', 'Contact', ''].map((h, i) => (
-                <th key={i} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--text-tertiary)', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={9}>
-                <div className="cl-loading" style={{ padding: 48 }}><div className="cl-spinner" />Loading leads…</div>
-              </td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan={9}>
-                <div className="cl-empty" style={{ padding: 56 }}>
-                  <div className="cl-empty-label">No leads found</div>
-                  <div className="cl-empty-sub">Add your first lead or import from CSV</div>
-                </div>
-              </td></tr>
-            ) : filtered.map((l, i) => (
-              <LeadRow
-                key={l.id}
-                lead={l}
-                isLast={i === filtered.length - 1}
-                onClick={() => setSelectedLead(l)}
-                onFullPage={() => router.push(`/leads/${l.id}`)}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* SLIDE DRAWER */}
-      <SlideDrawer
-        open={!!selectedLead}
-        onClose={() => setSelectedLead(null)}
-        fullPageHref={selectedLead ? `/leads/${selectedLead.id}` : undefined}
-        title={selectedLead?.lead_name || selectedLead?.company || 'Lead'}
-        subtitle={selectedLead ? [selectedLead.address, selectedLead.city].filter(Boolean).join(' · ') : ''}
-        badge={{ label: selectedLead?.stage || 'Lead', color: 'blue' }}
-      >
-        {selectedLead && (
-          <LeadDetail
-            lead={selectedLead}
-            onClose={() => setSelectedLead(null)}
-            onRefresh={loadLeads}
-          />
-        )}
-      </SlideDrawer>
-
-      {/* ADD LEAD MODAL */}
-      {showAddModal && (
-        <AddLeadModal
-          onClose={() => setShowAddModal(false)}
-          onSuccess={() => { setShowAddModal(false); loadLeads(); }}
-        />
-      )}
-    </div>
-  );
-}
-
-// ── LEAD ROW ──────────────────────────────────────────────────
-function LeadRow({ lead: l, isLast, onClick, onFullPage }) {
-  const [hover, setHover] = useState(false);
-  const score = l.score || 0;
-  const grade = score >= 90 ? 'A+' : score >= 80 ? 'A' : score >= 70 ? 'B+' : score >= 60 ? 'B' : 'C';
-  const cats = l._catalysts || [];
-  const isWarn = l._warn;
-  const isHot = l._hot;
-
-  const rowBg = isWarn
-    ? (hover ? '#FFF1EC' : '#FFF9F7')
-    : isHot
-    ? (hover ? '#EDF3FA' : '#F5F9FD')
-    : hover ? 'rgba(78,110,150,0.03)' : 'transparent';
-
-  const stageColors = {
-    'New': { bg: 'rgba(78,110,150,0.08)', color: 'var(--blue)', border: 'rgba(78,110,150,0.2)' },
-    'Researching': { bg: 'rgba(140,90,4,0.08)', color: 'var(--amber)', border: 'rgba(140,90,4,0.2)' },
-    'Decision Maker Identified': { bg: 'rgba(88,56,160,0.08)', color: 'var(--purple)', border: 'rgba(88,56,160,0.2)' },
-    'Contacted': { bg: 'rgba(24,112,66,0.08)', color: 'var(--green)', border: 'rgba(24,112,66,0.2)' },
-    'Converted': { bg: 'rgba(24,112,66,0.12)', color: 'var(--green)', border: 'rgba(24,112,66,0.3)' },
-  };
-  const stageStyle = stageColors[l.stage] || stageColors['New'];
-
-  const followUpDate = l.follow_up_date ? new Date(l.follow_up_date) : null;
-  const isOverdue = followUpDate && followUpDate < new Date();
-
-  return (
-    <tr
-      style={{ borderBottom: isLast ? 'none' : '1px solid rgba(0,0,0,0.05)', background: rowBg, cursor: 'pointer', transition: 'background 0.1s' }}
-      onClick={onClick}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-    >
-      {/* Score */}
-      <td style={{ padding: '12px 14px', verticalAlign: 'middle', width: 64 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          {score > 0 ? (
-            <>
-              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 22, fontWeight: 700, color: isWarn ? 'var(--rust)' : SCORE_COLOR(score), lineHeight: 1 }}>{score}</div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: isWarn ? 'var(--rust)' : SCORE_COLOR(score), marginTop: 1 }}>{grade}</div>
-            </>
-          ) : (
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-tertiary)' }}>—</div>
-          )}
-        </div>
-      </td>
-
-      {/* Company */}
-      <td style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
-        <div style={{ fontWeight: 500, fontSize: 14, color: isWarn ? 'var(--rust)' : 'var(--text-primary)', marginBottom: 2 }}>
-          {l.lead_name || l.company || '—'}
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-          {l.company && l.company !== l.lead_name ? l.company : l.address || ''}
-        </div>
-      </td>
-
-      {/* City */}
-      <td style={{ padding: '12px 14px', fontSize: 13, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-        {l.city || '—'}
-      </td>
-
-      {/* SF */}
-      <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: 12.5, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-        {l.building_sf ? Number(l.building_sf).toLocaleString() : '—'}
-      </td>
-
-      {/* Stage */}
-      <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
-        <span style={{ display: 'inline-flex', padding: '3px 8px', borderRadius: 5, fontSize: 11, fontWeight: 500, background: stageStyle.bg, color: stageStyle.color, border: `1px solid ${stageStyle.border}`, fontFamily: 'var(--font-mono)' }}>
-          {l.stage || 'New'}
-        </span>
-      </td>
-
-      {/* Catalysts */}
-      <td style={{ padding: '12px 14px', maxWidth: 240 }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-          {cats.slice(0, 3).map((c, ci) => {
-            const cs = getCatalystColor(c);
-            const label = c?.tag || c;
-            return (
-              <span key={ci} style={{ display: 'inline-flex', padding: '2px 7px', borderRadius: 4, fontSize: 10.5, fontWeight: 500, border: `1px solid ${cs.bdr}`, background: cs.bg, color: cs.color }}>
-                {label}
-              </span>
-            );
-          })}
-          {cats.length > 3 && (
-            <span style={{ fontSize: 10.5, color: 'var(--text-tertiary)', padding: '2px 4px' }}>+{cats.length - 3}</span>
-          )}
-        </div>
-      </td>
-
-      {/* Follow up */}
-      <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: 11, whiteSpace: 'nowrap', color: isOverdue ? 'var(--rust)' : 'var(--text-tertiary)' }}>
-        {followUpDate ? (
-          <span>
-            {isOverdue ? '⚠ ' : ''}
-            {followUpDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-          </span>
-        ) : '—'}
-      </td>
-
-      {/* Contact */}
-      <td style={{ padding: '12px 14px', fontSize: 12.5, color: 'var(--text-secondary)' }}>
-        {l.decision_maker || l.contact_name || '—'}
-        {l.phone && <div style={{ fontSize: 11, color: 'var(--blue)', marginTop: 1 }}>{l.phone}</div>}
-      </td>
-
-      {/* Actions */}
-      <td style={{ padding: '12px 14px' }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', gap: 4, opacity: hover ? 1 : 0, transition: 'opacity 0.1s' }}>
-          {l.phone && (
-            <a href={`tel:${l.phone}`} style={{ padding: '4px 9px', borderRadius: 5, fontSize: 11, fontWeight: 500, border: '1px solid var(--blue-bdr)', background: 'var(--blue-bg)', color: 'var(--blue)', cursor: 'pointer', fontFamily: 'var(--font-ui)', textDecoration: 'none' }}>
-              📞
-            </a>
-          )}
-          <button
-            onClick={() => onFullPage()}
-            style={{ padding: '4px 9px', borderRadius: 5, fontSize: 11, fontWeight: 500, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'var(--font-ui)' }}
-          >
-            Open →
-          </button>
-        </div>
-      </td>
-    </tr>
-  );
-}
-
-// ── ADD LEAD MODAL ────────────────────────────────────────────
-function AddLeadModal({ onClose, onSuccess }) {
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    lead_name: '', company: '', address: '', city: '',
-    market: '', building_sf: '', stage: 'New', priority: 'Medium',
-    owner_type: '', source: '', score: 60, notes: '',
-  });
-
-  async function handleSave() {
-    if (!form.lead_name.trim()) { alert('Lead name is required'); return; }
+  async function logActivity(type) {
+    if (!logText.trim()) { alert('Add notes first.'); return; }
     setSaving(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase.from('leads').insert({
-        lead_name: form.lead_name,
-        company: form.company || form.lead_name,
-        address: form.address || null,
-        city: form.city || null,
-        market: form.market || null,
-        building_sf: form.building_sf ? parseInt(form.building_sf.replace(/,/g,'')) : null,
-        stage: form.stage,
-        priority: form.priority,
-        owner_type: form.owner_type || null,
-        source: form.source || null,
-        score: Number(form.score),
-        notes: form.notes || null,
-      });
-      if (error) throw error;
-      onSuccess();
-    } catch(e) {
-      alert('Error saving lead: ' + e.message);
-    } finally {
-      setSaving(false);
-    }
+      const sb = createClient();
+      await sb.from('activities').insert({ lead_id: l.id, type, notes: logText, contact_name: logContact || null, created_at: new Date().toISOString() });
+      setLogPanel(null); setLogText(''); setLogContact('');
+      loadActivities(); onRefresh?.();
+    } catch (e) { alert('Error: ' + e.message); }
+    finally { setSaving(false); }
   }
 
-  const inputStyle = { width: '100%', padding: '8px 12px', borderRadius: 7, border: '1px solid var(--card-border)', background: 'rgba(0,0,0,0.025)', fontFamily: 'var(--font-ui)', fontSize: 13.5, color: 'var(--text-primary)', outline: 'none' };
-  const labelStyle = { display: 'block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-tertiary)', marginBottom: 5 };
+  async function saveEdit() {
+    setSaving(true);
+    try {
+      const sb = createClient();
+      const { error } = await sb.from('leads').update({
+        lead_name: form.lead_name, company: form.company, address: form.address, city: form.city,
+        market: form.market,
+        building_sf: form.building_sf ? parseInt(String(form.building_sf).replace(/,/g, '')) : null,
+        land_acres: form.land_acres ? parseFloat(form.land_acres) : null,
+        clear_height: form.clear_height ? parseFloat(form.clear_height) : null,
+        dock_doors: form.dock_doors ? parseInt(form.dock_doors) : null,
+        grade_doors: form.grade_doors ? parseInt(form.grade_doors) : null,
+        year_built: form.year_built ? parseInt(form.year_built) : null,
+        zoning: form.zoning || null, power_amps: form.power_amps || null,
+        parking_spaces: form.parking_spaces ? parseInt(form.parking_spaces) : null,
+        stage: form.stage, priority: form.priority, owner_type: form.owner_type || null,
+        source: form.source || null, score: form.score ? Number(form.score) : null,
+        notes: form.notes || null, decision_maker: form.decision_maker || null,
+        phone: form.phone || null, email: form.email || null,
+        lat: form.lat ? parseFloat(form.lat) : null, lng: form.lng ? parseFloat(form.lng) : null,
+        updated_at: new Date().toISOString(),
+      }).eq('id', l.id);
+      if (error) throw error;
+      setEditing(false); onRefresh?.();
+    } catch (e) { alert('Error: ' + e.message); }
+    finally { setSaving(false); }
+  }
+
+  async function saveSpecs() {
+    setSaving(true);
+    try {
+      const sb = createClient();
+      const { error } = await sb.from('leads').update({
+        building_sf: specsForm.building_sf ? parseInt(String(specsForm.building_sf).replace(/,/g, '')) : null,
+        land_acres: specsForm.land_acres ? parseFloat(specsForm.land_acres) : null,
+        clear_height: specsForm.clear_height ? parseFloat(specsForm.clear_height) : null,
+        dock_doors: specsForm.dock_doors ? parseInt(specsForm.dock_doors) : null,
+        grade_doors: specsForm.grade_doors ? parseInt(specsForm.grade_doors) : null,
+        year_built: specsForm.year_built ? parseInt(specsForm.year_built) : null,
+        zoning: specsForm.zoning || null,
+        power_amps: specsForm.power_amps || null,
+        parking_spaces: specsForm.parking_spaces ? parseInt(specsForm.parking_spaces) : null,
+        prop_type: specsForm.prop_type || null,
+        sprinklers: specsForm.sprinklers || null,
+        lot_sf: specsForm.lot_sf ? parseInt(String(specsForm.lot_sf).replace(/,/g, '')) : null,
+        updated_at: new Date().toISOString(),
+      }).eq('id', l.id);
+      if (error) throw error;
+      setEditingSpecs(false); onRefresh?.();
+    } catch (e) { alert('Error: ' + e.message); }
+    finally { setSaving(false); }
+  }
+
+  async function setCadenceAndTask(val) {
+    setCadence(val); if (!val) return;
+    const days = { Daily: 1, Weekly: 7, Biweekly: 14, Monthly: 30, Quarterly: 90 }[val] || 7;
+    const next = new Date(); next.setDate(next.getDate() + days);
+    const dateStr = next.toISOString().split('T')[0];
+    setNextFollowUp(dateStr);
+    try {
+      const sb = createClient();
+      await sb.from('leads').update({ cadence: val, follow_up_date: dateStr }).eq('id', l.id);
+      await sb.from('tasks').insert({ title: `Follow up — ${l.lead_name || l.company}`, lead_id: l.id, due_date: dateStr, priority: l.priority || 'Medium', notes: `${val} cadence`, status: 'Pending' });
+      onRefresh?.();
+    } catch {}
+  }
+
+  async function addTag(tagName) {
+    const current = parseCatalysts(l.catalyst_tags);
+    if (current.some(c => (c?.tag || c) === tagName)) { setShowTagPicker(false); return; }
+    const meta = CATALYST_TAGS.find(t => t.tag === tagName);
+    const updated = [...current, { tag: tagName, category: meta?.category || 'asset', priority: meta?.priority || 'MED' }];
+    try { const sb = createClient(); await sb.from('leads').update({ catalyst_tags: JSON.stringify(updated) }).eq('id', l.id); setShowTagPicker(false); onRefresh?.(); } catch (e) { alert(e.message); }
+  }
+
+  async function removeTag(tagName) {
+    const updated = parseCatalysts(l.catalyst_tags).filter(c => (c?.tag || c) !== tagName);
+    try { const sb = createClient(); await sb.from('leads').update({ catalyst_tags: JSON.stringify(updated) }).eq('id', l.id); onRefresh?.(); } catch {}
+  }
+
+  async function convertToDeal() {
+    if (!confirm(`Convert "${l.lead_name || l.company}" to active deal?`)) return;
+    try {
+      const sb = createClient();
+      const { data: deal, error } = await sb.from('deals').insert({ deal_name: l.lead_name || l.company, address: l.address, city: l.city, market: l.market, stage: 'Tracking', lead_id: l.id, notes: l.notes }).select('id').single();
+      if (error) throw error;
+      await sb.from('leads').update({ stage: 'Converted', converted_deal_id: deal.id }).eq('id', l.id);
+      onRefresh?.(); router.push(`/deals/${deal.id}`);
+    } catch (e) { alert('Error: ' + e.message); }
+  }
+
+  async function addProperty() {
+    if (!l.address) { alert('No address to create property from.'); return; }
+    try {
+      const sb = createClient();
+      const { error } = await sb.from('properties').insert({
+        address: l.address, city: l.city, market: l.market,
+        building_sf: l.building_sf, land_acres: l.land_acres, clear_height: l.clear_height,
+        dock_doors: l.dock_doors, year_built: l.year_built, zoning: l.zoning,
+        owner: l.company || l.lead_name, owner_type: l.owner_type,
+        prop_type: l.prop_type || 'Warehouse', notes: l.notes, lat: l.lat, lng: l.lng,
+      });
+      if (error) throw error;
+      alert('Property created!'); onRefresh?.();
+    } catch (e) { alert('Error: ' + e.message); }
+  }
+
+  // Shared styles
+  const iS = { width: '100%', padding: '8px 12px', borderRadius: 7, border: '1px solid var(--card-border)', background: 'rgba(0,0,0,0.025)', fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--text-primary)', outline: 'none' };
+  const lS = { fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'var(--text-tertiary)', marginBottom: 4, display: 'block', fontFamily: 'var(--font-mono)' };
+  const btn = { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 7, fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 500, cursor: 'pointer', border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' };
+  const card = { background: 'var(--card-bg)', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', border: '1px solid rgba(0,0,0,0.06)', overflow: 'hidden' };
+  const spRow = (k, v, vStyle = {}) => (
+    <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '9px 16px', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+      <span style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>{k}</span>
+      <span style={{ fontSize: 13.5, color: 'var(--text-primary)', textAlign: 'right', maxWidth: 170, ...vStyle }}>{v || '—'}</span>
+    </div>
+  );
+
+  // Building score calc
+  const buildingScore = Math.min(100,
+    (l.clear_height >= 32 ? 25 : l.clear_height >= 28 ? 20 : l.clear_height >= 24 ? 15 : l.clear_height ? 8 : 0) +
+    (l.dock_doors >= 10 ? 20 : l.dock_doors >= 4 ? 15 : l.dock_doors ? 8 : 0) +
+    (l.year_built >= 2010 ? 20 : l.year_built >= 2000 ? 15 : l.year_built >= 1990 ? 10 : l.year_built ? 5 : 0) +
+    (l.power_amps >= 2000 ? 15 : l.power_amps >= 1200 ? 10 : l.power_amps ? 5 : 0) +
+    (l.land_acres >= 5 ? 10 : l.land_acres >= 2 ? 7 : l.land_acres ? 4 : 0) +
+    (l.sprinklers ? 10 : 0)
+  );
+  const buildingGrade = buildingScore >= 85 ? 'A+' : buildingScore >= 75 ? 'A' : buildingScore >= 65 ? 'B+' : buildingScore >= 55 ? 'B' : buildingScore >= 40 ? 'C+' : 'C';
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: 'var(--bg)', borderRadius: 14, boxShadow: '0 8px 40px rgba(0,0,0,0.18)', width: 560, maxHeight: '90vh', overflowY: 'auto' }}>
-        <div style={{ background: '#EDE8E0', borderBottom: '1px solid rgba(0,0,0,0.07)', padding: '18px 24px', borderRadius: '14px 14px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>Add New Lead</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--text-tertiary)', lineHeight: 1 }}>×</button>
+    <div style={{ fontFamily: 'var(--font-ui)', background: 'var(--bg)' }}>
+
+      {/* ══ TOPBAR — only show in fullPage mode, drawer has its own header ══ */}
+      {fullPage && (
+        <div style={{ height: 48, background: 'var(--card-bg)', borderBottom: '1px solid var(--card-border)', display: 'flex', alignItems: 'center', padding: '0 28px', gap: 8, position: 'sticky', top: 0, zIndex: 10, boxShadow: '0 1px 0 rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: 'var(--text-tertiary)' }}>
+            <span style={{ cursor: 'pointer', color: 'var(--blue)' }} onClick={() => router.push('/leads')}>Lead Gen</span>
+            <span style={{ opacity: .4, margin: '0 4px' }}>›</span>
+            <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{l.lead_name || l.company}</span>
+          </div>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 7 }}>
+            <button style={btn} onClick={() => setEditing(e => !e)}>⚙ Edit</button>
+            <button style={btn} onClick={() => setLogPanel(p => p === 'note' ? null : 'note')}>+ Activity</button>
+            <button style={btn} onClick={() => setLogPanel(p => p === 'task' ? null : 'task')}>+ Task</button>
+            <a href={`https://maps.google.com/?q=${encodeURIComponent((l.address || '') + ' ' + (l.city || ''))}`} target="_blank" rel="noopener noreferrer" style={{ ...btn, textDecoration: 'none' }}>📍 Google Maps</a>
+            <a href={`https://www.costar.com/search#?q=${encodeURIComponent((l.address || '') + (l.city ? ', ' + l.city : ''))}&t=2`} target="_blank" rel="noopener noreferrer" style={{ ...btn, textDecoration: 'none' }}>🗂 CoStar</a>
+            <button style={{ ...btn, background: 'rgba(140,90,4,0.08)', borderColor: 'rgba(140,90,4,0.22)', color: 'var(--amber)', fontWeight: 600 }} onClick={() => router.push(`/owner-search?q=${encodeURIComponent(l.company || l.lead_name || '')}`)}>⚡ Run Owner Search</button>
+            <button style={{ ...btn, background: 'var(--green)', borderColor: 'var(--green)', color: '#fff', fontWeight: 600 }} onClick={convertToDeal}>◈ Convert to Deal</button>
+          </div>
         </div>
-        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      )}
+
+      {/* ══ HERO — satellite map ══ */}
+      <div style={{ height: fullPage ? 280 : 220, position: 'relative', overflow: 'hidden' }}>
+        <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top,rgba(10,8,5,0.82) 0%,rgba(10,8,5,0.15) 55%,transparent 100%)', pointerEvents: 'none', zIndex: 400 }} />
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 500, padding: '16px 22px' }}>
+          <div style={{ fontFamily: "'Playfair Display',serif", fontSize: fullPage ? 26 : 22, fontWeight: 700, color: '#fff', lineHeight: 1.1, marginBottom: 6, textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
+            {l.lead_name || l.company}{l.address ? ` — ${l.address}` : ''}
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {isWarn && <span style={H.rust}>⚠ WARN{l.workers ? ` · ${l.workers} Workers` : ''}</span>}
+            {l.market && <span style={H.blue}>{l.market}</span>}
+            {l.building_sf && <span style={H.amber}>{Number(l.building_sf).toLocaleString()} SF{l.owner_type ? ` · ${l.owner_type}` : ''}</span>}
+            {score > 0 && <span style={H.blue}>Score {score} · {grade}</span>}
+          </div>
+        </div>
+      </div>
+
+      {/* ══ ACTION BAR ══ */}
+      <div style={{ background: 'var(--bg)', borderBottom: '1px solid var(--card-border)', padding: '10px 22px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {score > 0 && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 14px', background: 'var(--card-bg)', border: '1px solid rgba(184,55,20,0.25)', borderRadius: 8, marginRight: 4, flexShrink: 0 }}>
+              <div><div style={{ fontSize: 10, color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>Lead Score</div><div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--rust)' }}>{grade}</div></div>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 22, fontWeight: 700, color: 'var(--rust)', lineHeight: 1 }}>{score}</div>
+            </div>
+            <div style={{ width: 1, height: 20, background: 'var(--card-border)' }} />
+          </>
+        )}
+        <button style={btn} onClick={() => setLogPanel(p => p === 'call' ? null : 'call')}>📞 Log Call</button>
+        <button style={btn} onClick={() => setLogPanel(p => p === 'email' ? null : 'email')}>✉ Log Email</button>
+        <button style={btn} onClick={() => setLogPanel(p => p === 'note' ? null : 'note')}>📝 Add Note</button>
+        <button style={btn} onClick={() => setLogPanel(p => p === 'task' ? null : 'task')}>+ Task</button>
+        <div style={{ width: 1, height: 20, background: 'var(--card-border)' }} />
+        <a href={`https://maps.google.com/?q=${encodeURIComponent((l.address || '') + ' ' + (l.city || ''))}`} target="_blank" rel="noopener noreferrer" style={{ ...btn, background: 'none', border: 'none', color: 'var(--blue)', padding: '7px 8px', textDecoration: 'none' }}>📍 Google Maps</a>
+        <a href={`https://www.costar.com/search#?q=${encodeURIComponent((l.address || '') + (l.city ? ', ' + l.city : ''))}&t=2`} target="_blank" rel="noopener noreferrer" style={{ ...btn, background: 'none', border: 'none', color: 'var(--blue)', padding: '7px 8px', textDecoration: 'none' }}>🗂 CoStar</a>
+        <a href={`https://www.loopnet.com/search/commercial-real-estate/${encodeURIComponent((l.city || 'los-angeles') + '-ca')}/for-sale/`} target="_blank" rel="noopener noreferrer" style={{ ...btn, background: 'none', border: 'none', color: 'var(--blue)', padding: '7px 8px', textDecoration: 'none' }}>🔍 LoopNet</a>
+        {apns[0]?.apn && <a href={`https://portal.assessor.lacounty.gov/parceldetail/${String(apns[0].apn).replace(/-/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ ...btn, background: 'none', border: 'none', color: 'var(--blue)', padding: '7px 8px', textDecoration: 'none' }}>🗺 LA County GIS</a>}
+        <div style={{ marginLeft: 'auto' }} />
+        <button style={{ ...btn, background: 'var(--green)', borderColor: 'var(--green)', color: '#fff', fontWeight: 600 }} onClick={convertToDeal}>◈ Convert to Deal</button>
+      </div>
+
+      {/* ══ LOG PANEL ══ */}
+      {logPanel && (
+        <div style={{ background: '#F8F6F2', borderBottom: '1px solid var(--card-border)', padding: '14px 22px', display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ ...lS, marginBottom: 6 }}>{logPanel === 'call' ? '📞 Log Call' : logPanel === 'email' ? '✉ Log Email' : logPanel === 'note' ? '📝 Add Note' : '✓ Add Task'}</div>
+            <input value={logContact} onChange={e => setLogContact(e.target.value)} placeholder="Contact name (optional)" style={{ ...iS, marginBottom: 8 }} />
+            <textarea value={logText} onChange={e => setLogText(e.target.value)} placeholder={`Notes for this ${logPanel}…`} style={{ ...iS, resize: 'vertical', minHeight: 68 }} />
+          </div>
+          <button style={btn} onClick={() => { setLogPanel(null); setLogText(''); setLogContact(''); }}>Cancel</button>
+          <button style={{ ...btn, background: 'var(--blue)', borderColor: 'var(--blue)', color: '#fff' }} onClick={() => logActivity(logPanel)} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+        </div>
+      )}
+
+      {/* ══ EDIT FORM ══ */}
+      {editing && (
+        <div style={{ background: '#F8F6F2', borderBottom: '1px solid var(--card-border)', padding: '20px 22px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>Edit Lead</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button style={btn} onClick={() => setEditing(false)}>Cancel</button>
+              <button style={{ ...btn, background: 'var(--blue)', borderColor: 'var(--blue)', color: '#fff' }} onClick={saveEdit} disabled={saving}>{saving ? 'Saving…' : '✓ Save'}</button>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+            {[['lead_name', 'Lead Name'], ['company', 'Company'], ['address', 'Address'], ['city', 'City'], ['market', 'Market'], ['decision_maker', 'Decision Maker'], ['phone', 'Phone'], ['email', 'Email'], ['lat', 'Latitude'], ['lng', 'Longitude']].map(([k, label]) => (
+              <div key={k}><label style={lS}>{label}</label><input style={iS} value={form[k] || ''} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))} /></div>
+            ))}
+            <div><label style={lS}>Stage</label><select style={iS} value={form.stage} onChange={e => setForm(f => ({ ...f, stage: e.target.value }))}>{STD_STAGES.map(s => <option key={s}>{s}</option>)}</select></div>
+            <div><label style={lS}>Owner Type</label><select style={iS} value={form.owner_type} onChange={e => setForm(f => ({ ...f, owner_type: e.target.value }))}><option value="">Select…</option>{['Owner-User', 'Private LLC', 'Family Trust', 'Corp', 'Individual', 'REIT', 'Institutional'].map(o => <option key={o}>{o}</option>)}</select></div>
+            <div><label style={lS}>Priority</label><select style={iS} value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>{['Critical', 'High', 'Medium', 'Low'].map(p => <option key={p}>{p}</option>)}</select></div>
+            <div><label style={lS}>Score</label><input type="number" style={iS} value={form.score || ''} onChange={e => setForm(f => ({ ...f, score: e.target.value }))} min={1} max={100} /></div>
+            <div style={{ gridColumn: '1/-1' }}><label style={lS}>Notes</label><textarea style={{ ...iS, minHeight: 80, resize: 'vertical' }} value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MAIN CONTENT ══ */}
+      <div style={{ padding: '16px 22px 0' }}>
+
+        {/* AI SYNTHESIS */}
+        <div style={{ ...card, border: '1px solid rgba(88,56,160,0.18)', borderLeft: '3px solid var(--purple)', marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px 11px 20px', borderBottom: '1px solid rgba(88,56,160,0.12)', cursor: 'pointer' }} onClick={() => setSynthOpen(o => !o)}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 13, color: 'var(--purple)' }}>✦</span>
+              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase', color: 'var(--purple)', fontFamily: 'var(--font-mono)' }}>AI Synthesis</span>
+              <span style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 13, fontStyle: 'italic', color: 'var(--text-tertiary)' }}>Lead Intelligence Report · {l.lead_name || l.company}</span>
+            </div>
+            <span style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 13, fontStyle: 'italic', color: 'var(--purple)' }}>{synthOpen ? 'Hide ▴' : 'Show ▾'}</span>
+          </div>
+          {synthOpen && (
+            <div style={{ padding: '14px 20px 16px' }}>
+              {synthLoading
+                ? <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--purple)', fontSize: 13.5 }}><div className="cl-spinner" style={{ width: 16, height: 16, borderColor: 'rgba(88,56,160,0.15)', borderTopColor: 'var(--purple)' }} />Generating intelligence synthesis…</div>
+                : synth
+                  ? <div style={{ fontSize: 13.5, lineHeight: 1.75, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{synth}</div>
+                  : <div style={{ fontSize: 13.5, color: 'var(--text-tertiary)', fontStyle: 'italic' }}>No synthesis yet — click Generate to create an AI intelligence report for this lead.</div>
+              }
+            </div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 20px', borderTop: '1px solid rgba(88,56,160,0.10)', background: 'rgba(88,56,160,0.02)' }}>
+            <button onClick={runSynthesis} disabled={synthLoading} style={{ fontSize: 12, color: 'var(--purple)', cursor: 'pointer', background: 'none', border: '1px solid rgba(88,56,160,0.22)', borderRadius: 6, padding: '4px 11px', fontFamily: 'var(--font-ui)' }}>{synth ? '↻ Regenerate' : '✦ Generate'}</button>
+            {synth && <button onClick={() => navigator.clipboard?.writeText(synth)} style={{ fontSize: 12, color: 'var(--purple)', cursor: 'pointer', background: 'none', border: '1px solid rgba(88,56,160,0.22)', borderRadius: 6, padding: '4px 11px', fontFamily: 'var(--font-ui)' }}>📋 Copy</button>}
+            {synthTs && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-tertiary)', marginLeft: 'auto' }}>Generated {fmtDate(synthTs)}</span>}
+          </div>
+        </div>
+
+        {/* STAT ROW */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', background: 'var(--card-bg)', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', border: '1px solid rgba(0,0,0,0.06)', overflow: 'hidden', marginBottom: 14 }}>
+          {[
+            { lbl: 'Building SF', val: l.building_sf ? Number(l.building_sf).toLocaleString() : null, sub: l.owner_type || 'Industrial' },
+            { lbl: 'WARN Workers', val: isWarn ? (l.workers || '?') : null, sub: isWarn ? 'Filed ' + fmtShort(l.created_at) : '—', rust: isWarn },
+            { lbl: 'Market Rent', val: l.market_rent ? '$' + l.market_rent + '/SF' : null, sub: 'NNN est.', blue: true },
+            { lbl: 'Est. Value', val: estValue, sub: l.building_sf ? '~$260/SF market' : null },
+            { lbl: 'Owner', val: l.company || l.lead_name || null, sub: l.owner_type || null, sm: true },
+            { lbl: 'Lead Score', val: score > 0 ? score : null, sub: `Grade ${grade}`, rust: true },
+          ].map((c, i) => (
+            <div key={c.lbl} style={{ padding: '13px 14px', borderRight: i < 5 ? '1px solid rgba(0,0,0,0.06)' : 'none' }}>
+              <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--text-tertiary)', marginBottom: 5, fontFamily: 'var(--font-mono)' }}>{c.lbl}</div>
+              <div style={{ fontFamily: c.sm ? "'Instrument Sans',sans-serif" : "'Playfair Display',serif", fontWeight: c.sm ? 400 : 700, fontSize: c.sm ? 14 : 22, color: c.rust ? 'var(--rust)' : c.blue ? 'var(--blue)' : 'var(--text-primary)', lineHeight: 1 }}>{c.val || '—'}</div>
+              {c.sub && <div style={{ fontSize: 11, color: c.rust ? 'var(--rust)' : c.blue ? 'var(--blue)' : 'var(--text-tertiary)', marginTop: 3 }}>{c.sub}</div>}
+            </div>
+          ))}
+        </div>
+
+        {/* BUILDING SCORE CARD */}
+        <div style={{ ...card, marginBottom: 14 }}>
+          {/* Header row — always clickable to expand */}
+          <div
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderBottom: specsOpen ? '1px solid var(--card-border)' : 'none', cursor: 'pointer', userSelect: 'none' }}
+            onClick={() => setSpecsOpen(o => !o)}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ width: 50, height: 50, borderRadius: '50%', border: '2.5px solid rgba(78,110,150,0.32)', background: 'var(--blue-bg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 20, fontWeight: 700, color: 'var(--blue)', lineHeight: 1 }}>{buildingScore || '—'}</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--blue)', marginTop: 1 }}>{buildingGrade}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>
+                  Building Score{l.clear_height ? ` — ${l.clear_height}' clear` : ''}{l.dock_doors ? ` · ${l.dock_doors} dock-high` : ''}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>
+                  {[l.clear_height && `${l.clear_height}' clear`, l.dock_doors && `${l.dock_doors} DH`, l.power_amps && `${l.power_amps}A`, l.sprinklers && 'Sprinklered'].filter(Boolean).join(' · ') || 'Add building specs to score'}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {specsOpen && (
+                <button
+                  onClick={e => { e.stopPropagation(); setEditingSpecs(s => !s); }}
+                  style={{ ...btn, fontSize: 12, padding: '5px 10px' }}
+                >
+                  {editingSpecs ? '✕ Cancel Edit' : '✏ Edit Specs'}
+                </button>
+              )}
+              <span style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 13, fontStyle: 'italic', color: 'var(--blue)' }}>
+                {specsOpen ? 'Hide specs ▴' : 'Show all specs ▾'}
+              </span>
+            </div>
+          </div>
+
+          {/* Compact summary strip — always visible */}
+          <div style={{ display: 'flex' }}>
+            {[
+              ['Clear Ht', l.clear_height ? `${l.clear_height}'` : '—'],
+              ['Dock Doors', l.dock_doors ? `${l.dock_doors} DH${l.grade_doors ? ` · ${l.grade_doors} GL` : ''}` : '—'],
+              ['Year Built', l.year_built || '—'],
+              ['Land (AC)', l.land_acres || '—'],
+              ['Power', l.power_amps ? `${l.power_amps}A` : '—'],
+              ['Zoning', l.zoning || '—'],
+              ['Parking', l.parking_spaces || '—'],
+              ['Prop Type', l.prop_type || 'Industrial'],
+            ].map((s, i) => (
+              <div key={s[0]} style={{ flex: 1, padding: '9px 12px', borderRight: i < 7 ? '1px solid rgba(0,0,0,0.05)' : 'none', borderTop: '1px solid rgba(0,0,0,0.05)', textAlign: 'center' }}>
+                <div style={{ fontSize: 9, color: 'var(--text-tertiary)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 3, fontFamily: 'var(--font-mono)' }}>{s[0]}</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, color: s[1] === '—' ? 'var(--text-tertiary)' : 'var(--text-primary)' }}>{s[1]}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Expanded specs — edit or view */}
+          {specsOpen && (
+            <div style={{ borderTop: '1px solid var(--card-border)', padding: '16px 18px' }}>
+              {editingSpecs ? (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 14 }}>
+                    {[
+                      ['building_sf', 'Building SF'], ['land_acres', 'Land (AC)'], ['clear_height', "Clear Ht (ft)"],
+                      ['dock_doors', 'Dock Doors'], ['grade_doors', 'Grade Doors'], ['year_built', 'Year Built'],
+                      ['zoning', 'Zoning'], ['power_amps', 'Power (A)'], ['parking_spaces', 'Parking'],
+                      ['lot_sf', 'Lot SF'], ['prop_type', 'Prop Type'], ['sprinklers', 'Sprinklers'],
+                    ].map(([k, label]) => (
+                      <div key={k}>
+                        <label style={lS}>{label}</label>
+                        {k === 'prop_type' ? (
+                          <select style={iS} value={specsForm[k] || ''} onChange={e => setSpecsForm(f => ({ ...f, [k]: e.target.value }))}>
+                            <option value="">Select…</option>
+                            {['Warehouse / Distribution', 'Manufacturing', 'Flex / R&D', 'Food Processing', 'Cold Storage', 'Truck Terminal', 'IOS', 'Other'].map(o => <option key={o}>{o}</option>)}
+                          </select>
+                        ) : k === 'sprinklers' ? (
+                          <select style={iS} value={specsForm[k] || ''} onChange={e => setSpecsForm(f => ({ ...f, [k]: e.target.value }))}>
+                            <option value="">Unknown</option>
+                            <option>ESFR</option><option>Wet Pipe</option><option>Dry Pipe</option><option>None</option>
+                          </select>
+                        ) : (
+                          <input style={iS} value={specsForm[k] || ''} onChange={e => setSpecsForm(f => ({ ...f, [k]: e.target.value }))} placeholder="—" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <button style={btn} onClick={() => setEditingSpecs(false)}>Cancel</button>
+                    <button style={{ ...btn, background: 'var(--blue)', borderColor: 'var(--blue)', color: '#fff' }} onClick={saveSpecs} disabled={saving}>{saving ? 'Saving…' : '✓ Save Specs'}</button>
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+                  {[
+                    ['APN(s)', apns.map(a => a.apn).join(', ') || '—'],
+                    ['Lot SF', l.lot_sf ? Number(l.lot_sf).toLocaleString() + ' SF' : '—'],
+                    ['Land (AC)', l.land_acres || '—'],
+                    ['Building SF', l.building_sf ? Number(l.building_sf).toLocaleString() : '—'],
+                    ['Clear Height', l.clear_height ? `${l.clear_height}'` : '—'],
+                    ['Dock Doors', l.dock_doors || '—'],
+                    ['Grade Doors', l.grade_doors || '—'],
+                    ['Year Built', l.year_built || '—'],
+                    ['Zoning', l.zoning || '—'],
+                    ['Power', l.power_amps ? `${l.power_amps}A` : '—'],
+                    ['Parking', l.parking_spaces || '—'],
+                    ['Sprinklers', l.sprinklers || '—'],
+                    ['Prop Type', l.prop_type || '—'],
+                  ].map(([k, v], i) => (
+                    <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 4px', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+                      <span style={{ fontSize: 12.5, color: 'var(--text-tertiary)' }}>{k}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, color: v === '—' ? 'var(--text-tertiary)' : 'var(--text-primary)' }}>{v}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* TABS */}
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--card-border)', marginBottom: 14 }}>
+          {TABS.map(t => (
+            <div key={t} onClick={() => setActiveTab(t)} style={{ padding: '10px 14px', fontSize: 13.5, color: activeTab === t ? 'var(--blue)' : 'var(--text-tertiary)', cursor: 'pointer', borderBottom: `2px solid ${activeTab === t ? 'var(--blue)' : 'transparent'}`, marginBottom: -1, whiteSpace: 'nowrap', fontWeight: activeTab === t ? 500 : 400 }}>
+              {t}
+              {t === 'Timeline' && activities.length > 0 && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, background: 'rgba(0,0,0,0.06)', borderRadius: 20, padding: '1px 6px', marginLeft: 4, color: 'var(--text-tertiary)' }}>{activities.length}</span>}
+              {t === 'APNs' && apns.length > 0 && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, background: 'rgba(0,0,0,0.06)', borderRadius: 20, padding: '1px 6px', marginLeft: 4, color: 'var(--text-tertiary)' }}>{apns.length}</span>}
+            </div>
+          ))}
+        </div>
+
+        {/* 2-COL BODY */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 285px', gap: 14 }}>
+
+          {/* LEFT: Tab content */}
           <div>
-            <label style={labelStyle}>Lead / Company Name *</label>
-            <input style={inputStyle} value={form.lead_name} onChange={e => setForm(f => ({ ...f, lead_name: e.target.value }))} placeholder="e.g. Leegin Creative Leather" />
+            {/* TIMELINE */}
+            {activeTab === 'Timeline' && (
+              <div style={card}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', borderBottom: '1px solid var(--card-border)' }}>
+                  <div style={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)' }}>
+                    <span style={{ display: 'inline-block', width: 5, height: 5, borderRadius: '50%', background: 'var(--rust)' }} /> Activity Timeline
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {['call', 'email', 'note', 'task'].map(type => (
+                      <button key={type} onClick={() => setLogPanel(p => p === type ? null : type)} style={{ padding: '5px 11px', borderRadius: 6, fontSize: 12, fontWeight: 500, cursor: 'pointer', border: '1px solid var(--card-border)', background: logPanel === type ? 'rgba(78,110,150,0.08)' : 'var(--card-bg)', borderColor: logPanel === type ? 'rgba(78,110,150,0.3)' : 'var(--card-border)', color: logPanel === type ? 'var(--blue)' : 'var(--text-tertiary)', fontFamily: 'var(--font-ui)' }}>
+                        {type === 'call' ? '📞 Log Call' : type === 'email' ? '✉ Log Email' : type === 'note' ? '📝 Note' : '+ Follow-Up'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {activities.length === 0
+                  ? <div style={{ padding: '36px', textAlign: 'center', fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic', color: 'var(--text-tertiary)', fontSize: 15 }}>No activity yet — log a call, email, or note above</div>
+                  : activities.map((a, i) => (
+                    <div key={a.id || i} style={{ display: 'flex', gap: 12, padding: '11px 16px', borderBottom: i < activities.length - 1 ? '1px solid rgba(0,0,0,0.04)' : 'none' }}>
+                      <div style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11.5, flexShrink: 0, marginTop: 1, background: ICON_BG[a.type] || ICON_BG.note, color: ICON_COLOR[a.type] || ICON_COLOR.note }}>{ICON_EMOJI[a.type] || '📝'}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13.5, color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                          <strong>{a.contact_name ? `${a.type === 'call' ? 'Called' : a.type === 'email' ? 'Emailed' : 'Note re:'} ${a.contact_name}` : a.type?.charAt(0).toUpperCase() + a.type?.slice(1)}</strong>
+                          {a.notes && <span style={{ fontWeight: 400 }}> — {a.notes}</span>}
+                        </div>
+                        <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 12, fontStyle: 'italic', color: 'var(--text-tertiary)', marginTop: 2 }}>Briana Corso · {fmtDate(a.created_at)}</div>
+                      </div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: 'var(--text-tertiary)', flexShrink: 0, paddingTop: 2 }}>{fmtShort(a.created_at)}</div>
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+
+            {/* APNs */}
+            {activeTab === 'APNs' && (
+              <div style={card}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', borderBottom: '1px solid var(--card-border)' }}>
+                  <span style={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>Parcel Numbers (APNs)</span>
+                </div>
+                {/* Add APN */}
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--card-border)', display: 'flex', gap: 8 }}>
+                  <input
+                    value={newApn}
+                    onChange={e => setNewApn(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addApn()}
+                    placeholder="e.g. 8116-004-016"
+                    style={{ ...iS, flex: 1, fontFamily: 'var(--font-mono)', fontSize: 13 }}
+                  />
+                  <button style={{ ...btn, background: 'var(--blue)', borderColor: 'var(--blue)', color: '#fff' }} onClick={addApn} disabled={addingApn || !newApn.trim()}>
+                    {addingApn ? '…' : '+ Add APN'}
+                  </button>
+                </div>
+                {apns.length === 0
+                  ? <div style={{ padding: '32px', textAlign: 'center', fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic', color: 'var(--text-tertiary)', fontSize: 15 }}>No APNs linked yet — add one above</div>
+                  : apns.map((apn, i) => (
+                    <div key={apn.id || i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: i < apns.length - 1 ? '1px solid rgba(0,0,0,0.04)' : 'none' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-primary)' }}>{apn.apn}</span>
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                        <a href={`https://portal.assessor.lacounty.gov/parceldetail/${String(apn.apn).replace(/-/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: 'var(--blue)', textDecoration: 'none' }}>LA County GIS →</a>
+                        <button onClick={() => removeApn(apn.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', fontSize: 16, lineHeight: 1, padding: 0, opacity: 0.5 }}>×</button>
+                      </div>
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+
+            {/* CONTACTS */}
+            {activeTab === 'Contacts' && (
+              <div style={card}>
+                <div style={{ padding: '11px 16px', borderBottom: '1px solid var(--card-border)', fontSize: 11, fontWeight: 500, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>Contacts</div>
+                {contacts.length === 0 && l.decision_maker
+                  ? <div style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div><div style={{ fontSize: 15, fontWeight: 500 }}>{l.decision_maker}</div><div style={{ fontSize: 13, color: 'var(--text-tertiary)', marginTop: 2 }}>Decision Maker</div></div>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      {l.phone && <a href={`tel:${l.phone}`} style={{ fontSize: 14, color: 'var(--blue)', textDecoration: 'none' }}>📞 {l.phone}</a>}
+                      {l.email && <a href={`mailto:${l.email}`} style={{ fontSize: 14, color: 'var(--blue)', textDecoration: 'none' }}>✉ {l.email}</a>}
+                    </div>
+                  </div>
+                  : contacts.length === 0
+                    ? <div style={{ padding: '32px', textAlign: 'center', fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic', color: 'var(--text-tertiary)', fontSize: 15 }}>No contacts linked yet</div>
+                    : contacts.map((c, i) => (
+                      <div key={c.id || i} style={{ padding: '12px 16px', borderBottom: i < contacts.length - 1 ? '1px solid rgba(0,0,0,0.04)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div><div style={{ fontSize: 15, fontWeight: 500 }}>{c.name || c.full_name}</div><div style={{ fontSize: 13, color: 'var(--text-tertiary)', marginTop: 2 }}>{c.title}{c.company ? ` · ${c.company}` : ''}</div></div>
+                        {c.phone && <a href={`tel:${c.phone}`} style={{ fontSize: 14, color: 'var(--blue)', textDecoration: 'none' }}>📞 {c.phone}</a>}
+                      </div>
+                    ))
+                }
+              </div>
+            )}
+
+            {/* FILES — with OneDrive */}
+            {activeTab === 'Files' && (
+              <div style={card}>
+                <div style={{ padding: '11px 16px', borderBottom: '1px solid var(--card-border)', fontSize: 11, fontWeight: 500, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>Files & Documents</div>
+                {/* OneDrive link */}
+                <div style={{ padding: '16px', borderBottom: '1px solid var(--card-border)' }}>
+                  <label style={{ ...lS, marginBottom: 6 }}>OneDrive / SharePoint Folder</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      value={oneDriveUrl}
+                      onChange={e => setOneDriveUrl(e.target.value)}
+                      placeholder="https://..."
+                      style={{ ...iS, flex: 1, fontSize: 13 }}
+                    />
+                    <button style={{ ...btn, background: 'var(--blue)', borderColor: 'var(--blue)', color: '#fff' }} onClick={saveOneDrive} disabled={savingDrive}>
+                      {savingDrive ? '…' : 'Save'}
+                    </button>
+                    {oneDriveUrl && (
+                      <a href={oneDriveUrl} target="_blank" rel="noopener noreferrer" style={{ ...btn, background: 'var(--green-bg)', borderColor: 'rgba(24,112,66,0.2)', color: 'var(--green)', textDecoration: 'none' }}>
+                        Open →
+                      </a>
+                    )}
+                  </div>
+                  {oneDriveUrl && (
+                    <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-tertiary)' }}>
+                      📁 OneDrive folder linked — click "Open →" to access files
+                    </div>
+                  )}
+                </div>
+                <div style={{ padding: '32px', textAlign: 'center', fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic', color: 'var(--text-tertiary)', fontSize: 15 }}>
+                  Native file upload coming soon — use OneDrive link above to access documents
+                </div>
+              </div>
+            )}
+
+            {(activeTab === 'Lease Comps' || activeTab === 'Properties') && (
+              <div style={{ ...card, padding: '40px', textAlign: 'center' }}>
+                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic', color: 'var(--text-tertiary)', fontSize: 15 }}>{activeTab} coming soon</div>
+              </div>
+            )}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={labelStyle}>Address</label>
-              <input style={inputStyle} value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Street address" />
+
+          {/* RIGHT COL */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+            {/* AI Displacement Signal */}
+            <div style={{ background: 'var(--rust-bg)', border: '1px solid rgba(184,55,20,0.2)', borderRadius: 10, overflow: 'hidden', position: 'relative' }}>
+              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: 'var(--rust)' }} />
+              <div style={{ padding: '10px 14px 10px 18px', borderBottom: '1px solid rgba(184,55,20,0.15)', display: 'flex', alignItems: 'center', gap: 7 }}>
+                <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: 'var(--rust)' }} />
+                <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--rust)', fontFamily: 'var(--font-mono)' }}>AI Displacement Signal</span>
+              </div>
+              <div style={{ padding: '12px 14px 12px 18px', fontSize: 13, lineHeight: 1.70, color: 'var(--text-primary)' }}>
+                {isWarn ? `Permanent closure signals immediate displacement. Industrial vacancy tight.` : `${catalysts.length} active catalyst signal${catalysts.length !== 1 ? 's' : ''} detected.`}
+                {' '}<span style={{ color: 'var(--blue)', fontWeight: 600 }}>Act within 48 hours</span> before competing brokers identify this site.
+              </div>
             </div>
-            <div>
-              <label style={labelStyle}>City</label>
-              <input style={inputStyle} value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="City" />
+
+            {/* Active Catalysts */}
+            <div style={card}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: '1px solid var(--card-border)' }}>
+                <span style={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>Active Catalysts</span>
+                <button onClick={() => setShowTagPicker(p => !p)} style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 13, fontStyle: 'italic', color: 'var(--blue)', background: 'none', border: 'none', cursor: 'pointer' }}>+ Add</button>
+              </div>
+              {showTagPicker && (
+                <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--card-border)', maxHeight: 180, overflowY: 'auto' }}>
+                  {CATALYST_TAGS.filter(t => !catalysts.some(c => (c?.tag || c) === t.tag)).map(t => {
+                    const cs = getCatalystStyle(t.tag);
+                    return <button key={t.tag} onClick={() => addTag(t.tag)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '5px 8px', marginBottom: 2, background: 'none', border: `1px solid ${cs.bdr}`, borderRadius: 4, cursor: 'pointer', fontSize: 11.5, color: cs.color, fontFamily: 'var(--font-ui)' }}>{t.tag}</button>;
+                  })}
+                </div>
+              )}
+              {catalysts.length === 0
+                ? <div style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-tertiary)', fontStyle: 'italic' }}>No catalysts tagged yet</div>
+                : catalysts.map((c, i) => {
+                  const tagName = c?.tag || c;
+                  const cs = getCatalystStyle(tagName);
+                  return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 16px', borderBottom: i < catalysts.length - 1 ? '1px solid rgba(0,0,0,0.04)' : 'none' }}>
+                      <span style={{ display: 'inline-flex', padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 500, border: `1px solid ${cs.bdr}`, background: cs.bg, color: cs.color, flexShrink: 0, fontFamily: 'var(--font-mono)' }}>{tagName}</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-tertiary)', flex: 1 }}>{c.priority || ''}</span>
+                      <button onClick={() => removeTag(tagName)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', fontSize: 14, lineHeight: 1, padding: 0, opacity: 0.5 }}>×</button>
+                    </div>
+                  );
+                })
+              }
             </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={labelStyle}>Market</label>
-              <select style={inputStyle} value={form.market} onChange={e => setForm(f => ({ ...f, market: e.target.value }))}>
-                <option value="">Select…</option>
-                <option>SGV</option><option>IE West</option><option>IE East</option><option>Long Beach</option><option>OC</option>
+
+            {/* Opportunity Stages */}
+            <div style={card}>
+              <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--card-border)', fontSize: 11, fontWeight: 500, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>Opportunity Stages</div>
+              <div style={{ padding: '6px 0 10px' }}>
+                {stages.map((stage, i) => {
+                  const isDone = i < stageIdx; const isActive = i === stageIdx;
+                  return (
+                    <div key={stage} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px' }}>
+                      <div style={{ width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, background: isDone ? 'var(--green-bg)' : isActive ? 'var(--amber-bg)' : 'rgba(0,0,0,0.04)', border: `1px solid ${isDone ? 'rgba(24,112,66,0.25)' : isActive ? 'rgba(168,112,16,0.25)' : 'rgba(0,0,0,0.1)'}`, color: isDone ? 'var(--green)' : isActive ? 'var(--amber)' : 'var(--text-tertiary)' }}>
+                        {isDone ? '✓' : isActive ? '◉' : '○'}
+                      </div>
+                      <span style={{ fontSize: 13, color: isActive ? 'var(--amber)' : isDone ? 'var(--text-tertiary)' : 'var(--text-secondary)', fontWeight: isActive ? 600 : 400 }}>{stage}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Owner */}
+            <div style={card}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: '1px solid var(--card-border)' }}>
+                <span style={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>Owner</span>
+                <button onClick={addProperty} style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 13, fontStyle: 'italic', color: 'var(--blue)', background: 'none', border: 'none', cursor: 'pointer' }}>+ Add Property →</button>
+              </div>
+              {spRow('Company', l.company || l.lead_name)}
+              {spRow('Type', l.owner_type)}
+              {spRow('Contact', l.decision_maker || 'Not identified', { color: 'var(--blue)' })}
+              {l.phone && spRow('Phone', l.phone, { color: 'var(--blue)' })}
+              {l.email && spRow('Email', l.email, { color: 'var(--blue)' })}
+            </div>
+
+            {/* Lead Details */}
+            <div style={card}>
+              <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--card-border)', fontSize: 11, fontWeight: 500, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>Lead Details</div>
+              {spRow('Stage', l.stage || 'New', { color: 'var(--blue)', fontWeight: 500 })}
+              {spRow('Source', l.source)}
+              {spRow('Market', l.market)}
+              {spRow('Priority', l.priority)}
+              {l.zoning && spRow('Zoning', l.zoning, { fontFamily: 'var(--font-mono)', fontSize: 12 })}
+              {apns[0] && spRow('APN', apns[0].apn, { fontFamily: 'var(--font-mono)', fontSize: 12 })}
+            </div>
+
+            {/* Cadence */}
+            <div style={{ ...card, padding: '14px 16px' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 10, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>Follow-up Cadence</div>
+              <select value={cadence} onChange={e => setCadenceAndTask(e.target.value)} style={{ ...iS, fontSize: 13 }}>
+                <option value="">Set cadence…</option>
+                {['Daily', 'Weekly', 'Biweekly', 'Monthly', 'Quarterly'].map(c => <option key={c}>{c}</option>)}
               </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Building SF</label>
-              <input style={inputStyle} value={form.building_sf} onChange={e => setForm(f => ({ ...f, building_sf: e.target.value }))} placeholder="e.g. 186,400" />
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={labelStyle}>Stage</label>
-              <select style={inputStyle} value={form.stage} onChange={e => setForm(f => ({ ...f, stage: e.target.value }))}>
-                {['New', 'Researching', 'Decision Maker Identified', 'Contacted', 'Converted'].map(s => <option key={s}>{s}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Priority</label>
-              <select style={inputStyle} value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
-                {['Critical', 'High', 'Medium', 'Low'].map(p => <option key={p}>{p}</option>)}
-              </select>
+              {nextFollowUp && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>Next follow-up</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600, color: isOverdue ? 'var(--rust)' : 'var(--text-primary)' }}>{isOverdue && '⚠ '}{fmtDate(nextFollowUp)}</span>
+                </div>
+              )}
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={labelStyle}>Owner Type</label>
-              <select style={inputStyle} value={form.owner_type} onChange={e => setForm(f => ({ ...f, owner_type: e.target.value }))}>
-                <option value="">Select…</option>
-                <option>Owner-User</option><option>Private LLC</option><option>Family Trust</option><option>Corp</option><option>REIT</option>
-              </select>
+        </div>
+
+        {/* BOTTOM: Current Tenant + Opportunity Context */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 14, paddingBottom: 60 }}>
+          <div style={card}>
+            <div style={{ padding: '10px 16px', background: 'rgba(0,0,0,0.02)', borderBottom: '1px solid var(--card-border)', fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>Current Tenant</div>
+            {spRow('Tenant', l.lead_name || l.company)}
+            {spRow('Departure', l.effective_date ? fmtDate(l.effective_date) + ' (est.)' : '—', { color: 'var(--rust)' })}
+            {spRow('WARN Filed', isWarn ? fmtDate(l.created_at) : '—')}
+            {spRow('Workers', l.workers ? `${l.workers} permanent` : '—', { color: 'var(--rust)' })}
+          </div>
+          <div style={card}>
+            <div style={{ padding: '10px 16px', background: 'rgba(0,0,0,0.02)', borderBottom: '1px solid var(--card-border)', fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>Opportunity Context</div>
+            {spRow('Est. Re-lease Rate', l.market_rent ? '$' + l.market_rent + '/SF' : '—', { color: 'var(--blue)', fontFamily: 'var(--font-mono)', fontSize: 12 })}
+            {spRow('Comp Range', l.comp_range || '—', { fontFamily: 'var(--font-mono)', fontSize: 12 })}
+            {spRow('Broker Appointed', l.broker_appointed || 'Not yet — window open', { color: !l.broker_appointed ? 'var(--rust)' : 'var(--text-primary)' })}
+            <div style={{ padding: '14px 16px' }}>
+              <button style={{ width: '100%', ...btn, background: 'var(--green)', borderColor: 'var(--green)', color: '#fff', fontWeight: 600, justifyContent: 'center' }} onClick={convertToDeal}>◈ Convert to Active Deal</button>
             </div>
-            <div>
-              <label style={labelStyle}>Source</label>
-              <select style={inputStyle} value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))}>
-                <option value="">Select…</option>
-                <option>Broker intel</option><option>WARN filing</option><option>CapEx permit</option><option>NOD filing</option><option>Grapevine</option><option>CoStar</option><option>Direct</option><option>Research Campaign</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label style={labelStyle}>Lead Score (1–100): <strong style={{ color: 'var(--blue)' }}>{form.score}</strong></label>
-            <input type="range" min={1} max={100} value={form.score} onChange={e => setForm(f => ({ ...f, score: e.target.value }))} style={{ width: '100%', accentColor: 'var(--blue)' }} />
-          </div>
-          <div>
-            <label style={labelStyle}>Notes</label>
-            <textarea style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Research notes, context, source details…" />
-          </div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 4 }}>
-            <button className="cl-btn cl-btn-secondary" onClick={onClose}>Cancel</button>
-            <button className="cl-btn cl-btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save Lead'}</button>
           </div>
         </div>
       </div>
     </div>
   );
 }
+
+// Hero badge styles
+const H = {
+  rust:  { padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 500, border: '1px solid', backdropFilter: 'blur(6px)', background: 'rgba(184,55,20,0.30)', borderColor: 'rgba(220,100,70,0.45)', color: '#FFCBB8' },
+  blue:  { padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 500, border: '1px solid', backdropFilter: 'blur(6px)', background: 'rgba(78,110,150,0.30)', borderColor: 'rgba(137,168,198,0.45)', color: '#C8E0F8' },
+  amber: { padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 500, border: '1px solid', backdropFilter: 'blur(6px)', background: 'rgba(140,90,4,0.30)', borderColor: 'rgba(220,160,50,0.45)', color: '#FFE0A0' },
+  green: { padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 500, border: '1px solid', backdropFilter: 'blur(6px)', background: 'rgba(21,102,54,0.30)', borderColor: 'rgba(60,180,110,0.45)', color: '#B8F0D0' },
+};

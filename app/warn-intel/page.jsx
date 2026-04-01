@@ -400,7 +400,7 @@ export default function WarnIntelPage() {
 }
 
 // ── WARN DETAIL (drawer) ──────────────────────────────────────
-function WarnDetail({ notice, onCreateLead, onSearchProperty, onClose }) {
+function WarnDetail({ notice, onCreateLead, onPropertyMatched, onSearchProperty, onClose }) {
   const [editing, setEditing]             = useState(false);
   const [saving, setSaving]               = useState(false);
   const [propResults, setPropResults]     = useState(null);
@@ -440,9 +440,10 @@ function WarnDetail({ notice, onCreateLead, onSearchProperty, onClose }) {
         .limit(5);
       setPropResults(data || []);
       if (data && data.length > 0 && !notice.matched_property_id) {
-        const supabase2 = createClient();
-        await supabase2.from('warn_notices').update({ matched_property_id: data[0].id }).eq('id', notice.id);
-      }
+  const supabase2 = createClient();
+  await supabase2.from('warn_notices').update({ matched_property_id: data[0].id }).eq('id', notice.id);
+  onPropertyMatched?.(data[0].id);
+}
     } catch(e) { console.error(e); setPropResults([]); }
     finally { setPropSearching(false); }
   }

@@ -1,383 +1,941 @@
 'use client';
+
 import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase';
+import SlideDrawer from '@/components/SlideDrawer';
+import { CATALYST_TAGS, CATALYST_CATEGORIES } from '@/lib/constants';
 
-/* ── helpers ─────────────────────────────────────────────────── */
-function timeAgo(isoStr) {
-  if (!isoStr) return null;
-  const diff = Date.now() - new Date(isoStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 2) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+function fmt(n) { return n != null ? Number(n).toLocaleString() : '—'; }
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function daysSince(d) {
+  if (!d) return null;
+  return Math.floor((new Date() - new Date(d)) / (1000 * 60 * 60 * 24));
 }
 
-function newThisWeek(filings) {
-  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  return filings.filter(f => {
-    try { return new Date(f.notice_date).getTime() >= cutoff; } catch { return false; }
-  }).length;
-}
+export default function WarnIntelPage() {
+  const [notices, setNotices]               = useState([]);
+  const [loading, setLoading]               = useState(true);
+  const [total, setTotal]                   = useState(0);
+  const [selectedId, setSelectedId]         = useState(null);
+  const [selectedNotice, setSelectedNotice] = useState(null);
+  const [warnModalNotice, setWarnModalNotice] = useState(null);
 
-// Match a WARN filing to an existing tracked property
-function matchWarnToProperty(filing, properties = []) {
-  const cityMatch = properties.filter(p =>
-    p.city?.toLowerCase() === filing.city?.toLowerCase()
-  );
-  const tenantMatch = cityMatch.find(p =>
-    p.tenant?.toLowerCase().includes(filing.company.toLowerCase().substring(0, 8))
-  );
-  if (tenantMatch) return { property: tenantMatch, confidence: 85 };
-  const addrMatch = cityMatch.find(p => {
-    const fa = (filing.address || '').toLowerCase().replace(/\D/g, '').substring(0, 5);
-    const pa = (p.address || '').toLowerCase().replace(/\D/g, '').substring(0, 5);
-    return fa === pa && fa.length >= 4;
-  });
-  if (addrMatch) return { property: addrMatch, confidence: 92 };
-  return null;
-}
-
-// Normalise a live EDD filing into the shape the UI expects
-function normaliseFiling(f, idx) {
-  return {
-    id:          f.id ?? `live_${idx}`,
-    company:     f.company,
-    addr:        [f.address, f.city && f.city + (f.zip ? ` ${f.zip}` : '')].filter(Boolean).join(' · '),
-    workers:     f.workers || 0,
-    sf:          f.building_sf ? `${Number(f.building_sf).toLocaleString()} SF` : '—',
-    closureType: f.is_closure ? 'Permanent Closure' : (f.type || 'Layoff'),
-    submarket:   f.market || 'SGV',
-    filed:       f.notice_date || '',
-    isNew:       f.isNew ?? false,
-    matches:     f.matches || [],
-    // preserve originals for matching
-    city:        f.city,
-    address:     f.address,
-  };
-}
-
-/* ─── Mock fallback ──────────────────────────────────────────── */
-const MOCK_FILINGS = [
-  { id: 1, company: 'Teledyne Technologies Inc.', addr: '16830 Chestnut St · Fontana, CA 92335', workers: 287, sf: '186,000 SF', closureType: 'Permanent Closure', submarket: 'IE West', filed: '3/20/2026', isNew: true, matches: [{ name: 'Pacific Manufacturing Group', sub: 'Seeking 150–200K SF dock-high · IE West', pct: 94 }, { name: 'Matrix Logistics Partners', sub: '170–220K SF requirement · Ontario / Fontana', pct: 87 }] },
-  { id: 2, company: 'Consolidated Packaging Solutions LLC', addr: '4521 Jurupa Ave · Ontario, CA 91761', workers: 142, sf: '96,000 SF', closureType: 'Layoffs', submarket: 'Ontario Airport', filed: '3/18/2026', isNew: true, matches: [{ name: 'Tarhong Industry Properties', sub: 'Looking to expand from 96K SF · Ontario Airport preferred', pct: 78 }] },
-  { id: 3, company: 'SoCal Aerospace Components Inc.', addr: '1200 Arrow Hwy · Irwindale, CA 91702', workers: 89, sf: '52,000 SF', closureType: 'Plant Closure', submarket: 'SGV · Azusa', filed: '3/15/2026', isNew: false, matches: [] },
-];
-
-/* ─── Main component ─────────────────────────────────────────── */
-export default function WarnIntel({
-  filings: liveFilings,
-  newCount: liveNewCount,
-  syncing: liveSyncing,
-  lastSync: liveLastSync,
-  syncFailed,
-  onSync,
-  onCreateLead,
-  onNavigate,
-  existingProperties = [],
-}) {
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [page, setPage]     = useState(0);
+  const PAGE_SIZE = 50;
 
-  // Decide whether to use live data or mock
-  const usingLive    = Array.isArray(liveFilings) && liveFilings.length > 0;
-  const rawFilings   = usingLive ? liveFilings : MOCK_FILINGS;
+  useEffect(() => { loadNotices(); }, [search, filter, page]);
 
-  // Normalise live filings into display shape; mocks are already shaped
-  const displayFilings = usingLive
-    ? rawFilings.map((f, i) => {
-        const n = normaliseFiling(f, i);
-        // Auto-match to existing tracked properties
-        const propMatch = matchWarnToProperty(f, existingProperties);
-        if (propMatch && n.matches.length === 0) {
-          n.propertyMatch = propMatch;
-        }
-        return n;
-      })
-    : rawFilings;
+  async function loadNotices() {
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      let query = supabase
+        .from('warn_notices')
+        .select('*', { count: 'exact' })
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+        .order('notice_date', { ascending: false });
 
-  const [filingList, setFilingList] = useState(displayFilings);
-  useEffect(() => { setFilingList(displayFilings); }, [liveFilings]);
+      if (search) query = query.or(`company.ilike.%${search}%,county.ilike.%${search}%,address.ilike.%${search}%`);
+      if (filter === 'new') query = query.is('converted_lead_id', null);
+      if (filter === 'matched') query = query.not('matched_property_id', 'is', null);
 
-  const filtered = filingList.filter(f =>
-    !search ||
-    f.company.toLowerCase().includes(search.toLowerCase()) ||
-    (f.addr || '').toLowerCase().includes(search.toLowerCase())
-  );
+      const { data, error, count } = await query;
+      if (error) throw error;
+      setNotices(data || []);
+      setTotal(count || 0);
+    } catch(e) {
+      console.error('WARN error:', e);
+      setNotices([]);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const archiveFiling = (id) => setFilingList(list => list.filter(f => f.id !== id));
+  async function handleImportCSV(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const text = await file.text();
+    const lines = text.trim().split('\n');
+    const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim().toLowerCase());
 
-  const weekCount = usingLive ? newThisWeek(liveFilings) : 4;
-  const totalWorkers = filingList.reduce((s, f) => s + (f.workers || 0), 0);
-  const matchedCount = filingList.filter(f => f.matches?.length > 0 || f.propertyMatch).length;
+    const col = (name) => {
+      const aliases = {
+        company:        ['company', 'employer', 'employer name', 'company name'],
+        notice_date:    ['notice date', 'notice_date', 'warn date', 'date'],
+        effective_date: ['effective date', 'effective_date', 'layoff date'],
+        employees:      ['employees', 'employees affected', 'workers', 'layoff count', '# employees'],
+        address:        ['address', 'street address', 'location'],
+        county:         ['county', 'city', 'location city'],
+      };
+      const list = aliases[name] || [name];
+      for (const a of list) {
+        const idx = headers.indexOf(a);
+        if (idx >= 0) return idx;
+      }
+      return -1;
+    };
 
-  const syncLabel = liveSyncing
-    ? '↻ Syncing…'
-    : liveLastSync
-      ? `↻ Synced ${timeAgo(liveLastSync)}`
-      : '↻ Sync Now';
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const vals = lines[i].split(',').map(v => v.replace(/^"|"$/g, '').trim());
+      if (!vals[col('company')]) continue;
+      rows.push({
+        company:        vals[col('company')] || null,
+        notice_date:    vals[col('notice_date')] || null,
+        effective_date: vals[col('effective_date')] || null,
+        employees:      parseInt(vals[col('employees')]) || null,
+        address:        vals[col('address')] || null,
+        county:         vals[col('county')] || null,
+        is_industrial:  false,
+        is_in_market:   false,
+      });
+    }
+
+    if (rows.length === 0) { alert('No valid rows found in CSV.'); return; }
+    const supabase = createClient();
+    const { error } = await supabase.from('warn_notices').upsert(rows, { onConflict: 'company,notice_date', ignoreDuplicates: true });
+    if (error) { alert(`Import error: ${error.message}`); return; }
+    alert(`Imported ${rows.length} WARN filings.`);
+    loadNotices();
+    e.target.value = '';
+  }
+
+  async function searchPropertyDatabase(notice) {
+    const supabase = createClient();
+    const streetAddress = (notice.address || '').split(',')[0];
+    const { data } = await supabase
+      .from('properties')
+      .select('id, address, city, tenant, owner, building_sf')
+      .or(`address.ilike.%${streetAddress}%,tenant.ilike.%${notice.company}%,owner.ilike.%${notice.company}%`)
+      .limit(5);
+    if (data && data.length > 0) {
+      const matches = data.map(p => `• ${p.address} (${p.city || ''}) — ${p.tenant || p.owner || 'No tenant/owner'}`).join('\n');
+      alert(`Found ${data.length} match(es):\n\n${matches}`);
+    } else {
+      alert(`No matches found for "${notice.company}" or "${streetAddress}"`);
+    }
+  }
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const newCount = notices.filter(n => !n.converted_lead_id).length;
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      {/* TOPBAR */}
-      <div style={S.topbar}>
-        <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink2)' }}>WARN Intel</span>
-        <div style={{ ...S.livePill, ...(usingLive ? {} : { background: 'var(--amber-bg)', borderColor: 'var(--amber-bdr)', color: 'var(--amber)' }) }}>
-          <span style={{ ...S.liveDot, background: usingLive ? 'var(--rust)' : 'var(--amber)' }} />
-          {usingLive ? 'LIVE FEED' : 'MOCK DATA'}
+    <div>
+      {/* Header */}
+      <div className="cl-page-header">
+        <div>
+          <h1 className="cl-page-title">WARN Intel</h1>
+          <p className="cl-page-subtitle">
+            {loading ? 'Loading…' : `${fmt(total)} filing${total !== 1 ? 's' : ''}${newCount > 0 ? ` · ${newCount} new` : ''}`}
+          </p>
         </div>
-        {syncFailed && (
-          <div style={{ fontSize: 11, color: 'var(--amber)', background: 'var(--amber-bg)', border: '1px solid var(--amber-bdr)', borderRadius: 6, padding: '4px 10px' }}>
-            ⚠ Using cached data — last sync failed
-          </div>
-        )}
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
-          {liveLastSync && !liveSyncing && (
-            <span style={{ fontSize: 11, color: 'var(--ink4)', fontFamily: "'DM Mono',monospace" }}>
-              Last synced: {timeAgo(liveLastSync)}
-            </span>
-          )}
-          <button
-            style={{ ...S.btnGhost, opacity: liveSyncing ? 0.6 : 1, cursor: liveSyncing ? 'not-allowed' : 'pointer' }}
-            onClick={liveSyncing ? undefined : onSync}
-            disabled={liveSyncing}
-          >
-            {liveSyncing ? '↻ Syncing…' : '↻ Sync Now'}
-          </button>
-          <div style={S.searchWrap}>
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke="#6E6860" strokeWidth="1.5"/><path d="M10.5 10.5L14 14" stroke="#6E6860" strokeWidth="1.5" strokeLinecap="round"/></svg>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search filings…" style={{ background: 'none', border: 'none', outline: 'none', fontFamily: 'inherit', fontSize: 13.5, color: 'var(--ink2)', width: '100%' }} />
-          </div>
-          <button style={S.btnGhost} onClick={() => {}}>Export CSV</button>
+        <div className="cl-page-actions">
+          <label className="cl-btn cl-btn-secondary cl-btn-sm" style={{ cursor: 'pointer' }}>
+            📥 Import CSV
+            <input type="file" accept=".csv" style={{ display: 'none' }} onChange={handleImportCSV} />
+          </label>
+          <button className="cl-btn cl-btn-secondary cl-btn-sm" onClick={loadNotices}>↻ Refresh</button>
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {/* PAGE HEADER */}
-        <div style={S.pageHeader}>
-          <div style={{ padding: '22px 28px 16px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-            <div>
-              <div style={S.pageTitle}>WARN <em style={S.pageTitleEm}>Intel</em></div>
-              <div style={{ fontFamily:"'DM Mono', monospace", fontSize:9, letterSpacing:'0.18em', textTransform:'uppercase', color:'var(--rust)', opacity:0.65, marginTop:2 }}>THE EDGE IS IN THE DATA</div>
-              <div style={S.pageSub}>Worker Adjustment &amp; Retraining Notification filings · SGV / IE industrial</div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <span style={{ display: 'inline-block', padding: '5px 14px', borderRadius: 20, background: 'var(--rust-bg)', border: '1px solid var(--rust-bdr)', fontSize: 12, fontWeight: 600, color: 'var(--rust)' }}>
-                {weekCount} New Filings This Week
-              </span>
-              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 14, fontStyle: 'italic', color: 'var(--ink4)', marginTop: 6 }}>The edge is in the data.</div>
-            </div>
-          </div>
-        </div>
+      {/* WARN explanation banner */}
+      <div style={{
+        background: 'rgba(88,56,160,0.06)', border: '1px solid rgba(88,56,160,0.15)',
+        borderRadius: 10, padding: '14px 18px', marginBottom: 20,
+        display: 'flex', alignItems: 'center', gap: 14,
+      }}>
+        <span style={{ fontSize: 22, flexShrink: 0 }}>⚡</span>
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          <strong style={{ color: 'var(--purple)' }}>WARN Act:</strong>{' '}
+          California requires employers to file 60-day advance notice before mass layoffs of 50+ workers.
+          Each filing is a signal that a tenant may vacate — creating a potential acquisition or leasing opportunity.
+          Auto-sync runs daily at 6am.
+        </p>
+      </div>
 
-        {/* AI SIGNAL */}
-        <div style={S.signalStrip}>
-          <span style={S.sigPulse} />
-          <span style={S.sigTag}>Intelligence</span>
-          <div style={S.sigSep} />
-          <div style={S.sigText}>
-            {filingList[0] ? (
-              <>
-                <strong style={{ color: 'var(--rust)' }}>{filingList[0].company}</strong> is your highest-priority filing —{' '}
-                {filingList[0].workers?.toLocaleString()} workers, {filingList[0].closureType?.toLowerCase()}.{' '}
-                {filingList[0].submarket} vacancy sub-3%.{' '}
-                <strong style={{ color: 'var(--rust)' }}>Act within 48 hours</strong> before the listing hits Loopnet.
-              </>
-            ) : (
-              <>No new filings this cycle. Check back after the next sync.</>
-            )}
-          </div>
-        </div>
-
-        {/* STATS */}
-        <div style={S.statsStrip}>
+      {/* Filter bar */}
+      <div className="cl-filter-bar">
+        <input
+          className="cl-search-input"
+          placeholder="Search company, city…"
+          value={search}
+          onChange={e => { setSearch(e.target.value); setPage(0); }}
+          style={{ maxWidth: 320 }}
+        />
+        <div className="cl-tabs" style={{ margin: 0, border: 'none' }}>
           {[
-            { lbl: 'New This Week', val: weekCount, rust: true },
-            { lbl: 'Total Workers', val: totalWorkers.toLocaleString(), rust: true },
-            { lbl: 'Matched to Properties', val: matchedCount, blue: true },
-            { lbl: 'Uncontacted', val: filingList.length },
-            { lbl: 'Converted to Lead', val: 2 },
-          ].map((s, i) => (
-            <div key={i} style={{ ...S.stat, borderRight: i < 4 ? '1px solid var(--line)' : 'none' }}>
-              <div style={S.statLbl}>{s.lbl}</div>
-              <div style={{ ...S.statVal, color: s.rust ? 'var(--rust)' : s.blue ? 'var(--blue)' : 'var(--ink)' }}>{s.val}</div>
-            </div>
+            { k: 'all',     l: 'All Filings' },
+            { k: 'new',     l: '🔴 New' },
+            { k: 'matched', l: 'Property Matched' },
+          ].map(f => (
+            <button key={f.k} className={`cl-tab ${filter === f.k ? 'cl-tab--active' : ''}`}
+              onClick={() => { setFilter(f.k); setPage(0); }} style={{ padding: '6px 14px' }}>
+              {f.l}
+            </button>
           ))}
         </div>
+      </div>
 
-        {/* TWO-COL */}
-        <div style={S.twoCol}>
-          {/* FEED */}
-          <div style={{ borderRight: '1px solid var(--line)', paddingRight: 0 }}>
-            <div style={S.feedHead}>
-              <span style={S.feedTitle}><span style={S.liveDot} />Recent Filings</span>
-              <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: 'var(--ink4)' }}>{filtered.length} filings</span>
-            </div>
-            {filtered.length === 0 ? (
-              <div style={{ padding: '40px 22px', textAlign: 'center', color: 'var(--ink4)', fontFamily: "'Cormorant Garamond',serif", fontSize: 16, fontStyle: 'italic' }}>
-                {liveSyncing ? 'Fetching live WARN data from CA EDD…' : 'No filings match your search.'}
-              </div>
-            ) : (
-              filtered.map((f, i) => (
-                <WarnCard
-                  key={f.id ?? i}
-                  filing={f}
-                  onCreateLead={() => { onCreateLead?.(f); onNavigate?.('leads'); }}
-                  onNavigate={onNavigate}
-                  onArchive={() => archiveFiling(f.id)}
-                />
-              ))
-            )}
-          </div>
+      {/* Table */}
+      <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--card-border)', boxShadow: 'var(--card-shadow)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card-bg)', fontSize: 14 }}>
+          <thead>
+            <tr>
+              {[
+                { label: 'Status',      width: 90 },
+                { label: 'Company',     width: null },
+                { label: 'City',        width: 140 },
+                { label: 'Address',     width: 220 },
+                { label: 'Workers',     width: 100 },
+                { label: 'Notice Date', width: 130 },
+                { label: 'Effective',   width: 130 },
+                { label: 'Days Since',  width: 110 },
+                { label: 'Action',      width: 150 },
+              ].map(col => (
+                <th key={col.label} style={{
+                  width: col.width || undefined,
+                  background: 'rgba(0,0,0,0.025)',
+                  fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500,
+                  letterSpacing: '0.1em', color: 'var(--text-tertiary)',
+                  textTransform: 'uppercase', padding: '14px 18px',
+                  textAlign: 'left', borderBottom: '1px solid var(--card-border)',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={9}>
+                <div className="cl-loading" style={{ padding: 48 }}><div className="cl-spinner" />Loading WARN filings…</div>
+              </td></tr>
+            ) : notices.length === 0 ? (
+              <tr><td colSpan={9}>
+                <div className="cl-empty" style={{ padding: 56 }}>
+                  <div className="cl-empty-label">No WARN filings found</div>
+                  <div className="cl-empty-sub">Auto-sync runs daily at 6am. Check back tomorrow.</div>
+                </div>
+              </td></tr>
+            ) : notices.map(notice => {
+              const days = daysSince(notice.notice_date);
+              const isNew = !notice.converted_lead_id;
+              const isUrgent = days !== null && days <= 14;
 
-          {/* RIGHT PANEL */}
-          <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={S.rpCard}>
-              <div style={S.rpHdr}>Filings by Market</div>
-              <div style={{ padding: '10px 14px' }}>
-                {Object.entries(
-                  filingList.reduce((acc, f) => {
-                    const m = f.submarket || 'Other';
-                    acc[m] = (acc[m] || 0) + 1;
-                    return acc;
-                  }, {})
-                ).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([name, ct]) => (
-                  <div key={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', background: 'var(--bg)', border: '1px solid var(--line2)', borderRadius: 6, marginBottom: 6, cursor: 'pointer' }}>
-                    <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink2)' }}>{name}</span>
-                    <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 22, fontWeight: 700, color: 'var(--rust)' }}>{ct}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div style={S.rpCard}>
-              <div style={S.rpHdr}>This Sync</div>
-              <div style={{ padding: '10px 14px' }}>
-                {[
-                  ['Total Filings', filingList.length],
-                  ['Total Workers', totalWorkers.toLocaleString()],
-                  ['New This Week', weekCount],
-                  ['Property Matches', matchedCount],
-                ].map(([l, v]) => (
-                  <div key={l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '7px 0', borderBottom: '1px solid var(--line3)' }}>
-                    <span style={{ fontSize: 13, color: 'var(--ink3)' }}>{l}</span>
-                    <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>{v}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div style={S.rpCard}>
-              <div style={S.rpHdr}>Recent Conversions</div>
-              <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {[{ name: 'Acromill LLC', detail: '42K SF · IE South', path: 'WARN → Lead in 2 days' }, { name: 'Tireco Inc.', detail: '286K SF · IE West', path: 'WARN → Property → Deal' }].map(c => (
-                  <div key={c.name}>
-                    <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink2)' }}>{c.name} <span style={{ fontWeight: 400, color: 'var(--ink4)', fontSize: 12 }}>— {c.detail}</span></div>
-                    <div style={{ fontSize: 12, color: 'var(--ink4)', marginTop: 2 }}>{c.path}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
+              return (
+                <tr key={notice.id}
+                  onClick={() => { setSelectedId(notice.id); setSelectedNotice(notice); }}
+                  style={{
+                    background: selectedId === notice.id ? 'rgba(78,110,150,0.06)' : isNew ? 'rgba(184,55,20,0.02)' : undefined,
+                    borderBottom: '1px solid rgba(0,0,0,0.05)',
+                    cursor: 'pointer', transition: 'background 120ms',
+                  }}
+                  onMouseEnter={e => { if (selectedId !== notice.id) e.currentTarget.style.background = 'rgba(78,110,150,0.03)'; }}
+                  onMouseLeave={e => { if (selectedId !== notice.id) e.currentTarget.style.background = isNew ? 'rgba(184,55,20,0.02)' : 'transparent'; }}
+                >
+                  {/* Status */}
+                  <td style={{ padding: '18px 18px' }}>
+                    {isNew ? (
+                      <span className="cl-badge cl-badge-rust" style={{ fontSize: 11 }}>NEW</span>
+                    ) : (
+                      <span className="cl-badge cl-badge-gray" style={{ fontSize: 11 }}>LOGGED</span>
+                    )}
+                  </td>
+
+                  {/* Company */}
+                  <td style={{ padding: '18px 18px' }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {notice.company}
+                    </div>
+                    {notice.matched_property_id && (
+                      <div style={{ fontSize: 12, color: 'var(--green)', marginTop: 3, fontFamily: 'var(--font-mono)' }}>
+                        ✓ Property matched
+                      </div>
+                    )}
+                  </td>
+
+                  {/* City */}
+                  <td style={{ padding: '18px 18px', fontSize: 14, color: 'var(--text-secondary)' }}>
+                    {notice.city || notice.county || '—'}
+                  </td>
+
+                  {/* Address */}
+                  <td style={{ padding: '18px 18px', fontSize: 13, color: 'var(--text-secondary)' }}>
+                    {notice.address || '—'}
+                  </td>
+
+                  {/* Workers */}
+                  <td style={{
+                    padding: '18px 18px', fontFamily: 'var(--font-mono)', fontSize: 14,
+                    color: (notice.employees || 0) >= 200 ? 'var(--rust)' : 'var(--text-secondary)',
+                    fontWeight: (notice.employees || 0) >= 200 ? 600 : 400,
+                  }}>
+                    {notice.employees ? fmt(notice.employees) : '—'}
+                  </td>
+
+                  {/* Notice date */}
+                  <td style={{
+                    padding: '18px 18px', fontFamily: 'var(--font-mono)', fontSize: 13,
+                    color: isUrgent ? 'var(--rust)' : 'var(--text-secondary)',
+                    fontWeight: isUrgent ? 600 : 400,
+                  }}>
+                    {fmtDate(notice.notice_date)}
+                  </td>
+
+                  {/* Effective date */}
+                  <td style={{ padding: '18px 18px', fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-secondary)' }}>
+                    {fmtDate(notice.effective_date)}
+                  </td>
+
+                  {/* Days since */}
+                  <td style={{
+                    padding: '18px 18px', fontFamily: 'var(--font-mono)', fontSize: 13,
+                    color: days !== null && days <= 7 ? 'var(--rust)' : days !== null && days <= 30 ? 'var(--amber)' : 'var(--text-tertiary)',
+                  }}>
+                    {days !== null ? `${days}d ago` : '—'}
+                  </td>
+
+                  {/* Action */}
+                  <td style={{ padding: '18px 18px' }} onClick={e => e.stopPropagation()}>
+                    {isNew ? (
+                      <button
+                        className="cl-btn cl-btn-primary cl-btn-sm"
+                        onClick={() => setWarnModalNotice(notice)}
+                        style={{ fontSize: 12 }}
+                      >
+                        + Create Lead
+                      </button>
+                    ) : (
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-tertiary)' }}>
+                        Lead created
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-tertiary)' }}>
+            {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {fmt(total)}
+          </span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="cl-btn cl-btn-secondary cl-btn-sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>← Prev</button>
+            <button className="cl-btn cl-btn-secondary cl-btn-sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>Next →</button>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Slide Drawer */}
+      <SlideDrawer
+        open={!!selectedId}
+        onClose={() => { setSelectedId(null); setSelectedNotice(null); }}
+        fullPageHref={selectedId ? `/warn-intel/${selectedId}` : undefined}
+        title={selectedNotice?.company || 'WARN Filing'}
+        subtitle={selectedNotice ? [selectedNotice.address, selectedNotice.county].filter(Boolean).join(' · ') : ''}
+        badge={{ label: 'WARN', color: 'rust' }}
+      >
+        {selectedNotice && (
+        <WarnDetail
+  notice={selectedNotice}
+  onCreateLead={() => setWarnModalNotice(selectedNotice)}
+  onLeadCreated={() => setSelectedNotice(n => ({ ...n, converted_lead_id: true }))}
+  onSearchProperty={searchPropertyDatabase}
+  onClose={() => { setSelectedId(null); setSelectedNotice(null); }}
+/>
+        )}
+      </SlideDrawer>
+
+      {/* Create Lead Modal */}
+      {warnModalNotice && (
+        <CreateLeadFromWarnModal
+          notice={warnModalNotice}
+          onClose={() => setWarnModalNotice(null)}
+          onSuccess={(leadId) => {
+            setWarnModalNotice(null);
+            setSelectedId(null);
+            setSelectedNotice(null);
+            setNotices(prev => prev.map(n =>
+              n.id === warnModalNotice?.id ? { ...n, converted_lead_id: leadId } : n
+            ));
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function WarnCard({ filing: f, onCreateLead, onNavigate, onArchive }) {
-  const [hover, setHover] = useState(false);
-  const [open, setOpen] = useState(true);
+// ── WARN DETAIL (drawer) ──────────────────────────────────────
+function WarnDetail({ notice, onCreateLead, onLeadCreated, onSearchProperty, onClose }) {
+  const [leadCreated, setLeadCreated] = useState(!!notice.converted_lead_id);
+  const [editing, setEditing]         = useState(false);
+  const [saving, setSaving]           = useState(false);
+  const [propResults, setPropResults] = useState(null);
+  const [propSearching, setPropSearching] = useState(false);
+  const [form, setForm] = useState({
+    company:        notice.company || '',
+    address:        notice.address || '',
+    county:         notice.county || '',
+    employees:      notice.employees || '',
+    notice_date:    notice.notice_date || '',
+    effective_date: notice.effective_date || '',
+    is_industrial:  notice.is_industrial || false,
+    is_in_market:   notice.is_in_market || false,
+    research_notes: notice.research_notes || '',
+  });
+
+  const days = daysSince(notice.notice_date);
+  const window60 = notice.effective_date
+    ? Math.floor((new Date(notice.effective_date) - new Date()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  function setField(k, v) { setForm(f => ({ ...f, [k]: v })); }
+
+  async function searchProperties() {
+    setPropSearching(true);
+    setPropResults(null);
+    try {
+      const supabase = createClient();
+      const streetAddress = (notice.address || '').split(',')[0];
+      const { data } = await supabase
+        .from('properties')
+        .select('id, address, city, tenant, owner, building_sf, vacancy_status')
+        .or(`address.ilike.%${streetAddress}%,tenant.ilike.%${notice.company}%,owner.ilike.%${notice.company}%`)
+        .limit(5);
+      setPropResults(data || []);
+      if (data && data.length > 0 && !notice.matched_property_id) {
+        const supabase2 = createClient();
+        await supabase2.from('warn_notices').update({ matched_property_id: data[0].id }).eq('id', notice.id);
+      }
+    } catch(e) { console.error(e); setPropResults([]); }
+    finally { setPropSearching(false); }
+  }
+
+  async function saveEdit() {
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      await supabase.from('warn_notices').update({
+        company:        form.company,
+        address:        form.address,
+        county:         form.county,
+        employees:      parseInt(form.employees) || null,
+        notice_date:    form.notice_date || null,
+        effective_date: form.effective_date || null,
+        is_industrial:  form.is_industrial,
+        is_in_market:   form.is_in_market,
+        research_notes: form.research_notes,
+      }).eq('id', notice.id);
+      setEditing(false);
+    } catch(e) { console.error(e); }
+    finally { setSaving(false); }
+  }
+
+  const inputStyle = {
+    width: '100%', padding: '8px 12px',
+    background: 'rgba(0,0,0,0.025)', border: '1px solid var(--card-border)',
+    borderRadius: 8, fontFamily: 'var(--font-ui)', fontSize: 13,
+    color: 'var(--text-primary)', outline: 'none',
+  };
+  const labelStyle = {
+    fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em',
+    color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: 4, display: 'block',
+  };
+
   return (
-    <div style={{ ...S.warnCard, ...(f.isNew ? S.warnCardNew : {}), background: hover ? 'var(--bg)' : (f.isNew ? '#FFF8F5' : 'var(--card)') }}
-      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
-      {f.isNew && <span style={{ position: 'absolute', top: 18, right: 20, fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: '0.3em', color: 'var(--rust)', opacity: 0.7, textTransform: 'uppercase' }}>NEW</span>}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--ink2)', lineHeight: 1.3 }}>{f.company}</div>
-          <div style={{ fontSize: 13, color: 'var(--ink3)', marginTop: 3 }}>{f.addr}</div>
-          {f.propertyMatch && (
-            <div style={{ marginTop: 4, fontSize: 12, color: 'var(--blue)', fontStyle: 'italic' }}>
-              ↳ Matched to tracked property:{' '}
-              <span
-                style={{ fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}
-                onClick={() => onNavigate?.('properties')}
-              >
-                {f.propertyMatch.property.address}
-              </span>
-              <span style={{ marginLeft: 6, background: 'var(--blue-bg)', border: '1px solid var(--blue-bdr)', borderRadius: 4, padding: '1px 6px', fontSize: 10, fontWeight: 600 }}>{f.propertyMatch.confidence}%</span>
+    <div>
+      {/* 60-day window alert */}
+      {window60 !== null && window60 > 0 && (
+        <div style={{
+          background: window60 <= 30 ? 'rgba(184,55,20,0.08)' : 'rgba(168,112,16,0.08)',
+          border: `1px solid ${window60 <= 30 ? 'rgba(184,55,20,0.2)' : 'rgba(168,112,16,0.2)'}`,
+          borderRadius: 10, padding: '14px 18px', marginBottom: 18,
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <span style={{ fontSize: 22 }}>⏱</span>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: window60 <= 30 ? 'var(--rust)' : 'var(--amber)' }}>
+              {window60} days until effective date
             </div>
-          )}
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 3 }}>
+              The 60-day WARN window closes {fmtDate(notice.effective_date)}. Act before vacancy hits the market.
+            </div>
+          </div>
         </div>
-        <div style={{ flexShrink: 0, textAlign: 'right' }}>
-          <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 32, fontWeight: 700, color: 'var(--rust)', lineHeight: 1, letterSpacing: '-0.02em' }}>{(f.workers || 0).toLocaleString()}</div>
-          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, fontWeight: 600, color: 'var(--rust)', letterSpacing: '0.07em', textTransform: 'uppercase', marginTop: 2 }}>workers</div>
-        </div>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-        <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 12.5, fontWeight: 500, color: 'var(--ink2)' }}>{f.sf}</span>
-        <span style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 20, fontSize: 11, fontWeight: 500, border: '1px solid', background: f.closureType === 'Permanent Closure' || f.closureType === 'Plant Closure' ? 'var(--rust-bg)' : 'var(--amber-bg)', borderColor: f.closureType === 'Permanent Closure' || f.closureType === 'Plant Closure' ? 'var(--rust-bdr)' : 'var(--amber-bdr)', color: f.closureType === 'Permanent Closure' || f.closureType === 'Plant Closure' ? 'var(--rust)' : 'var(--amber)' }}>{f.closureType}</span>
-        <span style={{ display: 'inline-flex', padding: '3px 9px', borderRadius: 20, fontSize: 11, fontWeight: 500, border: '1px solid var(--blue-bdr)', background: 'var(--blue-bg)', color: 'var(--blue)' }}>{f.submarket}</span>
-        <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: 'var(--ink4)' }}>Filed {f.filed}</span>
-      </div>
-      {/* Opportunity match — collapsible */}
-      <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, marginBottom: open ? 8 : 0 }} onClick={() => setOpen(o => !o)}>
-        <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--blue)' }}>✦ Opportunity Matches ({f.matches?.length ?? 0})</span>
-        <span style={{ fontSize: 11, color: 'var(--blue)', marginLeft: 'auto' }}>{open ? '▴' : '▾'}</span>
-      </div>
-      {open && (f.matches?.length > 0 ? (
-        <div style={S.oppMatch}>
-          {f.matches.map((m, i) => (
-            <div key={i} style={S.omMatch} onClick={() => onNavigate?.('leads')}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink2)' }}>{m.name}</div>
-                <div style={{ fontSize: 11.5, color: 'var(--ink4)', marginTop: 1 }}>{m.sub}</div>
-              </div>
-              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 18, fontWeight: 700, color: 'var(--blue)', flexShrink: 0 }}>{m.pct}%</div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', whiteSpace: 'nowrap', marginLeft: 8 }}>Open Lead →</div>
+      )}
+
+      {/* KPI grid */}
+      {!editing && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 20 }}>
+          {[
+            { label: 'WORKERS',     value: notice.employees ? fmt(notice.employees) : '—' },
+            { label: 'NOTICE DATE', value: fmtDate(notice.notice_date) },
+            { label: 'EFFECTIVE',   value: fmtDate(notice.effective_date) },
+          ].map(kpi => (
+            <div key={kpi.label} style={{ background: 'rgba(0,0,0,0.025)', borderRadius: 10, padding: '12px 14px', border: '1px solid var(--card-border)' }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', color: 'var(--text-tertiary)', marginBottom: 6 }}>{kpi.label}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{kpi.value}</div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Actions */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 22, flexWrap: 'wrap' }}>
+        {!notice.converted_lead_id && !editing && (
+          <button className="cl-btn cl-btn-primary cl-btn-sm" onClick={onCreateLead}>
+            ⚡ Create Lead from Filing
+          </button>
+        )}
+        {!editing && (
+          <button className="cl-btn cl-btn-secondary cl-btn-sm" onClick={searchProperties}>
+            {propSearching ? '🔍 Searching…' : '🔍 Search Property Database'}
+          </button>
+        )}
+        {!editing && (
+          <button className="cl-btn cl-btn-secondary cl-btn-sm"
+            onClick={() => window.open(`/owner-search?q=${encodeURIComponent(notice.company)}`, '_blank')}>
+            📋 Research Company
+          </button>
+        )}
+        <button className="cl-btn cl-btn-secondary cl-btn-sm" onClick={() => setEditing(e => !e)}>
+          ✏️ {editing ? 'Cancel Edit' : 'Edit Filing'}
+        </button>
+        {editing && (
+          <button className="cl-btn cl-btn-primary cl-btn-sm" onClick={saveEdit} disabled={saving}>
+            {saving ? 'Saving…' : '✓ Save Changes'}
+          </button>
+        )}
+      </div>
+
+      {/* Edit form */}
+      {editing ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={labelStyle}>Company</label>
+              <input style={inputStyle} value={form.company} onChange={e => setField('company', e.target.value)} />
+            </div>
+            <div>
+              <label style={labelStyle}>County</label>
+              <input style={inputStyle} value={form.county} onChange={e => setField('county', e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <label style={labelStyle}>Address</label>
+            <input style={inputStyle} value={form.address} onChange={e => setField('address', e.target.value)} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={labelStyle}>Employees Affected</label>
+              <input style={inputStyle} type="number" value={form.employees} onChange={e => setField('employees', e.target.value)} />
+            </div>
+            <div>
+              <label style={labelStyle}>Notice Date</label>
+              <input style={inputStyle} type="date" value={form.notice_date} onChange={e => setField('notice_date', e.target.value)} />
+            </div>
+            <div>
+              <label style={labelStyle}>Effective Date</label>
+              <input style={inputStyle} type="date" value={form.effective_date} onChange={e => setField('effective_date', e.target.value)} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 20 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+              <input type="checkbox" checked={form.is_industrial} onChange={e => setField('is_industrial', e.target.checked)} />
+              <span style={{ color: 'var(--text-secondary)' }}>Industrial Property</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+              <input type="checkbox" checked={form.is_in_market} onChange={e => setField('is_in_market', e.target.checked)} />
+              <span style={{ color: 'var(--text-secondary)' }}>In My Market</span>
+            </label>
+          </div>
+          <div>
+            <label style={labelStyle}>Research Notes</label>
+            <textarea
+              value={form.research_notes}
+              onChange={e => setField('research_notes', e.target.value)}
+              placeholder="Matched property, outreach status, owner intel..."
+              style={{ ...inputStyle, minHeight: 100, resize: 'vertical' }}
+            />
+          </div>
         </div>
       ) : (
-        <div style={{ padding: '10px 12px', background: 'var(--bg2)', border: '1px dashed var(--line)', borderRadius: 7, fontSize: 13, fontStyle: 'italic', color: 'var(--ink4)', marginTop: 4 }}>No matching tenant/buyer prospects in database for this size range.</div>
-      ))}
-      {/* Actions */}
-      <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
-        <button style={S.wbRust} onClick={onCreateLead}>⚡ Create Lead</button>
-        <button style={S.wbBlue} onClick={() => {}}>📞 Call Owner</button>
-        <button style={S.wbBlue} onClick={() => {}}>📝 Note</button>
-        <button style={S.wbGray} onClick={onArchive}>Archive</button>
-      </div>
+        <>
+          {/* Filing details */}
+          <div className="cl-card" style={{ padding: '16px 18px', marginBottom: 14 }}>
+            <div className="cl-card-title" style={{ marginBottom: 12 }}>FILING DETAILS</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[
+                { label: 'Company',          value: notice.company },
+                { label: 'Address',          value: notice.address || '—' },
+                { label: 'County',           value: notice.county || '—' },
+                { label: 'Workers Affected', value: notice.employees ? fmt(notice.employees) : '—' },
+                { label: 'Notice Date',      value: fmtDate(notice.notice_date) },
+                { label: 'Effective Date',   value: fmtDate(notice.effective_date) },
+                { label: 'Days Since',       value: days !== null ? `${days} days ago` : '—' },
+                { label: 'Industrial',       value: notice.is_industrial ? 'Yes' : 'No' },
+                { label: 'In Market',        value: notice.is_in_market ? 'Yes' : 'No' },
+              ].map(row => (
+                <div key={row.label} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-tertiary)', width: 140, flexShrink: 0, paddingTop: 2 }}>
+                    {row.label.toUpperCase()}
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>{row.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Research notes */}
+          <div className="cl-card" style={{ padding: '16px 18px', marginBottom: 14 }}>
+            <div className="cl-card-title" style={{ marginBottom: 10 }}>RESEARCH NOTES</div>
+            <p style={{
+              fontSize: 13, lineHeight: 1.6,
+              color: notice.research_notes ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+              fontStyle: notice.research_notes ? 'normal' : 'italic',
+            }}>
+              {notice.research_notes || 'No notes yet. Click Edit Filing to add research.'}
+            </p>
+          </div>
+
+          {/* Property search results */}
+          {propResults !== null && (
+            <div className="cl-card" style={{ padding: '16px 18px', marginBottom: 14 }}>
+              <div className="cl-card-title" style={{ marginBottom: 12 }}>
+                PROPERTY DATABASE RESULTS{propResults.length > 0 ? ` — ${propResults.length} MATCH${propResults.length > 1 ? 'ES' : ''}` : ' — NO MATCHES'}
+              </div>
+              {propResults.length === 0 ? (
+                <p style={{ fontSize: 13, color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                  No properties found matching "{notice.company}" or "{(notice.address || '').split(',')[0]}".
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {propResults.map(p => (
+                    <div key={p.id} style={{ padding: '12px 14px', background: 'rgba(78,110,150,0.04)', borderRadius: 8, border: '1px solid rgba(78,110,150,0.12)' }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--blue)', marginBottom: 4 }}>{p.address}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                        {p.city && <span>{p.city}</span>}
+                        {p.building_sf && <span>{Number(p.building_sf).toLocaleString()} SF</span>}
+                        {p.tenant && <span>Tenant: {p.tenant}</span>}
+                        {p.owner && <span>Owner: {p.owner}</span>}
+                        {p.vacancy_status && (
+                          <span className={`cl-badge cl-badge-${p.vacancy_status === 'Vacant' ? 'rust' : 'green'}`} style={{ fontSize: 10 }}>
+                            {p.vacancy_status}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Why this matters */}
+          <div className="cl-card" style={{ padding: '16px 18px', borderLeft: '3px solid var(--purple)' }}>
+            <div className="cl-card-title" style={{ marginBottom: 12 }}>WHY THIS MATTERS</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 18, flexShrink: 0 }}>⚡</span>
+                <p style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.65, fontWeight: 500 }}>
+                  {notice.company} filed a WARN notice affecting {notice.employees ? `${Number(notice.employees).toLocaleString()} workers` : 'an unknown number of workers'} — effective {fmtDate(notice.effective_date)}.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 18, flexShrink: 0 }}>🏭</span>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.65 }}>
+                  {window60 !== null && window60 > 0
+                    ? `You have ${window60} days before vacancy hits. That's your window to approach the owner before this building goes to market.`
+                    : window60 !== null && window60 <= 0
+                    ? `The effective date has passed — vacancy may already be occurring. Contact the property owner immediately.`
+                    : `The 60-day window is your edge. Other brokers won't know until the space appears on CoStar.`
+                  }
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 18, flexShrink: 0 }}>
+                  {notice.matched_property_id || (propResults && propResults.length > 0) ? '✅' : '🔎'}
+                </span>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.65 }}>
+                  {notice.matched_property_id || (propResults && propResults.length > 0)
+                    ? `Matched to ${propResults && propResults.length > 0 ? propResults[0].address : 'a tracked property'} in your database. Create a lead to start tracking outreach.`
+                    : propResults !== null && propResults.length === 0
+                    ? `No match found in your property database. This tenant may be at an untracked location — research the owner and consider adding the property.`
+                    : `Click Search Property Database above to check if this address is in your tracked database.`
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-const S = {
-  topbar: { height: 48, background: 'var(--card)', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', padding: '0 28px', gap: 10, position: 'sticky', top: 0, zIndex: 5 },
-  livePill: { display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, background: 'var(--rust-bg)', border: '1px solid var(--rust-bdr)', fontSize: 11, fontWeight: 600, color: 'var(--rust)', letterSpacing: '0.04em', flexShrink: 0 },
-  liveDot: { display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: 'var(--rust)', animation: 'blink 1.2s ease-in-out infinite', flexShrink: 0 },
-  searchWrap: { display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 8, padding: '7px 13px', width: 220 },
-  btnGhost: { display: 'inline-flex', padding: '7px 13px', borderRadius: 7, fontSize: 12.5, fontWeight: 500, cursor: 'pointer', border: '1px solid var(--line)', background: 'var(--card)', color: 'var(--ink3)', fontFamily: 'inherit' },
-  pageHeader: { background: 'var(--card)', borderBottom: '1px solid var(--line)' },
-  pageTitle: { fontSize: 30, fontWeight: 300, color: 'var(--ink)', letterSpacing: '-0.02em' },
-  pageTitleEm: { fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic', color: 'var(--rust)', fontSize: 38, fontWeight: 400 },
-  pageSub: { fontFamily: "'Cormorant Garamond',serif", fontSize: 14, fontStyle: 'italic', color: 'var(--ink4)', marginTop: 4 },
-  signalStrip: { background: 'rgba(184,55,20,0.03)', borderLeft: '3px solid var(--rust)', borderBottom: '1px solid var(--rust-bdr)', padding: '14px 28px', display: 'flex', gap: 14, alignItems: 'center' },
-  sigPulse: { width: 8, height: 8, borderRadius: '50%', background: 'var(--rust)', flexShrink: 0, animation: 'blink 1.4s ease-in-out infinite', boxShadow: '0 0 6px rgba(184,55,20,0.4)' },
-  sigTag: { fontFamily: "'Cormorant Garamond',serif", fontSize: 16, fontStyle: 'italic', color: 'var(--rust)', flexShrink: 0 },
-  sigSep: { width: 1, height: 26, background: 'var(--rust-bdr)', flexShrink: 0 },
-  sigText: { fontSize: 14, lineHeight: 1.68, color: 'var(--ink2)' },
-  statsStrip: { display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', background: 'var(--card)', borderBottom: '1px solid var(--line)' },
-  stat: { padding: '16px 20px' },
-  statLbl: { fontSize: 10, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--ink4)', marginBottom: 6 },
-  statVal: { fontFamily: "'Playfair Display',serif", fontSize: 34, fontWeight: 700, color: 'var(--ink)', lineHeight: 1, letterSpacing: '-0.02em' },
-  twoCol: { display: 'grid', gridTemplateColumns: '1fr 280px' },
-  feedHead: { padding: '12px 22px', background: 'var(--card)', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 48, zIndex: 2 },
-  feedTitle: { fontSize: 13, fontWeight: 700, color: 'var(--ink2)', display: 'flex', alignItems: 'center', gap: 8 },
-  warnCard: { padding: '18px 22px', background: 'var(--card)', borderBottom: '1px solid var(--line2)', cursor: 'pointer', transition: 'background 0.1s', position: 'relative' },
-  warnCardNew: { borderLeft: '3px solid var(--rust)' },
-  oppMatch: { marginTop: 10, padding: '12px 14px', background: 'var(--blue-bg)', border: '1px solid var(--blue-bdr)', borderRadius: 8 },
-  omMatch: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: 'var(--card)', border: '1px solid var(--blue-bdr)', borderRadius: 6, cursor: 'pointer', marginBottom: 5 },
-  wbRust: { padding: '7px 13px', borderRadius: 6, fontSize: 12, fontWeight: 500, border: '1px solid var(--rust-bdr)', background: 'var(--rust-bg)', color: 'var(--rust)', cursor: 'pointer', fontFamily: 'inherit' },
-  wbBlue: { padding: '7px 13px', borderRadius: 6, fontSize: 12, fontWeight: 500, border: '1px solid var(--blue-bdr)', background: 'var(--blue-bg)', color: 'var(--blue)', cursor: 'pointer', fontFamily: 'inherit' },
-  wbGray: { padding: '7px 13px', borderRadius: 6, fontSize: 12, fontWeight: 500, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--ink3)', cursor: 'pointer', fontFamily: 'inherit' },
-  rpCard: { background: 'var(--card)', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', border: '1px solid var(--line2)', overflow: 'hidden' },
-  rpHdr: { padding: '11px 14px', borderBottom: '1px solid var(--line)', fontSize: 11, fontWeight: 500, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--ink3)' },
-};
+// ── CREATE LEAD FROM WARN MODAL ───────────────────────────────
+function CreateLeadFromWarnModal({ notice, onClose, onSuccess }) {
+  const [saving, setSaving]         = useState(false);
+  const [matchedProp, setMatchedProp] = useState(null);
+
+  const autoSuggested = ['WARN Notice', 'M&A — Acquisition', 'Relocation Risk'];
+  const [selectedTags, setSelectedTags] = useState(autoSuggested);
+  const [form, setForm] = useState({
+    lead_name: notice.company || '',
+    company:   notice.company || '',
+    address:   notice.address || '',
+    city:      notice.county || '',
+    stage:     'New',
+    priority:  'High',
+    source:    'WARN Intel',
+    notes:     `WARN filing: ${notice.employees ? Number(notice.employees).toLocaleString() : '—'} workers affected. Notice: ${notice.notice_date || '—'}. Effective: ${notice.effective_date || '—'}.`,
+  });
+
+  useEffect(() => {
+    async function findProperty() {
+      if (!notice.address && !notice.company) return;
+      try {
+        const supabase = createClient();
+        const streetAddress = (notice.address || '').split(',')[0];
+        const { data } = await supabase
+          .from('properties')
+          .select('id, address, city, building_sf, lease_expiration, owner_type, tenant')
+          .or(`address.ilike.%${streetAddress}%,tenant.ilike.%${notice.company}%,owner.ilike.%${notice.company}%`)
+          .limit(1)
+          .single();
+        if (data) {
+          setMatchedProp(data);
+          const extra = [];
+          if (data.lease_expiration) {
+            const months = Math.round((new Date(data.lease_expiration) - new Date()) / (1000 * 60 * 60 * 24 * 30));
+            if (months <= 12) extra.push('Lease Exp < 12 Mo');
+            else if (months <= 24) extra.push('Lease Exp 12–24 Mo');
+          }
+          if (data.owner_type === 'Owner-User') extra.push('SLB Potential');
+          if (extra.length > 0) setSelectedTags(prev => [...new Set([...prev, ...extra])]);
+        }
+      } catch(e) { /* no match found */ }
+    }
+    findProperty();
+  }, []);
+
+  function toggleTag(key) {
+    setSelectedTags(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+  }
+
+  const score = Math.min(100, selectedTags.reduce((s, key) => {
+    const tag = CATALYST_TAGS.find(t => t.key === key);
+    return s + (tag?.scoreBoost || 5);
+  }, matchedProp ? 20 : 10));
+
+  async function handleCreate() {
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      const catalystPayload = selectedTags.map(key => {
+        const tag = CATALYST_TAGS.find(t => t.key === key);
+        return {
+          tag:      tag?.label || key,
+          category: tag ? tag.category.toLowerCase().split(' ')[0] : 'owner',
+          priority: tag?.priority?.toLowerCase() || 'medium',
+        };
+      });
+
+      const { data: lead, error } = await supabase.from('leads').insert({
+        lead_name:     form.lead_name,
+        company:       form.company,
+        address:       form.address,
+        city:          form.city,
+        stage:         form.stage,
+        priority:      form.priority,
+        source:        form.source,
+        score,
+        catalyst_tags: JSON.stringify(catalystPayload),
+        notes:         form.notes,
+        ...(matchedProp ? { property_id: matchedProp.id } : {}),
+      }).select('id').single();
+
+      if (error) throw error;
+
+      await supabase.from('warn_notices')
+        .update({ converted_lead_id: lead.id })
+        .eq('id', notice.id);
+
+      onSuccess(lead.id);
+    } catch(e) {
+      console.error('Create lead error:', e);
+      alert('Error creating lead: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const inputStyle = {
+    width: '100%', padding: '8px 12px',
+    background: 'rgba(0,0,0,0.025)', border: '1px solid var(--card-border)',
+    borderRadius: 8, fontFamily: 'var(--font-ui)', fontSize: 13,
+    color: 'var(--text-primary)', outline: 'none',
+  };
+  const labelStyle = {
+    fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em',
+    color: 'var(--text-tertiary)', textTransform: 'uppercase',
+    marginBottom: 4, display: 'block',
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 200,
+      background: 'rgba(0,0,0,0.4)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 24,
+    }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{
+        background: 'var(--bg)', borderRadius: 16,
+        width: '100%', maxWidth: 700,
+        maxHeight: '90vh', overflowY: 'auto',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.2)',
+      }}>
+        {/* Modal header */}
+        <div style={{
+          background: '#EDE8E0', borderBottom: '1px solid rgba(0,0,0,0.08)',
+          padding: '18px 24px', display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', borderRadius: '16px 16px 0 0',
+        }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>
+              Create Lead from WARN Filing
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 3 }}>{notice.company}</div>
+          </div>
+          <button onClick={onClose} style={{ fontSize: 22, color: 'var(--text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1 }}>×</button>
+        </div>
+
+        <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 22 }}>
+
+          {/* Matched property banner */}
+          {matchedProp && (
+            <div style={{
+              background: 'rgba(24,112,66,0.06)', border: '1px solid rgba(24,112,66,0.2)',
+              borderRadius: 10, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12,
+            }}>
+              <span style={{ fontSize: 18 }}>✓</span>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--green)' }}>Matched to tracked property</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                  {matchedProp.address}{matchedProp.building_sf ? ` · ${Number(matchedProp.building_sf).toLocaleString()} SF` : ''}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Lead form */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Lead Name</label>
+              <input style={inputStyle} value={form.lead_name} onChange={e => setForm(f => ({ ...f, lead_name: e.target.value }))} />
+            </div>
+            <div>
+              <label style={labelStyle}>Company</label>
+              <input style={inputStyle} value={form.company} onChange={e => setForm(f => ({ ...f, company: e.target.value }))} />
+            </div>
+            <div>
+              <label style={labelStyle}>City / County</label>
+              <input style={inputStyle} value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Address</label>
+              <input style={inputStyle} value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
+            </div>
+            <div>
+              <label style={labelStyle}>Stage</label>
+              <select style={inputStyle} value={form.stage} onChange={e => setForm(f => ({ ...f, stage: e.target.value }))}>
+                {['New', 'Researching', 'Decision Maker Identified', 'Contacted'].map(s => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Priority</label>
+              <select style={inputStyle} value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
+                {['Critical', 'High', 'Medium', 'Low'].map(p => <option key={p}>{p}</option>)}
+              </select>
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Notes</label>
+              <textarea style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }}
+                value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+            </div>
+          </div>
+
+          {/* Catalyst tags */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <label style={{ ...labelStyle, marginBottom: 0 }}>Catalyst Tags</label>
+              <div style={{
+                fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700,
+                color: score >= 70 ? 'var(--rust)' : score >= 50 ? 'var(--amber)' : 'var(--blue)',
+              }}>
+                Score: {score}
+              </div>
+            </div>
+            {Object.keys(CATALYST_CATEGORIES).map(cat => {
+              const catTags = CATALYST_TAGS.filter(t => t.category === cat);
+              const catStyle = CATALYST_CATEGORIES[cat];
+              return (
+                <div key={cat} style={{ marginBottom: 16 }}>
+                  <div style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em',
+                    textTransform: 'uppercase', color: catStyle.color, marginBottom: 8,
+                  }}>
+                    {cat}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {catTags.map(tag => {
+                      const selected = selectedTags.includes(tag.key);
+                      const isAuto = autoSuggested.includes(tag.key);
+                      return (
+                        <div key={tag.key} onClick={() => toggleTag(tag.key)} style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
+                          fontSize: 11, fontWeight: 500, fontFamily: 'var(--font-mono)',
+                          border: `1.5px solid ${selected ? catStyle.color : 'rgba(0,0,0,0.12)'}`,
+                          background: selected ? catStyle.bg : 'transparent',
+                          color: selected ? catStyle.color : 'var(--text-tertiary)',
+                          transition: 'all 0.12s',
+                        }}>
+                          {isAuto && selected && <span style={{ fontSize: 8 }}>★</span>}
+                          {tag.label}
+                          {tag.priority === 'HIGH' && <span style={{ fontSize: 8, opacity: 0.6 }}>●</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', fontStyle: 'italic', marginTop: 4 }}>
+              ★ Auto-suggested from WARN filing · Score updates as you select tags
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 10, borderTop: '1px solid rgba(0,0,0,0.07)' }}>
+            <button className="cl-btn cl-btn-secondary" onClick={onClose}>Cancel</button>
+            <button className="cl-btn cl-btn-primary" onClick={handleCreate} disabled={saving} style={{ minWidth: 180 }}>
+              {saving ? 'Creating…' : `⚡ Create Lead (Score: ${score})`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

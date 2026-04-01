@@ -176,7 +176,7 @@ function CampaignCard({ campaign, onClick }) {
           {campaign.title}
         </div>
         <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 10, fontFamily: 'var(--font-mono)' }}>
-          {campaign.market}{campaign.submarkets?.length ? ` · ${JSON.parse(campaign.submarkets || '[]').slice(0,2).join(', ')}` : ''}
+          {campaign.market}
         </div>
         {campaign.thesis && (
           <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 12,

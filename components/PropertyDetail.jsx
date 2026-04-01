@@ -33,6 +33,7 @@ export default function PropertyDetail({ id, inline = false }) {
   const [deals, setDeals]         = useState([]);
   const [leads, setLeads]         = useState([]);
   const [leaseComps, setLeaseComps] = useState([]);
+  const [warnNotice, setWarnNotice] = useState(null);
 
   useEffect(() => {
     if (id) loadProperty(id);
@@ -87,13 +88,13 @@ export default function PropertyDetail({ id, inline = false }) {
       setLeads(lds || []);
 
     // Linked WARN notice
-    const { data: warnMatch } = await supabase
-      .from('warn_notices')
-      .select('id, company, notice_date, effective_date, employees, converted_lead_id')
-      .eq('matched_property_id', propId)
-      .limit(1)
-      .single();
-    setWarnNotice(warnMatch || null);
+const { data: warnMatch } = await supabase
+  .from('warn_notices')
+  .select('id, company, notice_date, effective_date, employees')
+  .eq('matched_property_id', propId)
+  .limit(1)
+  .single();
+if (warnMatch) setWarnNotice(warnMatch);
       
       // Nearby lease comps (same city)
       if (prop?.city) {
@@ -275,19 +276,19 @@ function OverviewTab({ property, warnNotice }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-      {/* WARN Notice link */}
       {warnNotice && (
-        <div className="cl-card" style={{ padding: '14px 16px', borderLeft: '3px solid var(--rust)' }}>
-          <div className="cl-card-title" style={{ marginBottom: 10 }}>⚡ LINKED WARN FILING</div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
-            {warnNotice.company}
+        <div style={{ background: 'var(--rust-bg)', border: '1px solid var(--rust-bdr)', borderRadius: 10, padding: '14px 18px', borderLeft: '3px solid var(--rust)', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 18 }}>⚡</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--rust)', marginBottom: 3 }}>Linked WARN Filing</div>
+            <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>{warnNotice.company}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+              {warnNotice.employees ? `${Number(warnNotice.employees).toLocaleString()} workers` : ''}
+              {warnNotice.notice_date ? ` · Filed ${new Date(warnNotice.notice_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
+            </div>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
-            {warnNotice.employees ? `${Number(warnNotice.employees).toLocaleString()} workers affected` : ''}{' '}
-            {warnNotice.notice_date ? `· Filed ${new Date(warnNotice.notice_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
-          </div>
-          <a href={`/warn-intel/${warnNotice.id}`} style={{ fontSize: 12, color: 'var(--blue)', textDecoration: 'none', fontWeight: 500 }}>
-            View WARN Filing →
+          <a href={`/warn-intel/${warnNotice.id}`} style={{ fontSize: 12, color: 'var(--blue)', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' }}>
+            View Filing →
           </a>
         </div>
       )}

@@ -415,9 +415,3 @@ function ScoreRing({ score }) {
   );
 }
 
-const PRIORITY_COLORS = {
-  Critical: { bg: 'rgba(184,55,20,0.12)', color: 'var(--rust)',          border: 'rgba(184,55,20,0.25)' },
-  High:     { bg: 'rgba(168,112,16,0.10)', color: 'var(--amber)',         border: 'rgba(168,112,16,0.25)' },
-  Medium:   { bg: 'rgba(78,110,150,0.10)', color: 'var(--blue)',          border: 'rgba(78,110,150,0.2)' },
-  Low:      { bg: 'rgba(0,0,0,0.05)',      color: 'var(--text-tertiary)', border: 'rgba(0,0,0,0.1)' },
-};

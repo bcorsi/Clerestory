@@ -1,11 +1,129 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase';
 
 function fmtDate(d) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+const LOADING_STEPS = [
+  { label: 'Searching public records…',        duration: 4000 },
+  { label: 'Looking up entity filings…',       duration: 5000 },
+  { label: 'Cross-referencing property data…', duration: 5000 },
+  { label: 'Identifying decision makers…',     duration: 5000 },
+  { label: 'Scanning recent news & filings…',  duration: 5000 },
+  { label: 'Synthesizing ownership intel…',    duration: 4000 },
+];
+
+function LoadingState({ query }) {
+  const [stepIndex, setStepIndex] = useState(0);
+  const [elapsed, setElapsed]     = useState(0);
+  const startRef = useRef(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const secs = Math.floor((Date.now() - startRef.current) / 1000);
+      setElapsed(secs);
+
+      // Advance step based on cumulative durations
+      let cumulative = 0;
+      for (let i = 0; i < LOADING_STEPS.length; i++) {
+        cumulative += LOADING_STEPS[i].duration / 1000;
+        if (secs < cumulative) {
+          setStepIndex(i);
+          break;
+        }
+      }
+    }, 500);
+    return () => clearInterval(timer);
+  }, []);
+
+  const totalEstimate = LOADING_STEPS.reduce((s, step) => s + step.duration / 1000, 0);
+  const progress = Math.min(95, (elapsed / totalEstimate) * 100);
+
+  return (
+    <div style={{
+      background: '#FAFAF8', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12,
+      padding: '40px 32px', boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28 }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: '50%',
+          background: 'rgba(78,110,150,0.1)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 20, flexShrink: 0,
+          animation: 'spin 2s linear infinite',
+        }}>
+          🔍
+        </div>
+        <div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>
+            Researching {query}
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+            AI is searching public records, entity filings, and property data
+          </div>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>
+            {LOADING_STEPS[stepIndex]?.label || 'Finalizing…'}
+          </span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-tertiary)' }}>
+            {elapsed}s
+          </span>
+        </div>
+        <div style={{ height: 4, background: 'rgba(0,0,0,0.07)', borderRadius: 99, overflow: 'hidden' }}>
+          <div style={{
+            height: '100%',
+            width: `${progress}%`,
+            background: 'var(--blue)',
+            borderRadius: 99,
+            transition: 'width 0.5s ease',
+          }} />
+        </div>
+      </div>
+
+      {/* Step checklist */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {LOADING_STEPS.map((step, i) => {
+          const isDone = i < stepIndex;
+          const isActive = i === stepIndex;
+          return (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{
+                width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: isDone ? 'var(--green)' : isActive ? 'var(--blue)' : 'rgba(0,0,0,0.06)',
+                fontSize: 10,
+              }}>
+                {isDone ? '✓' : isActive ? '…' : ''}
+              </div>
+              <span style={{
+                fontSize: 13,
+                color: isDone ? 'var(--text-tertiary)' : isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                fontWeight: isActive ? 500 : 400,
+                textDecoration: isDone ? 'line-through' : 'none',
+              }}>
+                {step.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ marginTop: 24, padding: '12px 16px', background: 'rgba(78,110,150,0.05)', borderRadius: 8, border: '1px solid rgba(78,110,150,0.1)' }}>
+        <p style={{ fontSize: 12, color: 'var(--text-tertiary)', fontFamily: 'var(--font-editorial)', fontStyle: 'italic', lineHeight: 1.6 }}>
+          Owner research typically takes 20–35 seconds. Claude is searching across multiple sources to build a complete intelligence profile.
+        </p>
+      </div>
+    </div>
+  );
 }
 
 export default function OwnerSearchPage() {
@@ -95,10 +213,10 @@ export default function OwnerSearchPage() {
         phone:          r.direct_phone || null,
         email:          r.direct_email || null,
         notes: [
-          r.outreach_angle     && `Outreach angle: ${r.outreach_angle}`,
+          r.outreach_angle       && `Outreach angle: ${r.outreach_angle}`,
           r.acquisition_strategy && `Strategy: ${r.acquisition_strategy}`,
-          r.recent_activity    && `Recent activity: ${r.recent_activity}`,
-          r.sell_signals       && `Sell signals: ${Array.isArray(r.sell_signals) ? r.sell_signals.join(', ') : r.sell_signals}`,
+          r.recent_activity      && `Recent activity: ${r.recent_activity}`,
+          r.sell_signals         && `Sell signals: ${Array.isArray(r.sell_signals) ? r.sell_signals.join(', ') : r.sell_signals}`,
         ].filter(Boolean).join('\n'),
         catalyst_tags: JSON.stringify(
           r.sell_signals
@@ -181,6 +299,7 @@ export default function OwnerSearchPage() {
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && runSearch()}
               style={{ flex: 2 }}
+              disabled={loading}
             />
             <input
               className="cl-search-input"
@@ -189,6 +308,7 @@ export default function OwnerSearchPage() {
               onChange={e => setAddress(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && runSearch()}
               style={{ flex: 1 }}
+              disabled={loading}
             />
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -196,13 +316,15 @@ export default function OwnerSearchPage() {
               className="cl-btn cl-btn-primary"
               onClick={runSearch}
               disabled={loading || !query.trim()}
-              style={{ minWidth: 140 }}
+              style={{ minWidth: 160 }}
             >
               {loading ? '🔍 Researching…' : '🔍 Research Owner'}
             </button>
-            <p style={{ fontFamily: 'var(--font-editorial)', fontStyle: 'italic', fontSize: 12, color: 'var(--text-tertiary)' }}>
-              Uses AI to research ownership structures, decision makers, and contact info
-            </p>
+            {!loading && (
+              <p style={{ fontFamily: 'var(--font-editorial)', fontStyle: 'italic', fontSize: 12, color: 'var(--text-tertiary)' }}>
+                Uses AI to research ownership structures, decision makers, and contact info · ~20–35 seconds
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -210,18 +332,7 @@ export default function OwnerSearchPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, alignItems: 'flex-start' }}>
         {/* Results */}
         <div>
-          {loading && (
-            <div style={{ background: '#FAFAF8', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: 40, textAlign: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.06)' }}>
-              <div className="cl-spinner" style={{ margin: '0 auto 16px' }} />
-              <div style={{ fontFamily: 'var(--font-editorial)', fontSize: 16, fontStyle: 'italic', color: 'var(--blue)', marginBottom: 8 }}>
-                Researching ownership…
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
-                Searching public records, entity filings, and property databases.
-                This takes 15–30 seconds.
-              </div>
-            </div>
-          )}
+          {loading && <LoadingState query={query} />}
 
           {result && !loading && (
             <div style={{ background: '#FAFAF8', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 6px rgba(0,0,0,0.06)' }}>
@@ -263,16 +374,12 @@ export default function OwnerSearchPage() {
                       {r.outreach_angle && (
                         <div style={{ borderLeft: '3px solid var(--rust)', paddingLeft: 14, marginBottom: 18, background: 'rgba(184,55,20,0.04)', padding: '12px 14px', borderRadius: '0 8px 8px 0' }}>
                           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', color: 'var(--rust)', marginBottom: 6, textTransform: 'uppercase' }}>Outreach Angle</div>
-                          <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text-primary)', fontWeight: 500 }}>
-                            {r.outreach_angle}
-                          </p>
+                          <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text-primary)', fontWeight: 500 }}>{r.outreach_angle}</p>
                         </div>
                       )}
                       {r.notes && !r.outreach_angle && (
                         <div style={{ borderLeft: '3px solid var(--blue)', paddingLeft: 14, marginBottom: 18 }}>
-                          <p style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text-secondary)', fontFamily: 'var(--font-editorial)', fontStyle: 'italic' }}>
-                            {r.notes}
-                          </p>
+                          <p style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text-secondary)', fontFamily: 'var(--font-editorial)', fontStyle: 'italic' }}>{r.notes}</p>
                         </div>
                       )}
                       {fields.length > 0 && (
@@ -319,7 +426,6 @@ export default function OwnerSearchPage() {
                           </div>
                         </div>
                       )}
-                      {/* Action buttons */}
                       <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap', paddingTop: 16, borderTop: '1px solid rgba(0,0,0,0.07)' }}>
                         <button className="cl-btn cl-btn-primary cl-btn-sm" onClick={() => createLeadFromResearch(r)}>
                           + Create Lead from Research
@@ -349,8 +455,7 @@ export default function OwnerSearchPage() {
               </p>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' }}>
                 {['Chen Family Trust', 'Walton Street Capital', 'Leegin Creative Leather', 'Bridge Investment Group'].map(example => (
-                  <button key={example} className="cl-btn cl-btn-secondary cl-btn-sm"
-                    onClick={() => setQuery(example)}>
+                  <button key={example} className="cl-btn cl-btn-secondary cl-btn-sm" onClick={() => setQuery(example)}>
                     {example}
                   </button>
                 ))}

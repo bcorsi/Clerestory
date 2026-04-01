@@ -14,6 +14,18 @@ function daysSince(d) {
   return Math.floor((new Date() - new Date(d)) / (1000 * 60 * 60 * 24));
 }
 
+const PROP_TYPES = [
+  'Warehouse / Distribution', 'Manufacturing', 'Flex / R&D', 'Food Processing',
+  'Cold Storage / Refrigerated', 'Truck Terminal', 'IOS (Outdoor Storage)',
+  'Office', 'Retail', 'Other',
+];
+
+const RELATED_INDUSTRIES = [
+  'Manufacturing', 'Wholesale Trade', 'Retail Trade', 'Transportation & Warehousing',
+  'Construction', 'Food & Beverage', 'Technology', 'Healthcare',
+  'Finance & Insurance', 'Professional Services', 'Government', 'Education', 'Other',
+];
+
 export default function WarnDetailPage() {
   const { id } = useParams();
   const [notice, setNotice]   = useState(null);
@@ -34,15 +46,17 @@ export default function WarnDetailPage() {
         if (!error && data) {
           setNotice(data);
           setForm({
-            company:        data.company || '',
-            address:        data.address || '',
-            county:         data.county || '',
-            employees:      data.employees || '',
-            notice_date:    data.notice_date || '',
-            effective_date: data.effective_date || '',
-            is_industrial:  data.is_industrial || false,
-            is_in_market:   data.is_in_market || false,
-            research_notes: data.research_notes || '',
+            company:          data.company || '',
+            address:          data.address || '',
+            county:           data.county || '',
+            employees:        data.employees || '',
+            notice_date:      data.notice_date || '',
+            effective_date:   data.effective_date || '',
+            is_industrial:    data.is_industrial || false,
+            is_in_market:     data.is_in_market || false,
+            prop_type:        data.prop_type || '',
+            related_industry: data.related_industry || '',
+            research_notes:   data.research_notes || '',
           });
         }
         setLoading(false);
@@ -56,15 +70,17 @@ export default function WarnDetailPage() {
       const { data, error } = await supabase
         .from('warn_notices')
         .update({
-          company:        form.company,
-          address:        form.address,
-          county:         form.county,
-          employees:      parseInt(form.employees) || null,
-          notice_date:    form.notice_date || null,
-          effective_date: form.effective_date || null,
-          is_industrial:  form.is_industrial,
-          is_in_market:   form.is_in_market,
-          research_notes: form.research_notes,
+          company:          form.company,
+          address:          form.address,
+          county:           form.county,
+          employees:        parseInt(form.employees) || null,
+          notice_date:      form.notice_date || null,
+          effective_date:   form.effective_date || null,
+          is_industrial:    form.is_industrial,
+          is_in_market:     form.is_in_market,
+          prop_type:        form.prop_type || null,
+          related_industry: form.related_industry || null,
+          research_notes:   form.research_notes,
         })
         .eq('id', id)
         .select()
@@ -127,7 +143,17 @@ export default function WarnDetailPage() {
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
           {editing ? (
             <>
-              <button className="cl-btn cl-btn-secondary cl-btn-sm" onClick={() => { setEditing(false); setForm({ company: notice.company || '', address: notice.address || '', county: notice.county || '', employees: notice.employees || '', notice_date: notice.notice_date || '', effective_date: notice.effective_date || '', is_industrial: notice.is_industrial || false, is_in_market: notice.is_in_market || false, research_notes: notice.research_notes || '' }); }}>
+              <button className="cl-btn cl-btn-secondary cl-btn-sm" onClick={() => {
+                setEditing(false);
+                setForm({
+                  company: notice.company || '', address: notice.address || '',
+                  county: notice.county || '', employees: notice.employees || '',
+                  notice_date: notice.notice_date || '', effective_date: notice.effective_date || '',
+                  is_industrial: notice.is_industrial || false, is_in_market: notice.is_in_market || false,
+                  prop_type: notice.prop_type || '', related_industry: notice.related_industry || '',
+                  research_notes: notice.research_notes || '',
+                });
+              }}>
                 Cancel
               </button>
               <button className="cl-btn cl-btn-primary cl-btn-sm" onClick={saveEdit} disabled={saving}>
@@ -210,6 +236,22 @@ export default function WarnDetailPage() {
                 <input style={inputStyle} type="date" value={form.effective_date} onChange={e => setForm(f => ({ ...f, effective_date: e.target.value }))} />
               </div>
             </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={labelStyle}>Property Type</label>
+                <select style={inputStyle} value={form.prop_type} onChange={e => setForm(f => ({ ...f, prop_type: e.target.value }))}>
+                  <option value="">Unknown / Not Set</option>
+                  {PROP_TYPES.map(t => <option key={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Related Industry</label>
+                <select style={inputStyle} value={form.related_industry} onChange={e => setForm(f => ({ ...f, related_industry: e.target.value }))}>
+                  <option value="">Unknown / Not Set</option>
+                  {RELATED_INDUSTRIES.map(i => <option key={i}>{i}</option>)}
+                </select>
+              </div>
+            </div>
             <div style={{ display: 'flex', gap: 20 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
                 <input type="checkbox" checked={form.is_industrial} onChange={e => setForm(f => ({ ...f, is_industrial: e.target.checked }))} />
@@ -244,6 +286,9 @@ export default function WarnDetailPage() {
                 { label: 'Workers Affected', value: notice.employees ? fmt(notice.employees) : '—' },
                 { label: 'Notice Date',      value: fmtDate(notice.notice_date) },
                 { label: 'Effective Date',   value: fmtDate(notice.effective_date) },
+                { label: 'Days Since',       value: days !== null ? `${days} days ago` : '—' },
+                { label: 'Property Type',    value: notice.prop_type || '—' },
+                { label: 'Related Industry', value: notice.related_industry || '—' },
                 { label: 'Industrial',       value: notice.is_industrial ? 'Yes' : 'No' },
                 { label: 'In Market',        value: notice.is_in_market ? 'Yes' : 'No' },
               ].map(row => (
@@ -279,7 +324,9 @@ export default function WarnDetailPage() {
             <span style={{ fontSize: 18 }}>✅</span>
             <div>
               <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--green)' }}>Lead created</div>
-              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>This filing has been converted to a lead and is being tracked.</div>
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>
+                This filing has been converted to a lead and is being tracked.
+              </div>
             </div>
           </div>
         ) : (
@@ -287,7 +334,9 @@ export default function WarnDetailPage() {
             <span style={{ fontSize: 18 }}>⚡</span>
             <div>
               <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--rust)' }}>No lead created yet</div>
-              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>Go back to WARN Intel to create a lead from this filing.</div>
+              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>
+                Go back to WARN Intel to create a lead from this filing.
+              </div>
             </div>
           </div>
         )}

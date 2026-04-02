@@ -1,5 +1,7 @@
 'use client';
 
+import BuyerMatchesTab from '@/components/BuyerMatchesTab';
+import BOVDashboardTab from '@/components/BOVDashboardTab';
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
@@ -203,12 +205,13 @@ export default function DealDetailPage() {
   ].filter(Boolean);
 
   const TABS = [
-    { key: 'timeline',  label: 'Timeline',       count: activities.length },
-    { key: 'uw',        label: 'Underwriting',    count: null },
-    { key: 'property',  label: 'Property',        count: property ? 1 : 0 },
-    { key: 'contacts',  label: 'Contacts',        count: contacts.length },
-    { key: 'buyers',    label: 'Buyer Outreach',  count: null },
-    { key: 'files',     label: 'Files',           count: null },
+   { key: 'timeline',  label: 'Timeline',       count: activities.length },
+{ key: 'uw',        label: 'Underwriting',   count: null },
+{ key: 'property',  label: 'Property',       count: property ? 1 : 0 },
+{ key: 'contacts',  label: 'Contacts',       count: contacts.length },
+{ key: 'buyers',    label: 'Buyer Matches',  count: null },
+{ key: 'files',     label: 'Files',          count: null },
+{ key: 'bov',       label: 'BOV Dashboard',  count: null },
   ];
 
   return (
@@ -863,15 +866,23 @@ export default function DealDetailPage() {
           </div>
         )}
 
-        {/* ══ BUYER OUTREACH TAB ══ */}
-        {activeTab === 'buyers' && (
-          <div className="cl-empty"><div className="cl-empty-label">Buyer outreach</div><div className="cl-empty-sub">Add buyer matches and track outreach status</div></div>
-        )}
+        {/* ══ BUYER MATCHES TAB ══ */}
+{activeTab === 'buyers' && (
+  <BuyerMatchesTab dealId={id} dealStage={deal.stage} />
+)}
 
-        {/* ══ FILES TAB ══ */}
-        {activeTab === 'files' && (
-          <div className="cl-empty"><div className="cl-empty-label">No files attached</div><div className="cl-empty-sub">Upload BOVs, LOI drafts, underwriting models, and inspection reports</div></div>
-        )}
+{/* ══ FILES TAB ══ */}
+{activeTab === 'files' && (
+  <div className="cl-empty">
+    <div className="cl-empty-label">No files attached</div>
+    <div className="cl-empty-sub">Upload BOVs, LOI drafts, underwriting models, and inspection reports</div>
+  </div>
+)}
+
+{/* ══ BOV DASHBOARD TAB ══ */}
+{activeTab === 'bov' && (
+  <BOVDashboardTab deal={deal} property={property} />
+)}
 
       </div>{/* /inner */}
     </div>

@@ -81,7 +81,7 @@ export default function DealsPage() {
 
       let query = supabase
         .from('deals')
-        .select('id,deal_name,stage,deal_type,priority,deal_value,commission_est,probability,close_date,updated_at,address,city,building_sf')
+        .select('id,deal_name,stage,deal_type,priority,deal_value,commission_est,probability,close_date,updated_at,address,submarket,market')
         .order(sortBy, { ascending: sortDir === 'asc' });
 
       if (stageFilter === 'active') {
@@ -91,7 +91,7 @@ export default function DealsPage() {
       }
 
       if (search) {
-        query = query.or(`deal_name.ilike.%${search}%,address.ilike.%${search}%,city.ilike.%${search}%`);
+        query = query.or(`deal_name.ilike.%${search}%,address.ilike.%${search}%,submarket.ilike.%${search}%`);
       }
 
       const { data, error } = await query.limit(200);
@@ -226,7 +226,7 @@ export default function DealsPage() {
                 { key: 'commission_est', label: 'Commission' },
                 { key: 'probability',    label: 'Prob.' },
                 { key: 'address',        label: 'Address' },
-                { key: 'building_sf',    label: 'SF' },
+                { key: 'submarket',      label: 'Submarket' },
                 { key: 'close_date',     label: 'Close' },
                 { key: 'updated_at',     label: 'Updated' },
               ].map(col => (
@@ -321,15 +321,15 @@ export default function DealsPage() {
                     {deal.address
                       ? <>
                           <span style={{ color: 'var(--text-secondary)' }}>{deal.address}</span>
-                          {deal.city && <span style={{ color: 'var(--text-tertiary)' }}> · {deal.city}</span>}
+                          {deal.submarket && <span style={{ color: 'var(--text-tertiary)' }}> · {deal.submarket}</span>}
                         </>
                       : <span style={{ color: 'var(--text-tertiary)' }}>—</span>
                     }
                   </td>
 
-                  {/* SF */}
+                  {/* Submarket */}
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>
-                    {fmtSF(deal.building_sf) ?? <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>{deal.submarket || '—'}</span>
                   </td>
 
                   {/* Close date */}

@@ -20,6 +20,44 @@ const STAGES = [
 
 const COMMISSION_STAGES = new Set(['LOI Accepted','PSA Negotiation','Due Diligence','Non-Contingent','Closed Won']);
 
+// ─── PROPERTY TYPES & SUBTYPES ───────────────────────────────────────────────
+
+const PROP_TYPES = ['Industrial', 'Land', 'Office', 'Flex', 'Land/IOS', 'Office/Flex'];
+
+const PROP_SUBTYPES = [
+  'Warehouse', 'Distribution', 'Warehouse/Dist.', 'Manufacturing',
+  'Light Industrial', 'Business Park', 'IOS', 'Charging Station',
+  'Covered Land', 'Food Processing', 'Cold Storage',
+];
+
+const SUBTYPE_BY_TYPE = {
+  'Industrial':   ['Warehouse','Distribution','Warehouse/Dist.','Manufacturing','Light Industrial','Business Park','Food Processing','Cold Storage'],
+  'Land':         ['IOS','Covered Land','Charging Station'],
+  'Land/IOS':     ['IOS','Covered Land','Charging Station'],
+  'Office':       [],
+  'Flex':         ['Light Industrial','Warehouse'],
+  'Office/Flex':  ['Light Industrial'],
+};
+
+// ─── PROPERTY TYPES & SUBTYPES ───────────────────────────────────────────────
+
+const PROP_TYPES = ['Industrial', 'Land', 'Office', 'Flex', 'Land/IOS', 'Office/Flex'];
+
+const PROP_SUBTYPES = [
+  'Warehouse', 'Distribution', 'Warehouse/Dist.', 'Manufacturing',
+  'Light Industrial', 'Business Park', 'IOS', 'Charging Station',
+  'Covered Land', 'Food Processing', 'Cold Storage',
+];
+
+const SUBTYPE_BY_TYPE = {
+  'Industrial':  ['Warehouse','Distribution','Warehouse/Dist.','Manufacturing','Light Industrial','Business Park','Food Processing','Cold Storage'],
+  'Land':        ['IOS','Covered Land','Charging Station'],
+  'Land/IOS':    ['IOS','Covered Land','Charging Station'],
+  'Office':      [],
+  'Flex':        ['Light Industrial','Warehouse'],
+  'Office/Flex': ['Light Industrial'],
+};
+
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
 function fmtM(n) {
@@ -95,7 +133,7 @@ function DealCard({ deal, stage, onOpen }) {
       {/* Type label + days */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#6E6860', fontFamily: 'var(--font-mono)' }}>
-          {typeLabel || 'Industrial Sale'}
+          {[deal.underwriting_inputs?.prop_subtype || deal.underwriting_inputs?.prop_type, typeLabel].filter(Boolean).join(' · ') || 'Industrial'}
         </span>
         <DaysChip days={days} />
       </div>
@@ -217,6 +255,7 @@ function NewDealModal({ onClose, onCreated }) {
   const [form, setForm]     = useState({
     deal_name: '', deal_type: 'Disposition', stage: 'Tracking',
     priority: 'Medium', address: '', submarket: '', market: 'SGV',
+    prop_type: 'Industrial', prop_subtype: '',
     deal_value: '', commission_rate: '1.75', notes: '',
   });
 
@@ -299,6 +338,21 @@ function NewDealModal({ onClose, onCreated }) {
           <div>
             <label style={lbl}>Address</label>
             <input style={inp} value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Street address" />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={lbl}>Property Type</label>
+              <select style={inp} value={form.prop_type} onChange={e => setForm(f => ({ ...f, prop_type: e.target.value, prop_subtype: '' }))}>
+                {PROP_TYPES.map(t => <option key={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={lbl}>Property Subtype</label>
+              <select style={inp} value={form.prop_subtype} onChange={e => setForm(f => ({ ...f, prop_subtype: e.target.value }))}>
+                <option value="">— select —</option>
+                {(SUBTYPE_BY_TYPE[form.prop_type] || PROP_SUBTYPES).map(s => <option key={s}>{s}</option>)}
+              </select>
+            </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
@@ -455,7 +509,7 @@ export default function DealsPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', fontSize: 12.5 }}>
               <thead>
                 <tr>
-                  {['Deal Name','Stage','Value','Commission','Prob.','Address','Close Date','Updated'].map(h => (
+                  {['Deal Name','Stage','Value','Commission','Prob.','Address','Bldg SF','Land AC','Coverage','Close Date','Updated'].map(h => (
                     <th key={h} style={{ background: 'rgba(0,0,0,0.025)', fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', color: '#6E6860', textTransform: 'uppercase', padding: '9px 12px', textAlign: 'left', borderBottom: '1px solid rgba(0,0,0,0.07)', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -489,8 +543,19 @@ export default function DealsPage() {
                       <td style={{ padding: '9px 12px', fontFamily: 'var(--font-mono)', fontSize: 11, color: deal.probability >= 70 ? '#156636' : deal.probability >= 40 ? '#8C5A04' : '#6E6860' }}>
                         {deal.probability != null ? `${deal.probability}%` : '—'}
                       </td>
-                      <td style={{ padding: '9px 12px', color: '#6E6860', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '9px 12px', color: '#6E6860', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {deal.address || '—'}{deal.submarket ? <span style={{ color: '#AFA89E' }}> · {deal.submarket}</span> : ''}
+                      </td>
+                      <td style={{ padding: '9px 12px', fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6E6860', whiteSpace: 'nowrap' }}>
+                        {deal.underwriting_inputs?.building_sf ? Number(deal.underwriting_inputs.building_sf).toLocaleString() : '—'}
+                      </td>
+                      <td style={{ padding: '9px 12px', fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6E6860', whiteSpace: 'nowrap' }}>
+                        {deal.underwriting_inputs?.land_acres ? `${deal.underwriting_inputs.land_acres} AC` : '—'}
+                      </td>
+                      <td style={{ padding: '9px 12px', fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6E6860', whiteSpace: 'nowrap' }}>
+                        {deal.underwriting_inputs?.building_sf && deal.underwriting_inputs?.land_acres
+                          ? `${((deal.underwriting_inputs.building_sf / (deal.underwriting_inputs.land_acres * 43560)) * 100).toFixed(0)}%`
+                          : '—'}
                       </td>
                       <td style={{ padding: '9px 12px', fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6E6860' }}>
                         {deal.close_date ? new Date(deal.close_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '—'}

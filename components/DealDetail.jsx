@@ -1,689 +1,790 @@
-'use client';
-import { useState, useEffect, useRef } from 'react';
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clerestory — Deal Detail</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Mono:wght@400;500&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{--sb:#1A2130;--sb-line:rgba(200,220,255,0.07);--sb-line2:rgba(200,220,255,0.13);--sb-text:rgba(245,240,232,0.96);--sb-muted:rgba(240,235,225,0.62);--sb-label:rgba(240,235,225,0.38);--bg:#F4F1EC;--bg2:#EAE6DF;--card:#FFFFFF;--ink:#0F0D09;--ink2:#2C2822;--ink3:#524D46;--ink4:#6E6860;--blue:#4E6E96;--blue2:#6480A2;--blue3:#89A8C6;--blue-bg:rgba(78,110,150,0.09);--blue-bdr:rgba(78,110,150,0.30);--rust:#B83714;--rust-bg:rgba(184,55,20,0.08);--rust-bdr:rgba(184,55,20,0.30);--green:#156636;--green-bg:rgba(21,102,54,0.08);--green-bdr:rgba(21,102,54,0.28);--amber:#8C5A04;--amber-bg:rgba(140,90,4,0.09);--amber-bdr:rgba(140,90,4,0.28);--purple:#5838A0;--purple-bg:rgba(88,56,160,0.08);--purple-bdr:rgba(88,56,160,0.26);--line:rgba(0,0,0,0.08);--line2:rgba(0,0,0,0.055);--line3:rgba(0,0,0,0.034);--shadow:0 1px 4px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.05);--shadow-md:0 4px 16px rgba(0,0,0,0.10);--radius:10px;}
+html,body{width:100%;min-height:100vh;background:var(--bg);color:var(--ink);}
+body{font-family:'Instrument Sans',sans-serif;font-size:15px;font-weight:400;display:flex;}
+.sidebar{width:242px;min-height:100vh;background:linear-gradient(180deg,#1F2840 0%,#1A2130 55%,#15192A 100%);display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;z-index:20;}
+.sidebar::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#6480A2 35%,#89A8C6 65%,transparent);}
+.logo-zone{padding:20px 18px 16px;border-bottom:1px solid var(--sb-line2);display:flex;align-items:center;gap:11px;}
+.logo-icon{width:34px;height:34px;border-radius:7px;background:#0D1320;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.logo-name{font-size:15px;font-weight:500;color:var(--sb-text);}
+.logo-tag{font-family:'Cormorant Garamond',serif;font-size:12px;font-style:italic;color:rgba(100,128,162,0.72);margin-top:2px;}
+.nav-section{padding:10px 0 2px;}
+.nav-label{font-family:'Cormorant Garamond',serif;font-size:12px;font-style:italic;color:var(--sb-label);padding:0 16px 5px;}
+.nav-item{display:flex;align-items:center;padding:8px 18px;cursor:pointer;border-left:2px solid transparent;font-size:13.5px;color:var(--sb-muted);gap:8px;transition:all 0.12s;}
+.nav-item:hover{background:rgba(255,255,255,0.045);}
+.nav-item.active{background:rgba(100,128,162,0.16);border-left-color:#89A8C6;color:var(--sb-text);font-weight:500;}
+.nav-text{flex:1;}
+.nav-ct{font-family:'DM Mono',monospace;font-size:11px;color:rgba(200,215,235,0.38);background:rgba(255,255,255,0.07);padding:2px 7px;border-radius:20px;}
+.nav-item.active .nav-ct{color:#89A8C6;background:rgba(100,128,162,0.22);}
+.nav-ct.hot{color:#F08880;background:rgba(220,100,88,0.20);}
+.nav-divider{height:1px;background:var(--sb-line);margin:5px 16px;}
+.sb-footer{margin-top:auto;padding:14px 18px;border-top:1px solid var(--sb-line2);display:flex;align-items:center;gap:10px;}
+.avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#4E6E96,#6480A2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;}
+.f-name{font-size:13px;font-weight:500;color:var(--sb-text);}
+.f-role{font-family:'Cormorant Garamond',serif;font-size:12px;font-style:italic;color:rgba(100,128,162,0.65);margin-top:1px;}
+.main{flex:1;margin-left:242px;display:flex;flex-direction:column;min-height:100vh;}
+.content{flex:1;overflow-y:auto;}
+.page-wrap{max-width:1700px;min-width:1100px;margin:0 auto;padding-bottom:60px;}
 
-const STAGES = ['Tracking','Underwriting','Off-Market Outreach','LOI','LOI Accepted','PSA Negotiation','Due Diligence','Non-Contingent','Closed Won'];
-const TABS = ['Timeline','Underwriting','Property','Contacts','Comps','Buyer Matches','Files'];
+/* TICKER */
+.signal-ticker{background:#0A1018;overflow:hidden;height:38px;display:flex;align-items:center;position:sticky;top:0;z-index:10;border-bottom:1px solid rgba(100,128,162,0.15);}
+.ticker-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--blue3);letter-spacing:0.14em;text-transform:uppercase;padding:0 18px;flex-shrink:0;border-right:1px solid rgba(255,255,255,0.07);height:100%;display:flex;align-items:center;gap:8px;background:rgba(100,128,162,0.07);}
+.ticker-pulse{width:7px;height:7px;border-radius:50%;background:#4CAF80;box-shadow:0 0 7px #4CAF80;animation:tpulse 1.8s ease-in-out infinite;}
+@keyframes tpulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(.65);}}
+.ticker-track{flex:1;overflow:hidden;}
+.ticker-inner{display:flex;white-space:nowrap;animation:ticker-scroll 38s linear infinite;}
+@keyframes ticker-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.ti{font-family:'DM Mono',monospace;font-size:11px;padding:0 28px;color:rgba(180,200,225,0.46);border-right:1px solid rgba(255,255,255,0.04);line-height:38px;}
+.ti .hi{color:#89A8C6;}
+.ti .up{color:#4CAF80;}
+.ti .dn{color:#E07060;}
+.ti .wn{color:#E0A040;}
 
-const MOCK_BUYER_MATCHES = [
-  { id: 6,  company: 'Pacific Manufacturing Group',  type: 'Corporate / Buyer',    req: '280–320K SF · SGV / Whittier · 30\'+ Clear · Dock-High', match: 96 },
-  { id: 8,  company: 'Rexford Industrial Realty',    type: 'Institutional REIT',   req: '100–400K SF · SoCal Industrial · NNN Yield · Core/Core+', match: 89 },
-  { id: 2,  company: 'Cabot Industrial Value Fund',  type: 'Institutional REIT',   req: '150–300K SF · IE West / SGV · Value-Add OK · Sub-5.5 Cap', match: 83 },
-  { id: 10, company: 'Matrix Logistics Partners',    type: 'Private Equity Buyer', req: '200–350K SF · IE West · Dock-High · NNN Leaseback Preferred', match: 78 },
-];
+/* HERO */
+.hero{height:295px;position:relative;overflow:hidden;}
+#map{width:100%;height:295px;}
+.hero-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(3,2,1,0.92) 0%,rgba(3,2,1,0.18) 52%,transparent 100%);pointer-events:none;z-index:400;}
+.hero-content{position:absolute;bottom:0;left:0;right:0;z-index:500;padding:24px 32px 22px;}
+.hero-title{font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:#fff;line-height:1;letter-spacing:-0.01em;margin-bottom:12px;text-shadow:0 2px 14px rgba(0,0,0,0.75);}
+.hero-badges{display:flex;gap:7px;flex-wrap:wrap;}
+.hb{padding:5px 12px;border-radius:5px;font-size:11.5px;font-weight:500;letter-spacing:0.02em;border:1px solid;backdrop-filter:blur(8px);}
+.hb-stage{background:rgba(140,90,4,0.40);border-color:rgba(220,160,50,0.55);color:#FFE0A0;font-weight:700;}
+.hb-green{background:rgba(21,102,54,0.38);border-color:rgba(60,180,110,0.52);color:#B8F0D0;}
+.hb-blue{background:rgba(78,110,150,0.38);border-color:rgba(137,168,198,0.54);color:#C8E0F8;}
+.hb-rust{background:rgba(184,55,20,0.38);border-color:rgba(220,100,60,0.52);color:#FFD0B8;font-weight:700;}
+.hero-back{position:absolute;top:16px;right:22px;z-index:500;padding:7px 16px;border-radius:7px;border:1px solid rgba(255,255,255,0.18);background:rgba(0,0,0,0.44);backdrop-filter:blur(10px);color:rgba(255,255,255,0.75);font-size:12px;font-family:'Instrument Sans',sans-serif;cursor:pointer;transition:all 0.12s;}
+.hero-back:hover{background:rgba(0,0,0,0.65);color:#fff;}
 
-// ── Quick UW model (runs client-side, no server needed) ─────
-function runModel(inputs) {
-  const price = parseFloat(inputs.price.replace(/[$,]/g,'')) || 0;
-  const rent = parseFloat(inputs.rent.replace(/[$,]/g,'')) || 0;
-  const sf = parseFloat(inputs.sf.replace(/,/g,'')) || 0;
-  const exitCap = parseFloat(inputs.exitCap) / 100 || 0.0525;
-  const ltv = parseFloat(inputs.ltv) / 100 || 0.65;
-  const rate = parseFloat(inputs.rate) / 100 || 0.065;
-  const bumps = parseFloat(inputs.bumps) / 100 || 0.03;
-  const hold = parseInt(inputs.hold) || 5;
+/* ACTION BAR */
+.action-bar{background:var(--bg2);border-bottom:1px solid var(--line);padding:14px 32px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.ab-div{width:1px;height:22px;background:rgba(0,0,0,0.12);margin:0 4px;}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:7px;font-family:'Instrument Sans',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid;transition:all 0.12s;white-space:nowrap;}
+.btn-ghost{background:var(--card);color:var(--ink3);border-color:var(--line);}
+.btn-ghost:hover{background:#f0ece4;color:var(--ink2);}
+.btn-link{background:none;border:none;color:var(--blue2);font-size:12.5px;padding:6px 10px;cursor:pointer;text-decoration:underline;text-decoration-color:rgba(100,128,162,0.3);font-family:'Instrument Sans',sans-serif;}
+.btn-link:hover{color:var(--blue);}
+.btn-synth{background:linear-gradient(135deg,rgba(88,56,160,0.12),rgba(88,56,160,0.06));border:1px solid rgba(88,56,160,0.32);color:var(--purple);font-weight:500;}
+.btn-synth:hover{background:rgba(88,56,160,0.16);}
+.btn-advance{background:linear-gradient(135deg,#2A5C2A,var(--green));color:#fff;border:none;font-weight:600;box-shadow:0 2px 10px rgba(21,102,54,0.30);padding:8px 20px;border-radius:7px;font-family:'Instrument Sans',sans-serif;font-size:13px;cursor:pointer;transition:all 0.12s;}
+.btn-advance:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(21,102,54,0.40);}
+.ml-auto{margin-left:auto;}
 
-  const noi0 = rent * sf * 12;
-  const goingInCap = price > 0 ? (noi0 / price * 100).toFixed(2) + '%' : '—';
+/* PIPELINE STAGE TRACK */
+.stage-wrap{background:var(--card);border-bottom:1px solid var(--line);padding:0 32px;}
+.stage-track{display:flex;overflow-x:auto;scrollbar-width:none;}
+.stage-track::-webkit-scrollbar{display:none;}
+.stage-step{position:relative;cursor:pointer;flex-shrink:0;}
+.stage-step:not(:last-child)::after{content:'';position:absolute;right:-12px;top:50%;transform:translateY(-50%);width:0;height:0;border-top:10px solid transparent;border-bottom:10px solid transparent;border-left:12px solid var(--bg2);z-index:2;}
+.stage-inner{padding:13px 22px 13px 26px;font-size:12.5px;font-weight:500;color:var(--ink4);white-space:nowrap;display:flex;align-items:center;gap:8px;border-bottom:3px solid transparent;background:transparent;transition:all 0.12s;}
+.stage-step:first-child .stage-inner{padding-left:16px;}
+.stage-step:hover .stage-inner{color:var(--ink2);background:rgba(0,0,0,0.02);}
+.stage-step.done .stage-inner{color:var(--green);}
+.stage-step.done::after{border-left-color:rgba(21,102,54,0.06);}
+.stage-step.active .stage-inner{color:var(--blue);font-weight:700;background:var(--blue-bg);border-bottom-color:var(--blue);}
+.stage-step.active::after{border-left-color:var(--blue-bg);}
+.s-check{font-size:11px;}
+.s-dot{width:7px;height:7px;border-radius:50%;background:var(--blue);flex-shrink:0;animation:sdot 1.5s ease-in-out infinite;}
+@keyframes sdot{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(78,110,150,0.5);}50%{opacity:.6;box-shadow:0 0 0 5px rgba(78,110,150,0);}}
 
-  // NOI with bumps
-  let noiArr = [];
-  for (let y = 1; y <= hold; y++) noiArr.push(noi0 * Math.pow(1 + bumps, y - 1));
+/* INNER */
+.inner{padding:22px 32px 0;}
 
-  // Debt service
-  const loan = price * ltv;
-  const monthly = loan * (rate / 12) / (1 - Math.pow(1 + rate / 12, -360));
-  const ds = monthly * 12;
-  const dscr = ds > 0 ? (noiArr[0] / ds).toFixed(2) + '×' : '—';
+/* KPI STRIP */
+.deal-kpis{display:grid;grid-template-columns:repeat(5,1fr);background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--line2);overflow:hidden;margin-bottom:20px;}
+.dk{padding:18px 20px;border-right:1px solid var(--line2);position:relative;overflow:hidden;}
+.dk:last-child{border-right:none;}
+.dk-lbl{font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:var(--ink4);margin-bottom:7px;}
+.dk-val{font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:var(--ink);line-height:1;letter-spacing:-0.02em;}
+.dk-val.blue{color:var(--blue);}
+.dk-val.green{color:var(--green);}
+.dk-val.amber{color:var(--amber);}
+.dk-sub{font-size:11.5px;color:var(--ink4);margin-top:4px;}
+.dk.prob-dk::after{content:'';position:absolute;bottom:0;left:0;height:3px;background:linear-gradient(90deg,var(--blue2),var(--green));animation:pbar 1.7s cubic-bezier(.4,0,.2,1) forwards;}
+@keyframes pbar{from{width:0}to{width:81%;}}
 
-  // Exit value
-  const exitNOI = noi0 * Math.pow(1 + bumps, hold);
-  const exitValue = exitCap > 0 ? exitNOI / exitCap : 0;
-  const equity = price * (1 - ltv);
+/* AI SYNTHESIS */
+.synth-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid rgba(88,56,160,0.18);overflow:hidden;margin-bottom:20px;position:relative;}
+.synth-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,#8B6FCC,var(--purple));}
+.synth-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 18px 12px 22px;border-bottom:1px solid rgba(88,56,160,0.12);cursor:pointer;user-select:none;}
+.synth-hdr:hover{background:#FDFCFF;}
+.synth-hl{display:flex;align-items:center;gap:8px;}
+.synth-title{font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:var(--purple);}
+.synth-meta{font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:var(--ink4);}
+.synth-tog{font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:var(--purple);}
+.synth-inner{padding:20px 24px;}
+.ss{margin-bottom:14px;}
+.ss:last-child{margin-bottom:0;}
+.ss-title{font-size:12.5px;font-weight:600;color:var(--ink2);margin-bottom:7px;display:flex;align-items:center;gap:6px;}
+.ss-title::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--purple);flex-shrink:0;}
+.si{font-size:13.5px;line-height:1.72;color:var(--ink2);display:flex;gap:8px;margin-bottom:3px;}
+.si::before{content:'–';color:var(--ink4);flex-shrink:0;}
+.sn{font-size:13.5px;line-height:1.72;color:var(--ink2);display:flex;gap:10px;margin-bottom:4px;}
+.sn-num{font-family:'DM Mono',monospace;font-size:11px;color:var(--purple);font-weight:600;flex-shrink:0;min-width:20px;padding-top:2px;}
+.sn strong{font-weight:600;color:var(--ink);}
+.s-crit{margin-top:14px;padding:11px 15px;background:rgba(184,55,20,0.05);border:1px solid rgba(184,55,20,0.18);border-radius:7px;font-size:13.5px;line-height:1.65;color:var(--ink2);}
+.s-crit strong{color:var(--rust);font-weight:600;}
+.synth-foot{display:flex;align-items:center;gap:8px;padding:10px 24px;border-top:1px solid rgba(88,56,160,0.10);background:rgba(88,56,160,0.02);}
+.synth-regen{font-size:12px;color:var(--purple);cursor:pointer;background:none;border:1px solid rgba(88,56,160,0.22);border-radius:6px;padding:4px 12px;font-family:'Instrument Sans',sans-serif;transition:all 0.1s;}
+.synth-regen:hover{background:rgba(88,56,160,0.08);}
+.synth-ts{font-family:'DM Mono',monospace;font-size:11px;color:var(--ink4);margin-left:auto;}
 
-  // Unlevered IRR (simplified: NPV = 0)
-  const cfUnlev = [-price, ...noiArr.slice(0,-1), noiArr[noiArr.length-1] + exitValue];
-  const unlev = approximateIRR(cfUnlev);
+/* TABS */
+.tabs-nav{display:flex;border-bottom:1px solid var(--line);margin-bottom:20px;}
+.tab-item{padding:11px 16px;font-size:13.5px;color:var(--ink4);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;transition:all 0.12s;}
+.tab-item:hover{color:var(--ink2);}
+.tab-item.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:500;}
+.tab-ct{font-family:'DM Mono',monospace;font-size:10px;background:var(--bg2);border:1px solid var(--line);border-radius:20px;padding:1px 7px;margin-left:4px;color:var(--ink4);}
 
-  // Levered IRR
-  const cfLev = [-(price - loan), ...noiArr.slice(0,-1).map(n => n - ds), noiArr[noiArr.length-1] - ds + exitValue - loan];
-  const lev = approximateIRR(cfLev);
+/* BODY COLS */
+.body-cols{display:grid;grid-template-columns:1fr 310px;gap:18px;}
+.right-col{display:flex;flex-direction:column;gap:14px;}
 
-  const em = equity > 0 ? ((cfLev.slice(1).reduce((a,b)=>a+b,0) + equity) / equity).toFixed(2) + '×' : '—';
+/* CARD */
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--line2);overflow:hidden;}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--line);}
+.card-title{font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--ink3);display:flex;align-items:center;gap:6px;}
+.card-action{font-family:'Cormorant Garamond',serif;font-size:13.5px;font-style:italic;color:var(--blue2);cursor:pointer;}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--rust);animation:blink 1.4s infinite;flex-shrink:0;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.1}}
 
-  return {
-    goingInCap,
-    unlevered: unlev ? (unlev * 100).toFixed(1) + '%' : '—',
-    levered: lev ? (lev * 100).toFixed(1) + '%' : '—',
-    equityMultiple: em,
-    dscr,
-    rating: lev > 0.16 ? 'good' : lev > 0.12 ? 'ok' : 'warn',
-  };
-}
+/* LOG BAR */
+.log-bar{padding:11px 18px;border-bottom:1px solid var(--line);background:var(--bg);display:flex;gap:7px;align-items:center;}
+.log-tabs{display:flex;gap:4px;flex-shrink:0;}
+.log-tab{padding:5px 12px;border-radius:6px;border:1px solid var(--line);background:var(--card);font-size:12px;color:var(--ink3);cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:all 0.1s;}
+.log-tab:hover{background:var(--bg2);}
+.log-tab.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+.log-input{flex:1;padding:7px 12px;border:1px solid var(--line);border-radius:6px;font-family:'Instrument Sans',sans-serif;font-size:13px;color:var(--ink2);background:var(--card);outline:none;transition:border 0.12s;}
+.log-input:focus{border-color:var(--blue-bdr);box-shadow:0 0 0 3px rgba(78,110,150,0.07);}
+.log-btn{padding:7px 16px;background:var(--blue);color:#fff;border:none;border-radius:6px;font-family:'Instrument Sans',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;}
 
-function approximateIRR(cashflows) {
-  let lo = -0.5, hi = 5.0;
-  for (let i = 0; i < 100; i++) {
-    const mid = (lo + hi) / 2;
-    const npv = cashflows.reduce((s, c, t) => s + c / Math.pow(1 + mid, t), 0);
-    if (Math.abs(npv) < 0.01) return mid;
-    if (npv > 0) lo = mid; else hi = mid;
-  }
-  return (lo + hi) / 2;
-}
+/* ACT ROWS */
+.act-row{display:flex;gap:13px;padding:12px 18px;border-bottom:1px solid var(--line2);transition:background 0.1s;}
+.act-row:last-child{border-bottom:none;}
+.act-row:hover{background:rgba(78,110,150,0.03);}
+.act-icon{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;margin-top:1px;}
+.act-icon.call{background:var(--blue-bg);color:var(--blue);}
+.act-icon.note{background:var(--amber-bg);color:var(--amber);}
+.act-icon.uw{background:var(--purple-bg);color:var(--purple);}
+.act-icon.email{background:var(--purple-bg);color:var(--purple);}
+.act-icon.meet{background:var(--rust-bg);color:var(--rust);}
+.act-body{flex:1;}
+.act-text{font-size:13.5px;color:var(--ink2);line-height:1.45;}
+.act-text strong{font-weight:500;}
+.act-meta{font-family:'Cormorant Garamond',serif;font-size:12px;font-style:italic;color:var(--ink4);margin-top:2px;}
+.act-date{font-family:'DM Mono',monospace;font-size:10.5px;color:var(--ink4);flex-shrink:0;padding-top:3px;}
+.tl-more{padding:11px 18px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--bg);border-top:1px solid var(--line);transition:background 0.1s;}
+.tl-more:hover{background:var(--bg2);}
+.tl-more-text{font-family:'Cormorant Garamond',serif;font-size:13.5px;font-style:italic;color:var(--blue2);}
 
-// Build sensitivity grid
-function buildSensGrid(baseInputs, exitCaps, rentGrowths) {
-  return exitCaps.map(cap => ({
-    cap,
-    cells: rentGrowths.map(rg => {
-      const res = runModel({ ...baseInputs, exitCap: String(cap), bumps: String(rg) });
-      return { val: res.levered, rating: res.rating };
-    }),
-  }));
-}
+/* DEAL DETAILS HORIZONTAL */
+.dd-strip{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--line2);overflow:hidden;margin-top:16px;}
+.dd-strip-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--bg);}
+.dd-strip-title{font-size:11px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:var(--ink3);}
+.dd-strip-edit{font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:var(--blue2);cursor:pointer;}
+.dd-grid{display:grid;grid-template-columns:repeat(7,1fr);}
+.dd-cell{padding:13px 16px;border-right:1px solid var(--line2);}
+.dd-cell:last-child{border-right:none;}
+.dd-lbl{font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink4);margin-bottom:5px;}
+.dd-val{font-size:13.5px;color:var(--ink2);line-height:1.3;}
+.dd-val.blue{color:var(--blue);}
+.dd-val.amber{color:var(--amber);}
+.dd-val.rust{color:var(--rust);font-weight:600;}
+.dd-val.green{color:var(--green);}
+.dd-val.link{color:var(--blue);cursor:pointer;text-decoration:underline;text-decoration-color:rgba(78,110,150,0.3);}
+.dd-val.mono{font-family:'DM Mono',monospace;font-size:13px;}
 
-export default function DealDetail({ deal, onBack, onNavigate, onSelectAccount, properties, contacts, leaseComps, saleComps, onSelectProperty, onRefresh, toast }) {
-  const [activeTab, setActiveTab] = useState('Timeline');
-  const [synthOpen, setSynthOpen] = useState(false);
-  const [logPanel, setLogPanel] = useState(null);
-  const [logText, setLogText] = useState('');
-  const mapRef = useRef(null);
-  const mapInstanceRef = useRef(null);
+/* RIGHT: PROB */
+.prob-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--green-bdr);overflow:hidden;}
+.prob-body{padding:18px 20px;}
+.prob-lbl{font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:var(--green);margin-bottom:8px;}
+.prob-num{font-family:'Playfair Display',serif;font-size:56px;font-weight:700;color:var(--green);line-height:1;letter-spacing:-0.03em;}
+.prob-track{height:6px;background:var(--bg2);border-radius:3px;overflow:hidden;margin:12px 0 10px;}
+.prob-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--blue2),var(--green));width:0;transition:width 1.7s cubic-bezier(.4,0,.2,1);}
+.prob-note{font-size:12.5px;color:var(--ink3);line-height:1.58;}
 
-  const d = deal ?? MOCK_DEAL;
+/* DAYS CARD */
+.days-card{background:linear-gradient(135deg,rgba(78,110,150,0.08),rgba(78,110,150,0.03));border:1px solid var(--blue-bdr);border-radius:var(--radius);padding:16px 18px;display:flex;align-items:center;gap:16px;}
+.days-num{font-family:'Playfair Display',serif;font-size:46px;font-weight:700;color:var(--blue);line-height:1;letter-spacing:-0.03em;flex-shrink:0;}
+.days-body .days-lbl{font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:var(--blue2);margin-bottom:4px;}
+.days-body .days-note{font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:var(--ink3);line-height:1.4;}
+.days-urgent{font-family:'DM Mono',monospace;font-size:10px;color:var(--rust);background:var(--rust-bg);padding:2px 8px;border-radius:3px;margin-top:5px;display:inline-block;}
 
-  const [inputs, setInputs] = useState({
-    price: d.price ?? '$47,500,000',
-    sf: d.sf ?? '312,000',
-    rent: d.inPlaceRent ?? '$0.82',
-    marketRent: d.marketRent ?? '$0.98',
-    exitCap: '5.25',
-    ltv: '65',
-    rate: '6.50',
-    bumps: '3.0',
-    hold: '5',
-  });
-  const [results, setResults] = useState(() => runModel({
-    price: '$47,500,000', sf: '312,000', rent: '$0.82',
-    marketRent: '$0.98', exitCap: '5.25', ltv: '65', rate: '6.50', bumps: '3.0', hold: '5',
-  }));
-  const EXIT_CAPS = [4.50, 4.75, 5.00, 5.25, 5.50, 5.75];
-  const RENT_GROWTHS = [2.0, 2.5, 3.0, 3.5, 4.0];
-  const sensGrid = buildSensGrid(inputs, EXIT_CAPS, RENT_GROWTHS);
+/* AI NEXT */
+.ai-next-card{background:rgba(88,56,160,0.04);border:1px solid rgba(88,56,160,0.18);border-radius:var(--radius);overflow:hidden;}
+.ai-next-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid rgba(88,56,160,0.12);}
+.ai-next-title{font-size:10.5px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:var(--purple);display:flex;align-items:center;gap:6px;}
+.ai-next-refresh{font-family:'Instrument Sans',sans-serif;font-size:12px;color:var(--purple);cursor:pointer;background:none;border:1px solid rgba(88,56,160,0.22);border-radius:5px;padding:3px 10px;transition:all 0.1s;}
+.ai-next-refresh:hover{background:rgba(88,56,160,0.08);}
+.ai-next-body{padding:13px 14px;font-family:'Cormorant Garamond',serif;font-size:14.5px;font-style:italic;line-height:1.65;color:var(--ink3);transition:opacity 0.25s;}
 
-  function handleInputChange(key, val) {
-    const next = { ...inputs, [key]: val };
-    setInputs(next);
-    setResults(runModel(next));
-  }
+/* MEMO */
+.memo-card{background:var(--blue-bg);border:1px solid var(--blue-bdr);border-radius:var(--radius);overflow:hidden;}
+.memo-hdr{padding:10px 16px;background:rgba(78,110,150,0.12);border-bottom:1px solid var(--blue-bdr);font-size:11px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:var(--blue);}
+.memo-body{padding:13px 16px;font-size:13.5px;line-height:1.75;color:var(--ink2);}
+.memo-body strong{color:var(--blue);font-weight:500;}
 
-  // Leaflet map
-  useEffect(() => {
-    if (typeof window === 'undefined' || mapInstanceRef.current) return;
-    import('leaflet').then(L => {
-      L = L.default;
-      const map = L.map(mapRef.current, {
-        center: [d.lat ?? 34.0058, d.lng ?? -117.9775],
-        zoom: 16, zoomControl: false, scrollWheelZoom: false,
-        dragging: false, doubleClickZoom: false, attributionControl: false,
-      });
-      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 20 }).addTo(map);
-      const icon = L.divIcon({ className: '', html: '<div style="width:14px;height:14px;border-radius:50%;background:#6480A2;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.5);"></div>', iconSize: [14,14], iconAnchor: [7,7] });
-      L.marker([d.lat ?? 34.0058, d.lng ?? -117.9775], { icon }).addTo(map);
-      mapInstanceRef.current = map;
-    });
-    return () => { if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; } };
-  }, []);
+/* VELOCITY */
+.velocity-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--line2);overflow:hidden;}
+.vel-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--bg);}
+.vel-title{font-size:11px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:var(--ink3);}
+.vel-status{font-family:'DM Mono',monospace;font-size:10px;color:var(--green);}
+.vel-body{padding:14px 16px;}
+.vel-row{margin-bottom:10px;}
+.vel-lbl-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
+.vel-lbl{font-size:11px;color:var(--ink4);}
+.vel-pct{font-family:'DM Mono',monospace;font-size:10.5px;font-weight:500;}
+.vel-bar-wrap{height:5px;background:var(--bg2);border-radius:3px;overflow:hidden;}
+.vel-bar{height:100%;border-radius:3px;transition:width 1.5s cubic-bezier(.4,0,.2,1);width:0;}
+.vel-bar.b-deal{background:linear-gradient(90deg,var(--blue),var(--blue3));}
+.vel-bar.b-stage{background:linear-gradient(90deg,var(--amber),#D4A040);}
+.vel-bar.b-owner{background:linear-gradient(90deg,var(--green),#4CAF80);}
+.vel-stats{display:flex;gap:0;border-top:1px solid var(--line2);margin-top:4px;}
+.vel-stat{flex:1;padding:8px 10px;border-right:1px solid var(--line2);text-align:center;}
+.vel-stat:last-child{border-right:none;}
+.vel-stat-num{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--ink2);}
+.vel-stat-lbl{font-size:10px;color:var(--ink4);margin-top:1px;}
 
-  const [currentStageIdx, setCurrentStageIdx] = useState(Math.max(0, STAGES.indexOf(d.stage ?? 'LOI')));
-  const [exporting, setExporting] = useState(false);
+/* CATALYSTS */
+.cat-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--line2);overflow:hidden;}
+.cat-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--bg);}
+.cat-hdr-title{font-size:11px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:var(--ink3);}
+.cat-add{font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:var(--blue2);cursor:pointer;}
+.cat-row{display:flex;align-items:center;gap:9px;padding:9px 16px;border-bottom:1px solid var(--line2);cursor:pointer;transition:background 0.1s;}
+.cat-row:last-child{border-bottom:none;}
+.cat-row:hover{background:rgba(78,110,150,0.03);}
+.cat-tag{display:inline-flex;padding:3px 9px;border-radius:4px;font-size:10.5px;font-weight:600;flex-shrink:0;}
+.c-loi{background:rgba(140,90,4,0.10);border:1px solid var(--amber-bdr);color:var(--amber);}
+.c-urgent{background:var(--rust-bg);border:1px solid var(--rust-bdr);color:var(--rust);}
+.c-slb{background:var(--green-bg);border:1px solid var(--green-bdr);color:var(--green);}
+.c-hire{background:var(--blue-bg);border:1px solid var(--blue-bdr);color:var(--blue);}
+.c-lease{background:rgba(140,90,4,0.08);border:1px solid var(--amber-bdr);color:var(--amber);}
+.cat-desc{font-size:12.5px;color:var(--ink3);flex:1;line-height:1.3;}
+.cat-meta{font-family:'DM Mono',monospace;font-size:10px;color:var(--ink4);white-space:nowrap;}
+.cat-auto{font-family:'DM Mono',monospace;font-size:10px;color:var(--green);background:var(--green-bg);padding:1px 6px;border-radius:3px;white-space:nowrap;}
 
-  async function exportExcel() {
-    if (exporting) return;
-    setExporting(true);
-    try {
-      const res = await fetch('/api/export-model', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...inputs,
-          dealName: d.name ?? 'Deal',
-          address:  d.address ?? '',
-        }),
-      });
+/* SP ROWS */
+.sp-hdr{padding:10px 18px;border-bottom:1px solid var(--line);font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--ink3);display:flex;align-items:center;justify-content:space-between;}
+.sp-hdr-a{font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:var(--blue2);cursor:pointer;font-weight:400;letter-spacing:0;text-transform:none;}
+.sp-row{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 18px;border-bottom:1px solid var(--line2);}
+.sp-row:last-child{border-bottom:none;}
+.sp-key{font-size:12.5px;color:var(--ink4);}
+.sp-val{font-size:13px;color:var(--ink2);text-align:right;max-width:180px;}
+.sp-val.blue{color:var(--blue);}
+.sp-val.amber{color:var(--amber);}
+.sp-val.link{color:var(--blue);cursor:pointer;text-decoration:underline;text-decoration-color:rgba(78,110,150,0.35);}
 
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({ error: 'Export failed' }));
-        console.error("Export failed:", body.error ?? res.statusText);
-        return;
-      }
+/* BUYER */
+.buyer-row{display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid var(--line2);cursor:pointer;transition:background 0.1s;}
+.buyer-row:last-child{border-bottom:none;}
+.buyer-row:hover{background:rgba(78,110,150,0.03);}
+.buyer-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--blue-bg),rgba(78,110,150,0.18));border:1px solid var(--blue-bdr);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--blue);flex-shrink:0;}
+.buyer-name{font-size:13px;font-weight:500;color:var(--ink2);flex:1;}
+.buyer-sub{font-size:11.5px;color:var(--ink4);}
+.buyer-match{font-family:'DM Mono',monospace;font-size:10.5px;padding:2px 8px;border-radius:3px;flex-shrink:0;}
+.buyer-match.high{background:var(--green-bg);color:var(--green);}
+.buyer-match.med{background:var(--blue-bg);color:var(--blue);}
 
-      const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
+/* PROP MINI */
+.prop-mini{padding:16px 18px;}
+.prop-mini-addr{font-size:14px;font-weight:500;color:var(--ink2);margin-bottom:2px;}
+.prop-mini-sub{font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:var(--ink4);margin-bottom:12px;}
+.prop-spec-strip{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line2);border-radius:7px;overflow:hidden;margin-bottom:7px;}
+.pss-cell{padding:9px 10px;border-right:1px solid var(--line2);text-align:center;}
+.pss-cell:last-child{border-right:none;}
+.pss-lbl{font-size:9.5px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink4);margin-bottom:3px;}
+.pss-val{font-family:'DM Mono',monospace;font-size:12.5px;color:var(--ink2);}
+.pss-val.hi{color:var(--blue);}
+.prop-mini-footer{display:flex;align-items:center;justify-content:space-between;margin-top:12px;}
+.prop-mini-link{font-family:'Cormorant Garamond',serif;font-size:13.5px;font-style:italic;color:var(--blue2);cursor:pointer;text-decoration:underline;text-decoration-color:rgba(100,128,162,0.35);}
 
-      // Prefer the filename the server sends via Content-Disposition
-      const cd   = res.headers.get('Content-Disposition') ?? '';
-      const match = cd.match(/filename="([^"]+)"/);
-      a.download = match ? match[1] : `UW_Model_${(d.name ?? 'Deal').replace(/\s+/g, '_')}.xlsx`;
+/* UW */
+#uw-tab{display:none;}
+.uw-form-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--blue-bdr);overflow:hidden;margin-bottom:16px;position:relative;}
+.uw-form-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--blue2);}
+.uw-form-hdr{padding:12px 18px 12px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;}
+.uw-form-title{font-size:13.5px;font-weight:500;color:var(--ink2);}
+.uw-form-sub{font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:var(--ink4);}
+.uw-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px 22px;}
+.uw-field label{font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:var(--ink3);display:block;margin-bottom:5px;}
+.uw-field input{width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:7px;font-family:'Instrument Sans',sans-serif;font-size:14px;color:var(--ink2);background:var(--bg);outline:none;}
+.uw-field input:focus{border-color:var(--blue-bdr);box-shadow:0 0 0 3px rgba(78,110,150,0.08);}
+.uw-note-sm{font-size:12px;color:var(--ink4);font-family:'Cormorant Garamond',serif;font-style:italic;margin-top:3px;}
+.uw-results{display:grid;grid-template-columns:repeat(4,1fr);background:var(--bg2);border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+.uw-metric{padding:14px 16px;border-right:1px solid var(--line);}
+.uw-metric:last-child{border-right:none;}
+.uw-metric label{font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:var(--ink4);display:block;margin-bottom:6px;}
+.uw-val{font-family:'Playfair Display',serif;font-size:28px;font-weight:700;line-height:1;transition:opacity 0.4s;}
+.uw-val.good{color:var(--green);}
+.uw-val.ok{color:var(--blue);}
+.uw-val.warn{color:var(--amber);}
+.uw-actions{padding:12px 22px;display:flex;align-items:center;gap:8px;}
+.uw-run{padding:9px 20px;background:var(--blue);color:#fff;border:none;border-radius:7px;font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;}
+.uw-excel{padding:9px 16px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-bdr);border-radius:7px;font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;}
+.uw-note-full{font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:var(--ink4);margin-left:auto;}
+.uw-toggle-row{display:flex;gap:8px;margin-bottom:14px;}
+.uw-toggle-btn{padding:8px 18px;border-radius:7px;border:1px solid var(--line);background:var(--card);color:var(--ink3);font-family:'Instrument Sans',sans-serif;font-size:13px;cursor:pointer;}
+.uw-toggle-btn.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+.returns-dash{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--line2);overflow:hidden;margin-bottom:16px;}
+.rd-hdr{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;}
+.rd-title{font-size:11px;font-weight:500;letter-spacing:0.09em;text-transform:uppercase;color:var(--ink3);}
+.rd-grid{display:grid;grid-template-columns:repeat(4,1fr);}
+.rd-cell{padding:16px 18px;border-right:1px solid var(--line2);text-align:center;}
+.rd-cell:last-child{border-right:none;}
+.rd-lbl{font-size:10px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:var(--ink4);margin-bottom:8px;}
+.rd-val{font-family:'Playfair Display',serif;font-size:32px;font-weight:700;line-height:1;}
+.rd-val.green{color:var(--green);}
+.rd-val.blue{color:var(--blue);}
+.rd-sub{font-size:12px;color:var(--ink4);margin-top:4px;}
+.sens-grid-wrap{padding:16px 18px;}
+.sens-table{width:100%;border-collapse:collapse;font-family:'DM Mono',monospace;font-size:12px;}
+.sens-table th{padding:7px 10px;background:var(--bg2);border:1px solid var(--line);font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink3);}
+.sens-table td{padding:7px 10px;border:1px solid var(--line2);text-align:center;color:var(--ink2);}
+.sens-table td.good{background:rgba(21,102,54,0.08);color:var(--green);font-weight:500;}
+.sens-table td.ok{background:rgba(78,110,150,0.07);color:var(--blue);}
+.sens-table td.warn{background:rgba(140,90,4,0.07);color:var(--amber);}
+.sens-table td.base{background:rgba(78,110,150,0.12);font-weight:700;color:var(--blue);}
 
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("Export failed:", err.message);
-    } finally {
-      setExporting(false);
-    }
-  }
+@keyframes fade-up{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.inner>*{animation:fade-up 0.35s ease both;}
+.inner>*:nth-child(1){animation-delay:.04s;}
+.inner>*:nth-child(2){animation-delay:.10s;}
+.inner>*:nth-child(3){animation-delay:.16s;}
+.inner>*:nth-child(4){animation-delay:.22s;}
+@keyframes row-in{from{opacity:0;transform:translateX(-6px);}to{opacity:1;transform:translateX(0);}}
+</style></head>
+<body>
 
-  return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      {/* TOPBAR */}
-      <div style={S.topbar}>
-        <div style={S.topbarInner}>
-          <div style={S.bc}>
-            <span style={{ cursor: 'pointer', color: 'var(--ink4)' }} onClick={onBack}>Deal Pipeline</span>
-            <span style={{ opacity: .4, margin: '0 4px' }}>›</span>
-            <span style={{ color: 'var(--ink2)', fontWeight: 500 }}>{d.name}</span>
+<aside class="sidebar">
+  <div class="logo-zone">
+    <div class="logo-icon"><svg width="18" height="18" viewBox="0 0 64 64" fill="none"><rect x="4" y="3" width="12" height="9" rx="0.5" fill="#6B83A6"/><rect x="19" y="3" width="12" height="9" rx="0.5" fill="#6B83A6" opacity="0.7"/><rect x="34" y="3" width="12" height="9" rx="0.5" fill="#6B83A6" opacity="0.4"/><line x1="10" y1="18" x2="10" y2="58" stroke="#6B83A6" stroke-width="0.8"/><line x1="25" y1="18" x2="25" y2="58" stroke="#6B83A6" stroke-width="0.8" opacity="0.6"/><line x1="40" y1="18" x2="40" y2="58" stroke="#6B83A6" stroke-width="0.8" opacity="0.3"/><line x1="4" y1="38" x2="50" y2="38" stroke="#6B83A6" stroke-width="0.6" opacity="0.4"/></svg></div>
+    <div><div class="logo-name">Clerestory</div><div class="logo-tag">See the deal before it's a deal.</div></div>
+  </div>
+  <nav>
+    <div class="nav-section"><div class="nav-label">Overview</div><div class="nav-item"><span class="nav-text">Command Center</span></div></div>
+    <div class="nav-section"><div class="nav-label">CRM</div>
+      <div class="nav-item"><span class="nav-text">Properties</span><span class="nav-ct">18</span></div>
+      <div class="nav-item"><span class="nav-text">Lead Gen</span><span class="nav-ct">237</span></div>
+      <div class="nav-item active"><span class="nav-text">Deal Pipeline</span><span class="nav-ct">12</span></div>
+      <div class="nav-item"><span class="nav-text">Contacts</span><span class="nav-ct">94</span></div>
+      <div class="nav-item"><span class="nav-text">Accounts</span><span class="nav-ct">68</span></div>
+      <div class="nav-item"><span class="nav-text">Tasks</span><span class="nav-ct hot">26</span></div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section"><div class="nav-label">Comps</div>
+      <div class="nav-item"><span class="nav-text">Lease Comps</span><span class="nav-ct">175</span></div>
+      <div class="nav-item"><span class="nav-text">Sale Comps</span><span class="nav-ct">22</span></div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section"><div class="nav-label">Intelligence</div>
+      <div class="nav-item"><span class="nav-text">WARN Intel</span><span class="nav-ct hot">4</span></div>
+      <div class="nav-item"><span class="nav-text">News Feed</span></div>
+      <div class="nav-item"><span class="nav-text">Research Campaigns</span></div>
+      <div class="nav-item"><span class="nav-text">Owner Search</span></div>
+    </div>
+  </nav>
+  <div class="sb-footer"><div class="avatar">BC</div><div><div class="f-name">Briana Corso</div><div class="f-role">Industrial · SGV / IE</div></div></div>
+</aside>
+
+<main class="main"><div class="content"><div class="page-wrap">
+
+  <!-- TICKER STICKY NO WHITE BAR -->
+  <div class="signal-ticker">
+    <span class="ticker-label"><span class="ticker-pulse"></span>Live Signals</span>
+    <div class="ticker-track">
+      <div class="ticker-inner">
+        <span class="ti">LOI Counter <span class="hi">$46M</span> received Mar 22 · spread <span class="up">+$1.5M</span></span>
+        <span class="ti">SGV Cap Rates <span class="hi">5.1–5.4%</span> · Q1 2026</span>
+        <span class="ti">Pacific Mfg WARN Activity <span class="up">No filings</span></span>
+        <span class="ti">Owner hold period <span class="hi">31 yrs</span> · Unencumbered confirmed</span>
+        <span class="ti">Comp Sale: 4444 Workman Mill Rd <span class="hi">$158/SF</span> · Jan 2026</span>
+        <span class="ti">Adjacent parcel loan maturity <span class="wn">Dec 2026</span> · urgency</span>
+        <span class="ti">Buyer Interest: <span class="hi">8 matched</span> · Blackstone 94% · Prologis 89%</span>
+        <span class="ti">Days in LOI stage: <span class="wn">14 days</span> · avg 22d to close</span>
+        <span class="ti">LOI Counter <span class="hi">$46M</span> received Mar 22 · spread <span class="up">+$1.5M</span></span>
+        <span class="ti">SGV Cap Rates <span class="hi">5.1–5.4%</span> · Q1 2026</span>
+        <span class="ti">Pacific Mfg WARN Activity <span class="up">No filings</span></span>
+        <span class="ti">Owner hold period <span class="hi">31 yrs</span> · Unencumbered confirmed</span>
+        <span class="ti">Comp Sale: 4444 Workman Mill Rd <span class="hi">$158/SF</span> · Jan 2026</span>
+        <span class="ti">Adjacent parcel loan maturity <span class="wn">Dec 2026</span> · urgency</span>
+        <span class="ti">Buyer Interest: <span class="hi">8 matched</span> · Blackstone 94% · Prologis 89%</span>
+        <span class="ti">Days in LOI stage: <span class="wn">14 days</span> · avg 22d to close</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div id="map"></div>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <div class="hero-title">Pacific Manufacturing · 4900 Workman Mill Rd</div>
+      <div class="hero-badges">
+        <span class="hb hb-stage">LOI Stage</span>
+        <span class="hb hb-green">81% Close Probability</span>
+        <span class="hb hb-blue">SLB · $47.5M</span>
+        <span class="hb hb-blue">312K SF · SGV</span>
+        <span class="hb hb-rust">High Priority</span>
+      </div>
+    </div>
+    <button class="hero-back">← Pipeline</button>
+  </div>
+
+  <!-- ACTION BAR (no Log Call etc) -->
+  <div class="action-bar">
+    <button class="btn btn-synth">✦ Synthesize</button>
+    <button class="btn btn-ghost">📊 Run Comps</button>
+    <button class="btn btn-ghost">↓ Export Memo</button>
+    <button class="btn btn-ghost">↓ Export BOV</button>
+    <div class="ab-div"></div>
+    <button class="btn-link">📍 Google Maps</button>
+    <button class="btn-link">🗺 LA County GIS</button>
+    <button class="btn-link">🏢 CoStar</button>
+    <button class="btn-link">🔍 LoopNet</button>
+    <div class="ml-auto"></div>
+    <button class="btn-advance">Advance to LOI Accepted →</button>
+  </div>
+
+  <!-- PIPELINE STAGES — arrow style -->
+  <div class="stage-wrap">
+    <div class="stage-track">
+      <div class="stage-step done"><div class="stage-inner"><span class="s-check">✓</span>Tracking</div></div>
+      <div class="stage-step done"><div class="stage-inner"><span class="s-check">✓</span>Underwriting</div></div>
+      <div class="stage-step done"><div class="stage-inner"><span class="s-check">✓</span>Off-Market Outreach</div></div>
+      <div class="stage-step done"><div class="stage-inner"><span class="s-check">✓</span>Marketing</div></div>
+      <div class="stage-step active"><div class="stage-inner"><span class="s-dot"></span>LOI</div></div>
+      <div class="stage-step"><div class="stage-inner">LOI Accepted</div></div>
+      <div class="stage-step"><div class="stage-inner">PSA Negotiation</div></div>
+      <div class="stage-step"><div class="stage-inner">Due Diligence</div></div>
+      <div class="stage-step"><div class="stage-inner">Non-Contingent</div></div>
+      <div class="stage-step"><div class="stage-inner">Closed Won</div></div>
+    </div>
+  </div>
+
+  <!-- INNER -->
+  <div class="inner">
+
+    <!-- KPI STRIP -->
+    <div class="deal-kpis">
+      <div class="dk"><div class="dk-lbl">Deal Value</div><div class="dk-val">$47.5M</div><div class="dk-sub">SLB structure</div></div>
+      <div class="dk"><div class="dk-lbl">Commission Est.</div><div class="dk-val green">$570K</div><div class="dk-sub">1.2% both sides</div></div>
+      <div class="dk prob-dk"><div class="dk-lbl">Close Probability</div><div class="dk-val blue">81%</div><div class="dk-sub">Updated Mar 22</div></div>
+      <div class="dk"><div class="dk-lbl">Deal Type</div><div class="dk-val" style="font-size:17px;font-weight:500;color:var(--ink3);padding-top:4px;">Sale-Leaseback</div><div class="dk-sub">Owner-user seller</div></div>
+      <div class="dk"><div class="dk-lbl">Target Close</div><div class="dk-val amber" style="font-size:22px;">Jun 2026</div><div class="dk-sub">~90 days out</div></div>
+    </div>
+
+    <!-- AI SYNTHESIS -->
+    <div class="synth-card">
+      <div class="synth-hdr" onclick="toggleSynth()">
+        <div class="synth-hl"><span style="font-size:14px;color:var(--purple);">✦</span><span class="synth-title">AI Synthesis</span><span class="synth-meta">Deal Status Report · Pacific Mfg · 4900 Workman Mill Rd</span></div>
+        <span class="synth-tog" id="synth-toggle">Hide ▴</span>
+      </div>
+      <div id="synth-body">
+        <div class="synth-inner">
+          <div class="ss"><div class="ss-title">Current Deal Status</div>
+            <div class="si">312,000 SF dock-high SLB — LOI submitted at $47.5M, counter at $46M. Spread is $1.5M; recommend accepting to push to PSA before Dec 2026 deadline.</div>
+            <div class="si">Owner (RJ Neu Properties) confirmed unencumbered title, off-market preference — exclusive window is intact. 31-year hold creates strong equity-unlock motivation.</div>
+            <div class="si">Pacific Mfg as leaseback tenant — 12-year term, 3% annual bumps, market rent $0.98/SF NNN. Going-in cap 4.87%, unlevered IRR 12.4%.</div>
           </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-            <button style={S.btnGhost} onClick={() => {}}>⚙ Edit</button>
-            <button style={S.btnGhost} onClick={() => setLogPanel(logPanel === 'note' ? null : 'note')}>+ Activity</button>
-            <button style={S.btnGhost} onClick={() => {}}>↓ Export BOV</button>
-            <button style={S.btnBlue} onClick={() => setCurrentStageIdx(i => Math.min(i + 1, STAGES.length - 1))}>Advance Stage →</button>
+          <div class="ss"><div class="ss-title">Key Contacts / Decision Makers</div>
+            <div class="si">James Okura (EVP Operations) — primary LOI counterpart, warm engagement, responded within 48h</div>
+            <div class="si">RJ Neu (Owner) — motivated by expansion capex needs, wants long-term stay in building</div>
           </div>
+          <div class="ss"><div class="ss-title">Recommended Next Steps</div>
+            <div class="sn"><span class="sn-num">1.</span><span><strong>Immediate:</strong> Accept $46M counter — communicate to buyer group by Apr 4, advance to PSA.</span></div>
+            <div class="sn"><span class="sn-num">2.</span><span><strong>Week 1:</strong> Engage title company to confirm unencumbered status and clear easements.</span></div>
+            <div class="sn"><span class="sn-num">3.</span><span><strong>Week 2:</strong> Circulate updated $46M model to institutional buyer group; confirm lease structure with counsel.</span></div>
+          </div>
+          <div class="s-crit"><strong>Critical Window:</strong> Dec 2026 adjacent parcel maturity is a hard deadline. If PSA not executed by Jun, owner may pivot to refi or portfolio disposition. Push now.</div>
+        </div>
+        <div class="synth-foot">
+          <button class="synth-regen">↺ Regenerate</button>
+          <button class="synth-regen" style="margin-left:4px;">⎘ Copy</button>
+          <span class="synth-ts">Generated Apr 1, 2026 · 9:14 AM</span>
         </div>
       </div>
+    </div>
 
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        <div style={S.pageWrap}>
-          {/* HERO */}
-          <div style={S.hero}>
-            <div ref={mapRef} style={{ width: '100%', height: 260 }} />
-            <div style={S.heroOverlay} />
-            <div style={S.heroContent}>
-              <div style={S.heroTitle}>{d.name}</div>
-              <div style={S.heroBadges}>
-                <span style={S.hbAmber}>{d.stage ?? 'LOI'} Stage</span>
-                <span style={S.hbGreen}>{d.probability ?? 81}% Close Probability</span>
-                <span style={S.hbBlue}>{d.dealType ?? 'SLB'} · {d.price ?? '$47.5M'}</span>
-                <span style={S.hbBlue}>{d.sf ?? '312K'} SF · {d.market ?? 'SGV'}</span>
+    <!-- TABS -->
+    <div class="tabs-nav">
+      <div class="tab-item active" onclick="showTab('timeline')">Timeline <span class="tab-ct">14</span></div>
+      <div class="tab-item" onclick="showTab('uw')">Underwriting</div>
+      <div class="tab-item" onclick="showTab('property')">Property <span class="tab-ct">1</span></div>
+      <div class="tab-item" onclick="showTab('contacts')">Contacts <span class="tab-ct">3</span></div>
+      <div class="tab-item" onclick="showTab('buyers')">Buyer Outreach <span class="tab-ct">8</span></div>
+      <div class="tab-item" onclick="showTab('files')">Files <span class="tab-ct">5</span></div>
+    </div>
+
+    <!-- TIMELINE TAB -->
+    <div id="timeline-tab">
+      <div class="body-cols">
+        <div>
+          <div class="card">
+            <div class="card-hdr"><div class="card-title"><span class="live-dot"></span>Activity Timeline</div><span class="card-action">+ Log Activity</span></div>
+            <div class="log-bar">
+              <div class="log-tabs">
+                <button class="log-tab active" onclick="setLT(this,'call')">📞 Call</button>
+                <button class="log-tab" onclick="setLT(this,'email')">✉ Email</button>
+                <button class="log-tab" onclick="setLT(this,'note')">📝 Note</button>
+                <button class="log-tab" onclick="setLT(this,'meet')">🤝 Meeting</button>
+              </div>
+              <input class="log-input" id="log-input" placeholder="Log a call..."/>
+              <button class="log-btn" onclick="logEntry()">Log</button>
+            </div>
+            <div id="act-list">
+              <div class="act-row"><div class="act-icon call">📞</div><div class="act-body"><div class="act-text"><strong>Called James Okura (EVP Ops)</strong> — LOI counter received. $46M vs our $47.5M ask. Recommending client accept counter to push to PSA.</div><div class="act-meta">Briana Corso · 18 min call</div></div><div class="act-date">Mar 22</div></div>
+              <div class="act-row"><div class="act-icon uw">◈</div><div class="act-body"><div class="act-text"><strong>LOI Submitted</strong> — $47.5M · 12-year leaseback · 3% annual bumps · Pacific Mfg as tenant. Sent to owner counsel.</div><div class="act-meta">Briana Corso</div></div><div class="act-date">Mar 18</div></div>
+              <div class="act-row"><div class="act-icon uw">📊</div><div class="act-body"><div class="act-text"><strong>Underwriting completed</strong> — Going-in cap 4.87%, unlevered IRR 12.4%, levered IRR 18.6%, equity multiple 2.1×. Model v3 sent to buyer group.</div><div class="act-meta">Briana Corso · Excel model v3</div></div><div class="act-date">Mar 14</div></div>
+              <div class="act-row"><div class="act-icon email">✉</div><div class="act-body"><div class="act-text"><strong>Sent SLB overview deck</strong> — cap rate comps and investor demand summary attached. Circulated to 3 institutional buyers.</div><div class="act-meta">Briana Corso · Via email</div></div><div class="act-date">Mar 12</div></div>
+              <div class="act-row"><div class="act-icon call">📞</div><div class="act-body"><div class="act-text"><strong>Called RJ Neu (owner)</strong> — Confirmed unencumbered asset, off-market preference, motivated by expansion capex needs. SLB structure receptive.</div><div class="act-meta">Briana Corso · 22 min</div></div><div class="act-date">Mar 10</div></div>
+            </div>
+            <div class="tl-more"><span class="tl-more-text">View all 14 activities →</span></div>
+          </div>
+
+          <!-- DEAL DETAILS HORIZONTAL STRIP -->
+          <div class="dd-strip">
+            <div class="dd-strip-hdr"><span class="dd-strip-title">Deal Details</span><span class="dd-strip-edit">Edit</span></div>
+            <div class="dd-grid">
+              <div class="dd-cell"><div class="dd-lbl">Deal Type</div><div class="dd-val">Sale-Leaseback</div></div>
+              <div class="dd-cell"><div class="dd-lbl">Stage</div><div class="dd-val blue">LOI</div></div>
+              <div class="dd-cell"><div class="dd-lbl">Priority</div><div class="dd-val rust">High</div></div>
+              <div class="dd-cell"><div class="dd-lbl">Seller</div><div class="dd-val link">RJ Neu Properties</div></div>
+              <div class="dd-cell"><div class="dd-lbl">Tenant</div><div class="dd-val">Pacific Manufacturing</div></div>
+              <div class="dd-cell"><div class="dd-lbl">Market</div><div class="dd-val">SGV · Industry/Whittier</div></div>
+              <div class="dd-cell"><div class="dd-lbl">Close Date</div><div class="dd-val amber">Jun 2026</div></div>
+            </div>
+            <div class="dd-grid" style="border-top:1px solid var(--line2);">
+              <div class="dd-cell"><div class="dd-lbl">Building SF</div><div class="dd-val mono">312,000 SF</div></div>
+              <div class="dd-cell"><div class="dd-lbl">Clear Height</div><div class="dd-val mono">32 ft</div></div>
+              <div class="dd-cell"><div class="dd-lbl">Year Built</div><div class="dd-val mono">1998</div></div>
+              <div class="dd-cell"><div class="dd-lbl">Lease Term</div><div class="dd-val mono">12-year initial</div></div>
+              <div class="dd-cell"><div class="dd-lbl">Rent Bumps</div><div class="dd-val mono">3% annual</div></div>
+              <div class="dd-cell"><div class="dd-lbl">Commission</div><div class="dd-val green">$570K est.</div></div>
+              <div class="dd-cell"><div class="dd-lbl">$/SF</div><div class="dd-val mono">$152/SF</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT COL -->
+        <div class="right-col">
+          <div class="prob-card">
+            <div class="prob-body">
+              <div class="prob-lbl">Close Probability</div>
+              <div class="prob-num">81%</div>
+              <div class="prob-track"><div class="prob-fill" id="prob-fill"></div></div>
+              <div class="prob-note">LOI submitted, counter at $46M. Owner motivated, asset unencumbered. 14 days in LOI — push to PSA.</div>
+            </div>
+          </div>
+
+          <div class="days-card">
+            <div class="days-num">14</div>
+            <div class="days-body">
+              <div class="days-lbl">Days in LOI Stage</div>
+              <div class="days-note">Avg deal closes LOI in 22 days.<br>8 days remaining in typical window.</div>
+              <span class="days-urgent">Act by Apr 8 →</span>
+            </div>
+          </div>
+
+          <div class="ai-next-card">
+            <div class="ai-next-hdr">
+              <div class="ai-next-title"><span style="font-size:12px;">✦</span>AI Next Step</div>
+              <button class="ai-next-refresh" onclick="refreshNext()">Refresh</button>
+            </div>
+            <div class="ai-next-body" id="ai-next-body">Accept $46M counter — communicate to buyer group by Apr 4 and advance to PSA stage while Dec 2026 urgency window is intact.</div>
+          </div>
+
+          <div class="memo-card">
+            <div class="memo-hdr">Opportunity Memo</div>
+            <div class="memo-body">Owner-user exploring liquidity via <strong>sale-leaseback</strong> — Pacific Mfg would lease back at market. <strong>Unencumbered asset</strong>, off-market creates exclusive window. Dec 2026 loan maturity on adjacent parcel creates urgency.</div>
+          </div>
+
+          <div class="velocity-card">
+            <div class="vel-hdr"><span class="vel-title">Deal Velocity</span><span class="vel-status">● On track</span></div>
+            <div class="vel-body">
+              <div class="vel-row"><div class="vel-lbl-row"><span class="vel-lbl">Deal Health</span><span class="vel-pct" style="color:var(--blue);">87%</span></div><div class="vel-bar-wrap"><div class="vel-bar b-deal" id="vb-deal"></div></div></div>
+              <div class="vel-row"><div class="vel-lbl-row"><span class="vel-lbl">Stage Progress</span><span class="vel-pct" style="color:var(--amber);">64%</span></div><div class="vel-bar-wrap"><div class="vel-bar b-stage" id="vb-stage"></div></div></div>
+              <div class="vel-row" style="margin-bottom:0"><div class="vel-lbl-row"><span class="vel-lbl">Owner Engagement</span><span class="vel-pct" style="color:var(--green);">92%</span></div><div class="vel-bar-wrap"><div class="vel-bar b-owner" id="vb-owner"></div></div></div>
+              <div class="vel-stats">
+                <div class="vel-stat"><div class="vel-stat-num">6</div><div class="vel-stat-lbl">Touchpoints</div></div>
+                <div class="vel-stat"><div class="vel-stat-num">3</div><div class="vel-stat-lbl">Buyers Active</div></div>
+                <div class="vel-stat"><div class="vel-stat-num">14d</div><div class="vel-stat-lbl">In Stage</div></div>
               </div>
             </div>
           </div>
 
-          {/* ACTION BAR */}
-          <div style={S.actionBar}>
-            <button style={S.btnGhost} onClick={() => setLogPanel(logPanel === 'call' ? null : 'call')}>📞 Log Call</button>
-            <button style={S.btnGhost} onClick={() => setLogPanel(logPanel === 'email' ? null : 'email')}>✉ Log Email</button>
-            <button style={S.btnGhost} onClick={() => setLogPanel(logPanel === 'note' ? null : 'note')}>📝 Add Note</button>
-            <div style={S.abSep} />
-            <button style={S.btnLink} onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent((d.address ?? '4900 Workman Mill Rd') + ' City of Industry CA')}`)}>📍 Google Maps</button>
-            <button style={S.btnLink} onClick={() => window.open(`https://www.costar.com/search#?q=${encodeURIComponent((d.address ?? '4900 Workman Mill Rd') + ', ' + (d.city ?? 'City of Industry'))}&t=2`)}>🗂 CoStar</button>
-            <button style={S.btnLink} onClick={() => { const apn = d.apn ?? ''; window.open(`https://assessor.lacounty.gov/commonassessment/assessmentinformation/assessmentdetails.aspx?ain=${apn.replace(/-/g,'')}`); }}>🗺 LA County GIS</button>
-            <div style={S.abSep} />
-            <button style={S.btnGhost} onClick={() => {}}>↓ Export Memo</button>
-            <button style={S.btnGhost} onClick={() => {}}>📊 Run Comps</button>
-            <div style={{ marginLeft: 'auto' }} />
-            <button style={S.btnGreen} onClick={() => { const psaIdx = STAGES.indexOf('PSA Negotiation'); if (psaIdx >= 0) setCurrentStageIdx(psaIdx); }}>Advance to PSA →</button>
+          <div class="cat-card">
+            <div class="cat-hdr"><span class="cat-hdr-title">Active Catalysts</span><span class="cat-add">+ Add</span></div>
+            <div class="cat-row"><span class="cat-tag c-loi">LOI Counter</span><div class="cat-desc">$46M counter · spread $1.5M</div><span class="cat-meta">Mar 22</span></div>
+            <div class="cat-row"><span class="cat-tag c-urgent">Loan Maturity</span><div class="cat-desc">Adjacent parcel Dec 2026</div><span class="cat-auto">auto</span></div>
+            <div class="cat-row"><span class="cat-tag c-slb">SLB Receptive</span><div class="cat-desc">Owner confirmed per call</div><span class="cat-meta">Mar 10</span></div>
+            <div class="cat-row"><span class="cat-tag c-hire">Hiring Signal</span><div class="cat-desc">+12 hires in 90 days</div><span class="cat-meta">Mar 18</span></div>
+            <div class="cat-row"><span class="cat-tag c-lease">Lease '27</span><div class="cat-desc">17 months remaining</div><span class="cat-auto">auto</span></div>
           </div>
+        </div>
+      </div>
+    </div><!-- /timeline-tab -->
 
-          {/* LOG PANEL */}
-          {logPanel && (
-            <div style={{ background: 'var(--card)', borderBottom: '1px solid var(--line)', padding: '14px 28px', display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink3)', marginBottom: 6 }}>
-                  {logPanel === 'call' ? 'Log Call' : logPanel === 'email' ? 'Log Email' : 'Add Note'}
-                </div>
-                <textarea value={logText} onChange={e => setLogText(e.target.value)}
-                  placeholder={`Notes for ${logPanel}...`}
-                  style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--line)', borderRadius: 7, fontFamily: 'inherit', fontSize: 13, color: 'var(--ink2)', background: 'var(--bg)', outline: 'none', resize: 'vertical', minHeight: 72 }} />
-              </div>
-              <button style={S.btnGhost} onClick={() => { setLogPanel(null); setLogText(''); }}>Cancel</button>
-              <button style={S.btnBlue} onClick={() => { setLogPanel(null); setLogText(''); }}>Save</button>
-            </div>
-          )}
-
-          {/* STAGE BREADCRUMB */}
-          <div style={S.stageTrackWrap}>
-            <div style={{ display: 'flex', overflowX: 'auto' }}>
-              {STAGES.map((stage, i) => (
-                <div key={stage} style={{
-                  ...S.stageCrumb,
-                  ...(i === currentStageIdx ? S.stageCrumbActive : {}),
-                  ...(i < currentStageIdx ? S.stageCrumbDone : {}),
-                }} onClick={() => setCurrentStageIdx(i)}>
-                  {stage}
-                </div>
-              ))}
-            </div>
+    <!-- UW TAB -->
+    <div id="uw-tab" style="display:none;">
+      <div class="uw-toggle-row">
+        <button class="uw-toggle-btn active" onclick="setUWView('quick')">Quick Underwrite</button>
+        <button class="uw-toggle-btn" onclick="setUWView('dashboard')">Returns Dashboard</button>
+      </div>
+      <div id="uw-quick">
+        <div class="uw-form-card">
+          <div class="uw-form-hdr"><div class="uw-form-title">Quick Underwrite — 5-Year Hold Model</div><div class="uw-form-sub">Values auto-populated from linked property · adjust and run</div></div>
+          <div class="uw-grid">
+            <div class="uw-field"><label>Asking Price</label><input type="text" value="$47,500,000"><div class="uw-note-sm">~$152/SF on 312K SF</div></div>
+            <div class="uw-field"><label>In-Place Rent (NNN/SF/mo)</label><input type="text" value="$0.82"><div class="uw-note-sm">From property record</div></div>
+            <div class="uw-field"><label>Market Rent (NNN/SF/mo)</label><input type="text" value="$0.98"><div class="uw-note-sm">SGV comp range</div></div>
+            <div class="uw-field"><label>SLB Lease Term (years)</label><input type="text" value="12"></div>
+            <div class="uw-field"><label>Annual Rent Bumps</label><input type="text" value="3.0%"></div>
+            <div class="uw-field"><label>Cap Rate Exit</label><input type="text" value="5.25%"></div>
+            <div class="uw-field"><label>LTV</label><input type="text" value="65%"></div>
+            <div class="uw-field"><label>Interest Rate</label><input type="text" value="6.50%"></div>
+            <div class="uw-field"><label>Hold Period (years)</label><input type="text" value="5"></div>
           </div>
-
-          <div style={S.inner}>
-            {/* DEAL KPIs */}
-            <div style={S.dealKpis}>
-              {[
-                { lbl: 'Deal Value', val: d.price ?? '$47.5M', sub: 'SLB structure' },
-                { lbl: 'Commission Est.', val: d.commission ?? '$570K', sub: '1.2% both sides', green: true },
-                { lbl: 'Close Probability', val: (d.probability ?? 81) + '%', sub: 'Updated Mar 22', blue: true },
-                { lbl: 'Deal Type', val: d.dealType ?? 'Sale-Leaseback', sub: 'Owner-user seller', sm: true },
-                { lbl: 'Target Close', val: d.closeDate ?? 'Jun 2026', sub: '~90 days out', amber: true },
-              ].map((k, i) => (
-                <div key={i} style={{ ...S.dk, borderRight: i < 4 ? '1px solid var(--line2)' : 'none' }}>
-                  <div style={S.dkLbl}>{k.lbl}</div>
-                  <div style={{ ...S.dkVal, color: k.green ? 'var(--green)' : k.blue ? 'var(--blue)' : k.amber ? 'var(--amber)' : 'var(--ink)', fontSize: k.sm ? 18 : 26, fontWeight: k.sm ? 400 : 700 }}>{k.val}</div>
-                  <div style={S.dkSub}>{k.sub}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* TABS */}
-            <div style={S.tabsNav}>
-              {TABS.map(t => (
-                <div key={t} style={{ ...S.tabItem, ...(activeTab === t ? S.tabActive : {}) }} onClick={() => setActiveTab(t)}>{t}</div>
-              ))}
-            </div>
-
-            {/* ── TIMELINE TAB ── */}
-            {activeTab === 'Timeline' && (
-              <div style={S.bodyCols}>
-                <div style={S.card}>
-                  <div style={S.cardHdr}><div style={S.cardTitle}><span style={S.liveDot} />Activity Timeline</div><span style={S.cardAction} onClick={() => setLogPanel(logPanel === 'note' ? null : 'note')}>+ Log Activity</span></div>
-                  {MOCK_ACTIVITIES.map((a, i) => (
-                    <div key={i} style={{ ...S.actRow, borderBottom: i < MOCK_ACTIVITIES.length - 1 ? '1px solid var(--line2)' : 'none' }}>
-                      <div style={{ ...S.actIcon, background: ICON_BG[a.type], color: ICON_COLOR[a.type] }}>{ICON_EMOJI[a.type]}</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={S.actText} dangerouslySetInnerHTML={{ __html: a.text }} />
-                        <div style={S.actMeta}>{a.meta}</div>
-                      </div>
-                      <div style={S.actDate}>{a.date}</div>
-                    </div>
-                  ))}
-                  <div style={S.tlMore}><span style={S.tlMoreText}>View all 14 activities →</span></div>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {/* Probability */}
-                  <div style={{ ...S.card, border: '1px solid var(--green-bdr)' }}>
-                    <div style={{ padding: '16px 18px' }}>
-                      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--green)', marginBottom: 8 }}>Close Probability</div>
-                      <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 52, fontWeight: 700, color: 'var(--green)', lineHeight: 1, letterSpacing: '-0.03em' }}>{d.probability ?? 81}%</div>
-                      <div style={{ height: 5, background: 'var(--bg2)', borderRadius: 3, overflow: 'hidden', margin: '10px 0' }}>
-                        <div style={{ height: '100%', width: `${d.probability ?? 81}%`, borderRadius: 3, background: 'linear-gradient(90deg,var(--blue2),var(--green))' }} />
-                      </div>
-                      <div style={{ fontSize: 12.5, color: 'var(--ink3)', lineHeight: 1.55 }}>LOI submitted, counter received. Owner motivated, asset unencumbered.</div>
-                    </div>
-                  </div>
-                  {/* Deal details */}
-                  <div style={S.card}>
-                    <div style={S.spHdr}><span>Deal Details</span><span style={S.spHdrA} onClick={() => {}}>Edit</span></div>
-                    {[
-                      ['Deal Type', d.dealType ?? 'Sale-Leaseback'],
-                      ['Stage', d.stage ?? 'LOI'],
-                      ['Tenant', d.tenant ?? 'Pacific Manufacturing'],
-                      ['Lease Term', '12-year initial'],
-                      ['Rent Bumps', '3% annual'],
-                      ['Owner', d.owner ?? 'RJ Neu Properties'],
-                    ].map(([k,v]) => (
-                      <div key={k} style={{ ...S.spRow, borderBottom: '1px solid var(--line2)' }}>
-                        <span style={S.spKey}>{k}</span>
-                        <span style={{ fontSize: 13, color: k === 'Stage' ? 'var(--blue)' : 'var(--ink2)' }}>{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Memo */}
-                  <div style={S.memoCard}>
-                    <div style={S.memoHdr}>Opportunity Memo</div>
-                    <div style={S.memoBody}>Owner-user exploring liquidity via <strong style={{ color: 'var(--blue)' }}>sale-leaseback</strong> — Pacific Mfg leases back at market. <strong style={{ color: 'var(--blue)' }}>Unencumbered asset</strong>, off-market preference creates exclusive window.</div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ── UNDERWRITING TAB ── */}
-            {activeTab === 'Underwriting' && (
-              <div>
-                {/* ── QUICK UNDERWRITE ── */}
-                <div style={{ ...S.card, borderLeft: '3px solid var(--blue2)', marginBottom: 16 }}>
-                  <div style={{ padding: '12px 18px 12px 22px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink2)' }}>Quick Underwrite — {inputs.hold}-Year Hold Model</div>
-                    <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 13, fontStyle: 'italic', color: 'var(--ink4)' }}>Values auto-populated · edits recalculate instantly</div>
-                  </div>
-                  {/* Input grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, padding: '16px 22px' }}>
-                    {[
-                      { key: 'price', lbl: 'Asking Price', note: '~$152/SF on 312K SF' },
-                      { key: 'rent', lbl: 'In-Place Rent (NNN/SF/mo)', note: 'From property record' },
-                      { key: 'marketRent', lbl: 'Market Rent (NNN/SF/mo)', note: 'SGV comp range' },
-                      { key: 'bumps', lbl: 'Annual Rent Bumps', note: '%' },
-                      { key: 'exitCap', lbl: 'Exit Cap Rate', note: '%' },
-                      { key: 'ltv', lbl: 'LTV', note: '%' },
-                      { key: 'rate', lbl: 'Interest Rate', note: '%' },
-                      { key: 'hold', lbl: 'Hold Period (years)', note: '' },
-                      { key: 'sf', lbl: 'Building SF', note: 'From property record' },
-                    ].map(f => (
-                      <div key={f.key}>
-                        <label style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--ink3)', display: 'block', marginBottom: 5 }}>{f.lbl}</label>
-                        <input
-                          value={inputs[f.key]}
-                          onChange={e => handleInputChange(f.key, e.target.value)}
-                          style={{ width: '100%', padding: '8px 11px', border: '1px solid var(--line)', borderRadius: 7, fontFamily: 'inherit', fontSize: 14, color: 'var(--ink2)', background: 'var(--bg)', outline: 'none' }}
-                        />
-                        {f.note && <div style={{ fontSize: 12, color: 'var(--ink4)', fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic', marginTop: 3 }}>{f.note}</div>}
-                      </div>
-                    ))}
-                  </div>
-                  {/* Results */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', background: 'var(--bg2)', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)' }}>
-                    {[
-                      { lbl: 'Going-In Cap', val: results.goingInCap, color: 'var(--blue)' },
-                      { lbl: 'Unlevered IRR', val: results.unlevered, color: 'var(--green)' },
-                      { lbl: 'Levered IRR', val: results.levered, color: 'var(--green)' },
-                      { lbl: 'Equity Multiple', val: results.equityMultiple, color: 'var(--green)' },
-                      { lbl: 'DSCR Yr 1', val: results.dscr, color: 'var(--blue)' },
-                    ].map((m, i) => (
-                      <div key={i} style={{ padding: '14px 16px', borderRight: i < 4 ? '1px solid var(--line)' : 'none' }}>
-                        <label style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--ink4)', display: 'block', marginBottom: 6 }}>{m.lbl}</label>
-                        <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 28, fontWeight: 700, lineHeight: 1, color: m.color }}>{m.val}</div>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Actions */}
-                  <div style={{ padding: '12px 22px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <button style={S.uwRun} onClick={() => setResults(runModel(inputs))}>↻ Update Model</button>
-                    <button
-                      style={{ ...S.uwExcel, opacity: exporting ? 0.65 : 1, cursor: exporting ? 'not-allowed' : 'pointer' }}
-                      onClick={exportExcel}
-                      disabled={exporting}
-                    >
-                      {exporting ? '⏳ Generating…' : '↓ Export Full Excel Model'}
-                    </button>
-                    <a href="#returns" style={{ marginLeft: 'auto', fontFamily: "'Cormorant Garamond',serif", fontSize: 13.5, fontStyle: 'italic', color: 'var(--blue2)', cursor: 'pointer', textDecoration: 'none' }}
-                      onClick={e => { e.preventDefault(); document.getElementById('returns')?.scrollIntoView({ behavior: 'smooth' }); }}>View Returns Dashboard ↓</a>
-                  </div>
-                </div>
-
-                {/* ── RETURNS DASHBOARD ── */}
-                <div id="returns">
-                  <div style={{ ...S.card, marginBottom: 16 }}>
-                    <div style={{ ...S.cardHdr }}>
-                      <div style={S.cardTitle}>Returns Dashboard — {inputs.hold}-Year Hold</div>
-                      <button
-                        style={{ ...S.uwExcel, opacity: exporting ? 0.65 : 1, cursor: exporting ? 'not-allowed' : 'pointer' }}
-                        onClick={exportExcel}
-                        disabled={exporting}
-                      >
-                        {exporting ? '⏳ Generating…' : '↓ Export Excel'}
-                      </button>
-                    </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)' }}>
-                        {[
-                          { lbl: 'Unlevered IRR', val: results.unlevered, sub: 'Exceeds 10% hurdle', color: 'var(--green)' },
-                          { lbl: 'Levered IRR', val: results.levered, sub: `${inputs.ltv}% LTV · ${inputs.rate}% rate`, color: 'var(--green)' },
-                          { lbl: 'Equity Multiple', val: results.equityMultiple, sub: 'On invested equity', color: 'var(--blue)' },
-                          { lbl: 'DSCR Year 1', val: results.dscr, sub: 'Min 1.20× required', color: 'var(--blue)' },
-                        ].map((m, i) => (
-                          <div key={i} style={{ padding: '18px 20px', borderRight: i < 3 ? '1px solid var(--line2)' : 'none', textAlign: 'center' }}>
-                            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--ink4)', marginBottom: 8 }}>{m.lbl}</div>
-                            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 34, fontWeight: 700, color: m.color, lineHeight: 1, letterSpacing: '-0.02em' }}>{m.val}</div>
-                            <div style={{ fontSize: 12, color: 'var(--ink4)', marginTop: 5 }}>{m.sub}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Sensitivity grid */}
-                    <div style={S.card}>
-                      <div style={S.cardHdr}><div style={S.cardTitle}>IRR Sensitivity — Exit Cap Rate vs. Rent Growth (Levered IRR)</div></div>
-                      <div style={{ padding: '16px 18px', overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'DM Mono',monospace", fontSize: 12 }}>
-                          <thead>
-                            <tr>
-                              <th style={S.sensHdr}>Exit Cap \ Rent Growth</th>
-                              {RENT_GROWTHS.map(rg => <th key={rg} style={S.sensHdr}>{rg.toFixed(1)}%</th>)}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {sensGrid.map(row => (
-                              <tr key={row.cap}>
-                                <td style={{ ...S.sensTd, fontWeight: 600, color: 'var(--ink3)', background: 'var(--bg2)' }}>{row.cap.toFixed(2)}%</td>
-                                {row.cells.map((cell, ci) => {
-                                  const isBase = row.cap === 5.25 && RENT_GROWTHS[ci] === 3.0;
-                                  const bg = isBase ? 'rgba(78,110,150,0.14)' : cell.rating === 'good' ? 'rgba(21,102,54,0.08)' : cell.rating === 'ok' ? 'rgba(78,110,150,0.07)' : 'rgba(140,90,4,0.07)';
-                                  const color = isBase ? 'var(--blue)' : cell.rating === 'good' ? 'var(--green)' : cell.rating === 'ok' ? 'var(--blue)' : 'var(--amber)';
-                                  return <td key={ci} style={{ ...S.sensTd, background: bg, color, fontWeight: isBase ? 700 : 500 }}>{cell.val}</td>;
-                                })}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        <div style={{ marginTop: 10, display: 'flex', gap: 16, fontSize: 11.5, color: 'var(--ink4)', fontFamily: 'inherit' }}>
-                          <span><span style={{ display: 'inline-block', width: 10, height: 10, background: 'rgba(21,102,54,0.12)', borderRadius: 2, marginRight: 4 }} />≥ 16% IRR</span>
-                          <span><span style={{ display: 'inline-block', width: 10, height: 10, background: 'rgba(78,110,150,0.10)', borderRadius: 2, marginRight: 4 }} />12–16%</span>
-                          <span><span style={{ display: 'inline-block', width: 10, height: 10, background: 'rgba(140,90,4,0.09)', borderRadius: 2, marginRight: 4 }} />&lt; 12%</span>
-                          <span style={{ marginLeft: 'auto', fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic' }}>Base case highlighted in blue</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-              </div>
-            )}
-
-            {activeTab !== 'Timeline' && activeTab !== 'Underwriting' && <DealTabContent tab={activeTab} d={d} onSelectAccount={onSelectAccount} />}
-
+          <div class="uw-results">
+            <div class="uw-metric"><label>Going-In Cap</label><div class="uw-val ok">4.87%</div></div>
+            <div class="uw-metric"><label>Unlevered IRR</label><div class="uw-val good">12.4%</div></div>
+            <div class="uw-metric"><label>Levered IRR</label><div class="uw-val good">18.6%</div></div>
+            <div class="uw-metric"><label>Equity Multiple</label><div class="uw-val good">2.1×</div></div>
+          </div>
+          <div class="uw-actions">
+            <button class="uw-run" onclick="runUW()">▶ Run / Update</button>
+            <button class="uw-excel">↓ Export Full Excel Model</button>
+            <span class="uw-note-full">Last run Mar 14 · v3 · 5-yr hold</span>
+          </div>
+        </div>
+      </div>
+      <div id="uw-dashboard" style="display:none;">
+        <div class="returns-dash">
+          <div class="rd-hdr"><span class="rd-title">Returns Summary — 5-Year Hold</span><button class="btn btn-ghost" style="font-size:12px;padding:5px 12px;">↓ Export Excel</button></div>
+          <div class="rd-grid">
+            <div class="rd-cell"><div class="rd-lbl">Unlevered IRR</div><div class="rd-val green">12.4%</div><div class="rd-sub">Exceeds 10% hurdle</div></div>
+            <div class="rd-cell"><div class="rd-lbl">Levered IRR</div><div class="rd-val green">18.6%</div><div class="rd-sub">65% LTV · 6.5% rate</div></div>
+            <div class="rd-cell"><div class="rd-lbl">Equity Multiple</div><div class="rd-val blue">2.1×</div><div class="rd-sub">$10.7M equity in</div></div>
+            <div class="rd-cell"><div class="rd-lbl">DSCR Year 1</div><div class="rd-val blue">1.42×</div><div class="rd-sub">Min 1.20× required</div></div>
+          </div>
+        </div>
+        <div class="returns-dash">
+          <div class="rd-hdr"><span class="rd-title">IRR Sensitivity — Exit Cap Rate vs. Rent Growth</span></div>
+          <div class="sens-grid-wrap">
+            <table class="sens-table">
+              <thead><tr><th>Exit Cap \ Rent Growth</th><th>2.0%</th><th>2.5%</th><th>3.0% (base)</th><th>3.5%</th><th>4.0%</th></tr></thead>
+              <tbody>
+                <tr><td>4.50%</td><td class="good">21.2%</td><td class="good">21.8%</td><td class="good">22.4%</td><td class="good">23.1%</td><td class="good">23.8%</td></tr>
+                <tr><td>4.75%</td><td class="good">19.8%</td><td class="good">20.4%</td><td class="good">21.0%</td><td class="good">21.6%</td><td class="good">22.3%</td></tr>
+                <tr><td>5.00%</td><td class="ok">17.9%</td><td class="ok">18.5%</td><td class="ok">19.1%</td><td class="good">19.8%</td><td class="good">20.4%</td></tr>
+                <tr><td>5.25% (base)</td><td class="ok">16.8%</td><td class="ok">17.3%</td><td class="base">18.6%</td><td class="ok">19.0%</td><td class="ok">19.6%</td></tr>
+                <tr><td>5.50%</td><td class="warn">14.2%</td><td class="ok">15.1%</td><td class="ok">15.9%</td><td class="ok">16.7%</td><td class="ok">17.4%</td></tr>
+                <tr><td>5.75%</td><td class="warn">12.1%</td><td class="warn">13.0%</td><td class="warn">13.8%</td><td class="warn">14.6%</td><td class="ok">15.4%</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
     </div>
-  );
+
+    <!-- PROPERTY TAB -->
+    <div id="property-tab" style="display:none;">
+      <div class="card"><div class="sp-hdr">Linked Property <span class="sp-hdr-a">Open Full Record →</span></div>
+        <div class="prop-mini">
+          <div class="prop-mini-addr">4900 Workman Mill Rd — Industry, CA 91746</div>
+          <div class="prop-mini-sub">Dock-High Distribution · M-2 Zoning · Owner-User</div>
+          <div class="prop-spec-strip"><div class="pss-cell"><div class="pss-lbl">Building SF</div><div class="pss-val hi">312,000</div></div><div class="pss-cell"><div class="pss-lbl">Clear Ht</div><div class="pss-val">32'</div></div><div class="pss-cell"><div class="pss-lbl">Dock Doors</div><div class="pss-val">36 DH · 4 GL</div></div><div class="pss-cell"><div class="pss-lbl">Year Built</div><div class="pss-val">1998</div></div></div>
+          <div class="prop-spec-strip"><div class="pss-cell"><div class="pss-lbl">Land AC</div><div class="pss-val">14.2 ac</div></div><div class="pss-cell"><div class="pss-lbl">Power</div><div class="pss-val">2,000A/277V</div></div><div class="pss-cell"><div class="pss-lbl">Sprinklers</div><div class="pss-val hi">ESFR</div></div><div class="pss-cell"><div class="pss-lbl">Coverage</div><div class="pss-val">50.5%</div></div></div>
+          <div class="prop-mini-footer"><div style="display:flex;gap:8px;"><span class="hb hb-blue" style="font-size:10.5px;padding:4px 9px;">Lease Exp. Aug 2027</span><span class="hb" style="background:var(--amber-bg);border:1px solid var(--amber-bdr);color:var(--amber);font-size:10.5px;padding:4px 9px;">In-Place: $0.82/SF NNN</span></div><div class="prop-mini-link">Open Property Record →</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTACTS TAB -->
+    <div id="contacts-tab" style="display:none;">
+      <div class="card"><div class="sp-hdr">Deal Contacts <span class="sp-hdr-a">+ Add Contact</span></div>
+        <div class="sp-row"><span class="sp-key"><span style="font-weight:500;color:var(--ink2);">James Okura</span><br><span style="font-size:11.5px;">EVP Operations · Pacific Mfg</span></span><span class="sp-val blue link">Primary LOI Contact</span></div>
+        <div class="sp-row"><span class="sp-key"><span style="font-weight:500;color:var(--ink2);">RJ Neu</span><br><span style="font-size:11.5px;">Owner · RJ Neu Properties</span></span><span class="sp-val amber">Decision Maker</span></div>
+        <div class="sp-row"><span class="sp-key"><span style="font-weight:500;color:var(--ink2);">Mark Yessayan</span><br><span style="font-size:11.5px;">CFO · Pacific Mfg</span></span><span class="sp-val">Lease Sign-off</span></div>
+      </div>
+    </div>
+
+    <!-- BUYERS TAB -->
+    <div id="buyers-tab" style="display:none;">
+      <div class="card"><div class="card-hdr"><div class="card-title">Buyer Matches</div><span class="card-action">+ Add Buyer</span></div>
+        <div class="buyer-row"><div class="buyer-avatar">BX</div><div><div class="buyer-name">Blackstone Industrial</div><div class="buyer-sub">SLB buyer · 300K+ SF SGV · Top-tier</div></div><span class="buyer-match high">94% match</span></div>
+        <div class="buyer-row"><div class="buyer-avatar">PL</div><div><div class="buyer-name">Prologis</div><div class="buyer-sub">Core buyer · SGV strategy · LOI ready</div></div><span class="buyer-match high">89% match</span></div>
+        <div class="buyer-row"><div class="buyer-avatar">RX</div><div><div class="buyer-name">Rexford Industrial</div><div class="buyer-sub">Value-add · Active SGV acquirer</div></div><span class="buyer-match med">76% match</span></div>
+        <div class="buyer-row"><div class="buyer-avatar">EA</div><div><div class="buyer-name">EQT Exeter</div><div class="buyer-sub">SLB specialist · Core+ buyer</div></div><span class="buyer-match med">71% match</span></div>
+        <div class="tl-more"><span class="tl-more-text">View all 8 buyer matches →</span></div>
+      </div>
+    </div>
+
+    <!-- FILES TAB -->
+    <div id="files-tab" style="display:none;">
+      <div class="card"><div class="sp-hdr">Files <span class="sp-hdr-a">+ Upload</span></div>
+        <div class="sp-row"><span class="sp-key">LOI_Draft_v2.pdf</span><span class="sp-val blue link">View ↗</span></div>
+        <div class="sp-row"><span class="sp-key">UW_Model_Pacific_Mfg_v3.xlsx</span><span class="sp-val blue link">View ↗</span></div>
+        <div class="sp-row"><span class="sp-key">SLB_Investor_Summary.pdf</span><span class="sp-val blue link">View ↗</span></div>
+        <div class="sp-row"><span class="sp-key">Aerial_4900_Workman.jpg</span><span class="sp-val blue link">View ↗</span></div>
+        <div class="sp-row"><span class="sp-key">SaleComp_Analysis_SGV.xlsx</span><span class="sp-val blue link">View ↗</span></div>
+      </div>
+    </div>
+
+  </div><!-- /inner -->
+</div></div></main>
+
+<script>
+const map=L.map('map',{zoomControl:false,scrollWheelZoom:false,dragging:false,doubleClickZoom:false,attributionControl:false}).setView([34.0058,-117.9775],16);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:20}).addTo(map);
+L.divIcon&&L.marker([34.0058,-117.9775],{icon:L.divIcon({className:'',html:'<div style="width:14px;height:14px;border-radius:50%;background:#6480A2;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.5);"></div>',iconSize:[14,14],iconAnchor:[7,7]})}).addTo(map);
+
+setTimeout(()=>{
+  document.getElementById('prob-fill').style.width='81%';
+  setTimeout(()=>{document.getElementById('vb-deal').style.width='87%';},100);
+  setTimeout(()=>{document.getElementById('vb-stage').style.width='64%';},200);
+  setTimeout(()=>{document.getElementById('vb-owner').style.width='92%';},300);
+},300);
+
+let synthOpen=true;
+function toggleSynth(){synthOpen=!synthOpen;document.getElementById('synth-body').style.display=synthOpen?'':'none';document.getElementById('synth-toggle').textContent=synthOpen?'Hide ▴':'Show ▾';}
+
+const panels=['timeline','uw','property','contacts','buyers','files'];
+function showTab(t){
+  panels.forEach(id=>{const el=document.getElementById(id+'-tab');if(el)el.style.display='none';});
+  const el=document.getElementById(t+'-tab');if(el)el.style.display='';
+  document.querySelectorAll('.tab-item').forEach(e=>e.classList.remove('active'));
+  const i={timeline:0,uw:1,property:2,contacts:3,buyers:4,files:5}[t];
+  document.querySelectorAll('.tab-item')[i]?.classList.add('active');
 }
 
-function DealTabContent({ tab, d, onSelectAccount }) {
-  const tbl = (cols, rows) => (
-    <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--line2)', overflow: 'hidden' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-        <thead>
-          <tr style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--line)' }}>
-            {cols.map(c => <th key={c} style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10.5, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--ink4)', whiteSpace: 'nowrap' }}>{c}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} style={{ borderBottom: i < rows.length - 1 ? '1px solid var(--line2)' : 'none', cursor: 'pointer' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
-              onMouseLeave={e => e.currentTarget.style.background = ''}>
-              {row.map((cell, j) => <td key={j} style={{ padding: '10px 14px', color: j === 0 ? 'var(--ink2)' : 'var(--ink3)', fontFamily: j > 0 ? "'DM Mono',monospace" : 'inherit', fontSize: j > 0 ? 12 : 13 }}>{cell}</td>)}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+function setUWView(v){
+  document.querySelectorAll('.uw-toggle-btn').forEach((b,i)=>b.classList.toggle('active',(v==='quick'&&i===0)||(v==='dashboard'&&i===1)));
+  document.getElementById('uw-quick').style.display=v==='quick'?'':'none';
+  document.getElementById('uw-dashboard').style.display=v==='dashboard'?'':'none';
+}
+function runUW(){document.querySelectorAll('.uw-val').forEach(el=>{el.style.opacity='0.25';setTimeout(()=>el.style.opacity='1',500);});}
 
-  if (tab === 'Property') return (
-    <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--line2)', overflow: 'hidden' }}>
-      <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink2)' }}>{d.address ?? '4900 Workman Mill Rd'}, City of Industry, CA</div>
-        <button style={{ fontSize: 12, color: 'var(--blue)', background: 'none', border: '1px solid var(--blue-bdr)', borderRadius: 6, padding: '5px 11px', cursor: 'pointer', fontFamily: 'inherit' }} onClick={() => { const linkedProp = (properties||[]).find(p => p.id === d.property_id); if (linkedProp) { onSelectProperty?.(linkedProp); onNavigate?.('properties'); } }}>View Property →</button>
-      </div>
-      {[
-        ['Building SF', d.sf ?? '312,000'],
-        ['Market', d.market ?? 'SGV'],
-        ['Deal Type', d.dealType ?? 'Sale-Leaseback'],
-        ['Year Built', '1998'],
-        ['Clear Height', "32'"],
-        ['Dock-High Doors', '30 DH · 4 GL'],
-        ['Truck Court', "185'"],
-        ['APN', '8558-010-004'],
-        ['Zoning', 'M-2'],
-        ['Owner', d.owner ?? 'RJ Neu Properties'],
-      ].map(([k, v]) => (
-        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 18px', borderBottom: '1px solid var(--line2)' }}>
-          <span style={{ fontSize: 12.5, color: 'var(--ink4)' }}>{k}</span>
-          <span style={{ fontSize: 13, color: 'var(--ink2)', fontFamily: "'DM Mono',monospace" }}>{v}</span>
-        </div>
-      ))}
-    </div>
-  );
-  if (tab === 'Contacts') return tbl(
-    ['Name', 'Title', 'Company', 'Role', 'Phone', 'Email'],
-    [
-      ['RJ Neu', 'Principal', d.owner ?? 'RJ Neu Properties', 'Seller', '(626) 555-0177', 'rj@rjneu.com'],
-      ['James Okura', 'EVP Operations', d.tenant ?? 'Pacific Manufacturing', 'Buyer/Tenant', '(626) 555-0133', 'j.okura@pacmfg.com'],
-      ['Briana Corso', 'Broker', 'Colliers International', 'Listing Broker', '(626) 555-0100', 'briana.corso@colliers.com'],
-    ]
-  );
-  if (tab === 'Comps') return tbl(
-    ['Address', 'Type', 'SF', 'Date', 'Price/Rate', 'Cap Rate / Term', 'Notes'],
-    [
-      ['4900 Workman Mill Rd, Industry', 'Sale', '312,000', 'Dec 2024', '$277/SF', '4.9%', 'SLB · Rexford buyer'],
-      ['1800 Workman Mill Rd, Walnut', 'Sale', '186,000', 'Oct 2024', '$277/SF', '5.1%', 'Blackstone'],
-      ['14500 Nelson Ave, Baldwin Park', 'Lease', '142,000', 'Jan 2025', '$1.38/SF/Mo NNN', '5-yr term', 'Pacific Mfg Group'],
-      ['1300 Arrow Hwy, Irwindale', 'Lease', '96,000', 'Mar 2025', '$1.44/SF/Mo NNN', '3-yr term', 'Apex Distribution'],
-    ]
-  );
-  if (tab === 'Buyer Matches') return (
-    <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--line2)', overflow: 'hidden' }}>
-      <div style={{ padding: '11px 16px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--ink3)' }}>Buyer Matches</div>
-        <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 13.5, fontStyle: 'italic', color: 'var(--ink4)' }}>
-          {MOCK_BUYER_MATCHES.length} active buyers · AI-matched to this deal
-        </div>
-      </div>
-      {MOCK_BUYER_MATCHES.map((b, i) => (
-        <div key={b.id}
-          style={{ display: 'flex', alignItems: 'center', padding: '14px 18px', gap: 16, borderBottom: i < MOCK_BUYER_MATCHES.length - 1 ? '1px solid var(--line2)' : 'none', cursor: 'pointer' }}
-          onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
-          onMouseLeave={e => e.currentTarget.style.background = ''}>
-          {/* Score ring */}
-          <div style={{ width: 48, height: 48, borderRadius: '50%', border: '2.5px solid var(--blue2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: 'rgba(78,110,150,0.07)' }}>
-            <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 14, fontWeight: 700, color: 'var(--blue)', lineHeight: 1 }}>{b.match}</span>
-          </div>
-          {/* Company + requirement */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink2)' }}
-              onClick={() => onSelectAccount?.({ id: b.id, name: b.company, type: b.type })}>
-              {b.company}
-            </div>
-            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 13.5, fontStyle: 'italic', color: 'var(--ink4)', marginTop: 2 }}>{b.req}</div>
-          </div>
-          {/* Match % */}
-          <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 28, fontWeight: 700, color: 'var(--blue)', lineHeight: 1, width: 64, textAlign: 'right', flexShrink: 0 }}>{b.match}%</div>
-          {/* Open account link */}
-          <span style={{ fontSize: 12.5, color: 'var(--blue2)', cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'rgba(100,128,162,0.3)', whiteSpace: 'nowrap', flexShrink: 0 }}
-            onClick={() => onSelectAccount?.({ id: b.id, name: b.company, type: b.type })}>
-            Open Account →
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-  if (tab === 'Files') return (
-    <div style={{ background: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--line2)', overflow: 'hidden' }}>
-      {[
-        { name: 'Pacific_Mfg_UW_Model_v3.xlsx', type: 'xlsx', size: '3.2 MB', uploaded: 'Mar 22, 2026', by: 'Briana Corso' },
-        { name: 'LOI_Draft_PacificMfg_v2.docx', type: 'docx', size: '420 KB', uploaded: 'Mar 18, 2026', by: 'Briana Corso' },
-        { name: 'Sale_Comps_SGV_Q1_2026.pdf', type: 'pdf', size: '2.1 MB', uploaded: 'Mar 14, 2026', by: 'Briana Corso' },
-        { name: 'BOV_PacificMfg_WorkmanMill.pdf', type: 'pdf', size: '5.8 MB', uploaded: 'Mar 10, 2026', by: 'Briana Corso' },
-      ].map((f, i, arr) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '11px 16px', borderBottom: i < arr.length - 1 ? '1px solid var(--line2)' : 'none', gap: 12, cursor: 'pointer' }}
-          onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
-          onMouseLeave={e => e.currentTarget.style.background = ''}
-          onClick={() => {}}>
-          <span style={{ fontSize: 18 }}>{f.type === 'xlsx' ? '📊' : '📄'}</span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink2)' }}>{f.name}</div>
-            <div style={{ fontSize: 12, color: 'var(--ink4)', marginTop: 2 }}>{f.size} · {f.uploaded} by {f.by}</div>
-          </div>
-          <span style={{ fontSize: 12, color: 'var(--blue)' }}>↓ Download</span>
-        </div>
-      ))}
-    </div>
-  );
-  return null;
+let logType='call';
+function setLT(btn,type){document.querySelectorAll('.log-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');logType=type;document.getElementById('log-input').placeholder={call:'Log a call...',email:'Log an email...',note:'Add a note...',meet:'Log a meeting...'}[type];}
+function logEntry(){
+  const val=document.getElementById('log-input').value.trim();if(!val)return;
+  const m={call:{cls:'call',ic:'📞'},email:{cls:'email',ic:'✉'},note:{cls:'note',ic:'📝'},meet:{cls:'meet',ic:'🤝'}};
+  const{cls,ic}=m[logType]||m.call;
+  const row=document.createElement('div');row.className='act-row';
+  row.style.cssText='animation:row-in 0.25s ease both;border-left:3px solid var(--blue);';
+  row.innerHTML=`<div class="act-icon ${cls}">${ic}</div><div class="act-body"><div class="act-text">${val}</div><div class="act-meta">Briana Corso · Just now</div></div><div class="act-date">Today</div>`;
+  const list=document.getElementById('act-list');list.insertBefore(row,list.firstChild);
+  document.getElementById('log-input').value='';
+  setTimeout(()=>row.style.borderLeft='',2500);
 }
 
-// ── STYLES ────────────────────────────────────────────────────
-const S = {
-  topbar: { height: 48, background: 'var(--card)', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', padding: 0, position: 'sticky', top: 0, zIndex: 5 },
-  topbarInner: { maxWidth: 1700, width: '100%', display: 'flex', alignItems: 'center', padding: '0 28px', gap: 10 },
-  bc: { fontSize: 13, color: 'var(--ink4)', display: 'flex', alignItems: 'center', gap: 4 },
-  pageWrap: { maxWidth: 1700, minWidth: 1100, margin: '0 auto', paddingBottom: 60 },
-  hero: { height: 260, position: 'relative', overflow: 'hidden' },
-  heroOverlay: { position: 'absolute', inset: 0, background: 'linear-gradient(to top,rgba(10,8,5,0.82) 0%,rgba(10,8,5,0.1) 50%,transparent 100%)', pointerEvents: 'none', zIndex: 400 },
-  heroContent: { position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 500, padding: '20px 28px' },
-  heroTitle: { fontFamily: "'Playfair Display',serif", fontSize: 28, fontWeight: 700, color: '#fff', lineHeight: 1, marginBottom: 7 },
-  heroBadges: { display: 'flex', gap: 6, flexWrap: 'wrap' },
-  hbAmber: { padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 500, border: '1px solid', backdropFilter: 'blur(6px)', background: 'rgba(140,90,4,0.30)', borderColor: 'rgba(220,160,50,0.45)', color: '#FFE0A0' },
-  hbGreen: { padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 500, border: '1px solid', backdropFilter: 'blur(6px)', background: 'rgba(21,102,54,0.30)', borderColor: 'rgba(60,180,110,0.45)', color: '#B8F0D0' },
-  hbBlue: { padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 500, border: '1px solid', backdropFilter: 'blur(6px)', background: 'rgba(78,110,150,0.30)', borderColor: 'rgba(137,168,198,0.45)', color: '#C8E0F8' },
-  actionBar: { background: 'var(--bg2)', borderBottom: '1px solid var(--line)', padding: '10px 28px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  abSep: { width: 1, height: 22, background: 'var(--line)', margin: '0 3px' },
-  btnGhost: { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 7, fontSize: 12.5, fontWeight: 500, cursor: 'pointer', border: '1px solid var(--line)', background: 'var(--card)', color: 'var(--ink3)', fontFamily: 'inherit' },
-  btnBlue: { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 7, fontSize: 12.5, fontWeight: 500, cursor: 'pointer', border: '1px solid var(--blue)', background: 'var(--blue)', color: '#fff', fontFamily: 'inherit' },
-  btnGreen: { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 7, fontSize: 12.5, fontWeight: 500, cursor: 'pointer', border: '1px solid var(--green)', background: 'var(--green)', color: '#fff', fontFamily: 'inherit' },
-  btnLink: { background: 'none', border: 'none', color: 'var(--blue2)', fontSize: 12.5, padding: '7px 10px', cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'rgba(100,128,162,0.3)', fontFamily: 'inherit' },
-  stageTrackWrap: { background: 'var(--card)', borderBottom: '1px solid var(--line)', padding: '0 28px' },
-  stageCrumb: { padding: '10px 14px', fontSize: 12.5, fontWeight: 400, color: 'var(--ink4)', cursor: 'pointer', borderBottom: '2px solid transparent', whiteSpace: 'nowrap', position: 'relative' },
-  stageCrumbActive: { color: 'var(--blue)', borderBottomColor: 'var(--blue2)', fontWeight: 600 },
-  stageCrumbDone: { color: 'var(--ink3)' },
-  inner: { padding: '18px 28px 0' },
-  dealKpis: { display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', background: 'var(--card)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', border: '1px solid var(--line2)', overflow: 'hidden', marginBottom: 16 },
-  dk: { padding: '16px 18px' },
-  dkLbl: { fontSize: 10, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--ink4)', marginBottom: 6 },
-  dkVal: { fontFamily: "'Playfair Display',serif", lineHeight: 1, letterSpacing: '-0.02em' },
-  dkSub: { fontSize: 11.5, color: 'var(--ink4)', marginTop: 3 },
-  tabsNav: { display: 'flex', borderBottom: '1px solid var(--line)', marginBottom: 16 },
-  tabItem: { padding: '10px 15px', fontSize: 13.5, color: 'var(--ink4)', cursor: 'pointer', borderBottom: '2px solid transparent', marginBottom: -1, whiteSpace: 'nowrap' },
-  tabActive: { color: 'var(--blue)', borderBottomColor: 'var(--blue)', fontWeight: 500 },
-  bodyCols: { display: 'grid', gridTemplateColumns: '1fr 290px', gap: 16 },
-  card: { background: 'var(--card)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', border: '1px solid var(--line2)', overflow: 'hidden' },
-  cardHdr: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', borderBottom: '1px solid var(--line)' },
-  cardTitle: { fontSize: 11, fontWeight: 500, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--ink3)', display: 'flex', alignItems: 'center', gap: 6 },
-  cardAction: { fontFamily: "'Cormorant Garamond',serif", fontSize: 13.5, fontStyle: 'italic', color: 'var(--blue2)', cursor: 'pointer' },
-  liveDot: { display: 'inline-block', width: 5, height: 5, borderRadius: '50%', background: 'var(--rust)', animation: 'blink 1.4s infinite' },
-  actRow: { display: 'flex', gap: 12, padding: '11px 16px' },
-  actIcon: { width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11.5, flexShrink: 0, marginTop: 1 },
-  actText: { fontSize: 13.5, color: 'var(--ink2)', lineHeight: 1.4 },
-  actMeta: { fontFamily: "'Cormorant Garamond',serif", fontSize: 12, fontStyle: 'italic', color: 'var(--ink4)', marginTop: 2 },
-  actDate: { fontFamily: "'DM Mono',monospace", fontSize: 10.5, color: 'var(--ink4)', flexShrink: 0, paddingTop: 2 },
-  tlMore: { padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'var(--bg)', borderTop: '1px solid var(--line)' },
-  tlMoreText: { fontFamily: "'Cormorant Garamond',serif", fontSize: 13.5, fontStyle: 'italic', color: 'var(--blue2)' },
-  spHdr: { padding: '10px 16px', borderBottom: '1px solid var(--line)', fontSize: 11, fontWeight: 500, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--ink3)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
-  spHdrA: { fontFamily: "'Cormorant Garamond',serif", fontSize: 13, fontStyle: 'italic', color: 'var(--blue2)', cursor: 'pointer', fontWeight: 400, letterSpacing: 0, textTransform: 'none' },
-  spRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 16px' },
-  spKey: { fontSize: 12.5, color: 'var(--ink4)' },
-  memoCard: { background: 'var(--blue-bg)', border: '1px solid var(--blue-bdr)', borderRadius: 'var(--radius)', overflow: 'hidden' },
-  memoHdr: { padding: '10px 16px', background: 'rgba(78,110,150,0.12)', borderBottom: '1px solid var(--blue-bdr)', fontSize: 11, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--blue)' },
-  memoBody: { padding: '13px 16px', fontSize: 13.5, lineHeight: 1.72, color: 'var(--ink2)' },
-  uwToggle: { padding: '8px 18px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--card)', color: 'var(--ink3)', fontFamily: 'inherit', fontSize: 13, cursor: 'pointer' },
-  uwToggleActive: { background: 'var(--blue)', color: '#fff', borderColor: 'var(--blue)' },
-  uwRun: { padding: '9px 20px', background: 'var(--blue)', color: '#fff', border: 'none', borderRadius: 7, fontFamily: 'inherit', fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 },
-  uwExcel: { padding: '9px 16px', background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green-bdr)', borderRadius: 7, fontFamily: 'inherit', fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 },
-  sensHdr: { padding: '7px 10px', background: 'var(--bg2)', border: '1px solid var(--line)', fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--ink3)', textAlign: 'center' },
-  sensTd: { padding: '7px 10px', border: '1px solid var(--line2)', textAlign: 'center' },
-};
-
-const ICON_BG = { call: 'var(--blue-bg)', note: 'var(--amber-bg)', uw: 'var(--purple-bg)', deal: 'var(--green-bg)', email: 'var(--purple-bg)' };
-const ICON_COLOR = { call: 'var(--blue)', note: 'var(--amber)', uw: 'var(--purple)', deal: 'var(--green)', email: 'var(--purple)' };
-const ICON_EMOJI = { call: '📞', note: '📝', uw: '📊', deal: '◈', email: '✉' };
-
-const MOCK_DEAL = {
-  name: 'Pacific Manufacturing · 4900 Workman Mill Rd',
-  lat: 34.0058, lng: -117.9775,
-  price: '$47.5M', sf: '312,000',
-  commission: '$570K', probability: 81,
-  dealType: 'Sale-Leaseback', stage: 'LOI',
-  market: 'SGV', closeDate: 'Jun 2026',
-  tenant: 'Pacific Manufacturing', owner: 'RJ Neu Properties',
-  inPlaceRent: '$0.82', marketRent: '$0.98',
-};
-
-const MOCK_ACTIVITIES = [
-  { type: 'call', text: '<strong>Called James Okura (EVP Ops)</strong> — LOI counter at $46M vs our $47.5M ask. Recommend accepting to push to PSA.', meta: 'Briana Corso · 18 min call', date: 'Mar 22' },
-  { type: 'uw', text: '<strong>LOI Submitted</strong> — $47.5M · 12-year leaseback · 3% annual bumps. Sent to owner counsel.', meta: 'Briana Corso', date: 'Mar 18' },
-  { type: 'uw', text: '<strong>Underwriting completed</strong> — Going-in cap 4.87%, unlevered IRR 12.4%, levered IRR 18.6%, equity multiple 2.1×.', meta: 'Briana Corso · Excel model v3', date: 'Mar 14' },
-  { type: 'call', text: '<strong>Called RJ Neu (owner)</strong> — Confirmed unencumbered asset, off-market preference, SLB structure receptive.', meta: 'Briana Corso · 22 min', date: 'Mar 10' },
-];
+const steps=['Accept $46M counter — communicate to buyer group by Apr 4 and advance to PSA stage while Dec 2026 urgency window is intact.','Engage title company to confirm unencumbered status and clear any easements before PSA execution.','Circulate updated $46M model to institutional buyer group; confirm lease structure with Pacific Mfg counsel this week.','Follow up with James Okura to confirm LOI acceptance timeline — board decision expected by Apr 8.'];
+let si=0;
+function refreshNext(){si=(si+1)%steps.length;const el=document.getElementById('ai-next-body');el.style.opacity='0.2';setTimeout(()=>{el.textContent=steps[si];el.style.opacity='1';},240);}
+</script>
+</body></html>

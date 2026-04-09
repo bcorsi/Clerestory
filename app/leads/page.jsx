@@ -6,7 +6,7 @@ import SlideDrawer from '@/components/SlideDrawer';
 import LeadDetail from '@/components/LeadDetail';
 import { getCatalystStyle, getScoreRing, CATALYST_TAGS, STAGE_COLORS, PRIORITY_COLORS } from '@/lib/catalyst-constants';
 
-// ── PARSE CATALYSTS ───────────────────────────────────────────────────────────
+// ── PARSE CATALYSTS ───────────────────────────────────────
 function parseCatalysts(raw) {
   if (!raw) return [];
   if (Array.isArray(raw)) {
@@ -76,12 +76,9 @@ export default function LeadsPage() {
     try {
       const sb = createClient();
       const [{ count: t }, { count: h }, { count: p }] = await Promise.all([
-        sb.from('leads').select('*', { count: 'exact', head: true })
-          .neq('stage', 'Converted').neq('stage', 'Killed'),
-        sb.from('leads').select('*', { count: 'exact', head: true })
-          .gte('score', 70).neq('stage', 'Converted').neq('stage', 'Killed'),
-        sb.from('leads').select('*', { count: 'exact', head: true })
-          .in('stage', ['Decision Maker Identified', 'Contacted']),
+        sb.from('leads').select('*', { count: 'exact', head: true }).not('stage', 'in', '("Converted","Killed")'),
+        sb.from('leads').select('*', { count: 'exact', head: true }).gte('score', 70).not('stage', 'in', '("Converted","Killed")'),
+        sb.from('leads').select('*', { count: 'exact', head: true }).in('stage', ['Decision Maker Identified', 'Contacted']),
       ]);
       setKpis({ total: t || 0, hot: h || 0, pipeline: p || 0 });
     } catch {}
@@ -150,7 +147,7 @@ export default function LeadsPage() {
         <div>
           <h1 className="cl-page-title">Lead Gen</h1>
           <p className="cl-page-subtitle">
-            {loading ? 'Loading\u2026' : `${total.toLocaleString()} lead${total !== 1 ? 's' : ''}${activeCatalystFilter ? ` \u00b7 filtered: "${activeCatalystFilter}"` : ''}`}
+            {loading ? 'Loading…' : `${total.toLocaleString()} lead${total !== 1 ? 's' : ''}${activeCatalystFilter ? ` · filtered: "${activeCatalystFilter}"` : ''}`}
           </p>
         </div>
         <div className="cl-page-actions">
@@ -163,7 +160,7 @@ export default function LeadsPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
         {[
           { label: 'Active Leads',    value: kpis.total,    color: 'var(--text-primary)', sub: 'Excluding converted' },
-          { label: 'Hot (Score \u226570)', value: kpis.hot, color: '#DC2626',             sub: 'High catalyst signal' },
+          { label: 'Hot (Score ≥70)', value: kpis.hot,      color: '#C0392B',             sub: 'High catalyst signal' },
           { label: 'In Pipeline',     value: kpis.pipeline, color: '#4E6E96',             sub: 'DM found or contacted' },
           { label: 'Showing',         value: leads.length,  color: 'var(--text-primary)', sub: activeCatalystFilter ? `"${activeCatalystFilter}"` : stageTab === 'All' ? 'All stages' : stageTab },
         ].map(kpi => (
@@ -182,8 +179,8 @@ export default function LeadsPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', marginBottom: 12, background: cs.bg, border: `1px solid ${cs.bdr}`, borderRadius: 8 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: cs.color, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Catalyst Filter:</span>
             <span style={{ fontSize: 12, fontWeight: 600, color: cs.color, fontFamily: 'var(--font-mono)' }}>{activeCatalystFilter}</span>
-            <span style={{ fontSize: 12, color: cs.color, opacity: 0.65 }}>&mdash; {leads.length} lead{leads.length !== 1 ? 's' : ''} matched</span>
-            <button onClick={() => setActiveCatalystFilter(null)} style={{ marginLeft: 'auto', fontSize: 11, color: cs.color, background: 'none', border: `1px solid ${cs.bdr}`, borderRadius: 5, padding: '3px 10px', cursor: 'pointer', fontFamily: 'var(--font-ui)' }}>&times; Clear</button>
+            <span style={{ fontSize: 12, color: cs.color, opacity: 0.65 }}>— {leads.length} lead{leads.length !== 1 ? 's' : ''} matched</span>
+            <button onClick={() => setActiveCatalystFilter(null)} style={{ marginLeft: 'auto', fontSize: 11, color: cs.color, background: 'none', border: `1px solid ${cs.bdr}`, borderRadius: 5, padding: '3px 10px', cursor: 'pointer', fontFamily: 'var(--font-ui)' }}>✕ Clear</button>
           </div>
         );
       })()}
@@ -192,10 +189,26 @@ export default function LeadsPage() {
       <div className="cl-tabs" style={{ marginBottom: 12 }}>
         {STAGE_TABS.map(tab => {
           const isActive = stageTab === tab;
-          const st = tab !== 'All' ? STAGE_COLORS[tab] : null;
+          const stageStyle = tab !== 'All' ? STAGE_COLORS[tab] : null;
           return (
-            <button key={tab} onClick={() => { setStageTab(tab); setPage(0); }}
-              style={{ padding: '8px 14px', fontSize: 13, fontWeight: isActive ? 600 : 400, fontFamily: 'var(--font-ui)', cursor: 'pointer', background: 'none', border: 'none', borderBottom: isActive ? `2px solid ${st ? st.color : 'var(--blue)'}` : '2px solid transparent', color: isActive ? (st ? st.color : 'var(--blue)') : 'var(--text-tertiary)', marginBottom: -1, whiteSpace: 'nowrap', transition: 'color 120ms ease, border-color 120ms ease' }}>
+            <button
+              key={tab}
+              onClick={() => { setStageTab(tab); setPage(0); }}
+              style={{
+                padding: '8px 14px',
+                fontSize: 13,
+                fontWeight: 400,
+                fontFamily: 'var(--font-ui)',
+                cursor: 'pointer',
+                background: 'none',
+                border: 'none',
+                borderBottom: isActive ? `2px solid ${stageStyle ? stageStyle.color : 'var(--blue)'}` : '2px solid transparent',
+                color: isActive ? (stageStyle ? stageStyle.color : 'var(--blue)') : 'var(--text-tertiary)',
+                marginBottom: -1,
+                whiteSpace: 'nowrap',
+                transition: 'color 120ms ease, border-color 120ms ease',
+              }}
+            >
               {tab}
             </button>
           );
@@ -204,7 +217,12 @@ export default function LeadsPage() {
 
       {/* SEARCH */}
       <div className="cl-filter-bar">
-        <input className="cl-search-input" placeholder="Search name, company, address, city\u2026" value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} />
+        <input
+          className="cl-search-input"
+          placeholder="Search name, company, address, city…"
+          value={search}
+          onChange={e => { setSearch(e.target.value); setPage(0); }}
+        />
         {(search || activeCatalystFilter) && (
           <button className="cl-btn cl-btn-ghost cl-btn-sm" onClick={() => { setSearch(''); setActiveCatalystFilter(null); setPage(0); }}>Clear all</button>
         )}
@@ -216,30 +234,30 @@ export default function LeadsPage() {
           <thead>
             <tr>
               {[
-                { key: 'score',          label: 'Score',    width: 72  },
-                { key: 'lead_name',      label: 'Lead',     width: null },
-                { key: 'city',           label: 'City',     width: 110 },
-                { key: 'stage',          label: 'Stage',    width: 200 },
-                { key: 'building_sf',    label: 'Bldg SF',  width: 90  },
-                { key: 'land_acres',     label: 'Land AC',  width: 76  },
-                { key: 'clear_height',   label: 'Clear Ht', width: 74  },
-                { key: 'dock_doors',     label: 'DH Doors', width: 74  },
-                { key: 'priority',       label: 'Priority', width: 100 },
-                { key: 'catalyst_tags',  label: 'Catalysts',width: 220 },
-                { key: 'follow_up_date', label: 'Next F/U', width: 88  },
+                { key: 'score',          label: 'Score',    width: 72,  sortable: true  },
+                { key: 'lead_name',      label: 'Lead',     width: null, sortable: true  },
+                { key: 'city',           label: 'City',     width: 110, sortable: true  },
+                { key: 'stage',          label: 'Stage',    width: 190, sortable: true  },
+                { key: 'building_sf',    label: 'Bldg SF',  width: 90,  sortable: true  },
+                { key: 'land_acres',     label: 'Land AC',  width: 76,  sortable: true  },
+                { key: 'clear_height',   label: 'Clear Ht', width: 74,  sortable: true  },
+                { key: 'dock_doors',     label: 'DH Doors', width: 74,  sortable: true  },
+                { key: 'priority',       label: 'Priority', width: 90,  sortable: false },
+                { key: 'catalyst_tags',  label: 'Catalysts',width: 220, sortable: false },
+                { key: 'follow_up_date', label: 'Next F/U', width: 88,  sortable: true  },
               ].map(col => (
                 <th key={col.key}
-                  style={{ width: col.width || undefined, cursor: col.key !== 'catalyst_tags' && col.key !== 'priority' ? 'pointer' : 'default', background: 'rgba(0,0,0,0.02)', fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', color: 'var(--text-tertiary)', textTransform: 'uppercase', padding: '11px 14px', textAlign: 'left', borderBottom: '1px solid var(--card-border)', whiteSpace: 'nowrap', userSelect: 'none' }}
-                  onClick={() => col.key !== 'catalyst_tags' && col.key !== 'priority' && handleSort(col.key)}
+                  style={{ width: col.width || undefined, cursor: col.sortable ? 'pointer' : 'default', background: 'rgba(0,0,0,0.02)', fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', color: 'var(--text-tertiary)', textTransform: 'uppercase', padding: '11px 14px', textAlign: 'left', borderBottom: '1px solid var(--card-border)', whiteSpace: 'nowrap', userSelect: 'none' }}
+                  onClick={() => col.sortable && handleSort(col.key)}
                 >
-                  {col.label}{sortBy === col.key && <span style={{ marginLeft: 4, opacity: 0.5 }}>{sortDir === 'asc' ? '\u2191' : '\u2193'}</span>}
+                  {col.label}{col.sortable && sortBy === col.key && <span style={{ marginLeft: 4, opacity: 0.5 }}>{sortDir === 'asc' ? '↑' : '↓'}</span>}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={11}><div className="cl-loading" style={{ padding: 40 }}><div className="cl-spinner" />Loading leads\u2026</div></td></tr>
+              <tr><td colSpan={11}><div className="cl-loading" style={{ padding: 40 }}><div className="cl-spinner" />Loading leads…</div></td></tr>
             ) : leads.length === 0 ? (
               <tr><td colSpan={11}><div className="cl-empty" style={{ padding: 48 }}>
                 <div className="cl-empty-label">No leads found</div>
@@ -260,11 +278,11 @@ export default function LeadsPage() {
       {totalPages > 1 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 }}>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-tertiary)' }}>
-            {page * PAGE_SIZE + 1}&ndash;{Math.min((page + 1) * PAGE_SIZE, total)} of {total.toLocaleString()}
+            {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total.toLocaleString()}
           </span>
           <div style={{ display: 'flex', gap: 6 }}>
-            <button className="cl-btn cl-btn-secondary cl-btn-sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>&larr; Prev</button>
-            <button className="cl-btn cl-btn-secondary cl-btn-sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>Next &rarr;</button>
+            <button className="cl-btn cl-btn-secondary cl-btn-sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>← Prev</button>
+            <button className="cl-btn cl-btn-secondary cl-btn-sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>Next →</button>
           </div>
         </div>
       )}
@@ -275,7 +293,7 @@ export default function LeadsPage() {
         onClose={handleClose}
         fullPageHref={selectedId ? `/leads/${selectedId}` : undefined}
         title={selectedLead?.lead_name || selectedLead?.company || ''}
-        subtitle={selectedLead ? [selectedLead.city, selectedLead.building_sf ? `${Number(selectedLead.building_sf).toLocaleString()} SF` : null].filter(Boolean).join(' \u00b7 ') : ''}
+        subtitle={selectedLead ? [selectedLead.city, selectedLead.building_sf ? `${Number(selectedLead.building_sf).toLocaleString()} SF` : null].filter(Boolean).join(' · ') : ''}
         badge={selectedLead?.stage ? { label: normalizeStage(selectedLead.stage), color: 'blue' } : undefined}
       >
         {selectedId && selectedLead && (
@@ -286,24 +304,19 @@ export default function LeadsPage() {
           />
         )}
       </SlideDrawer>
-
       {showImport && <ImportCSVModal onClose={() => setShowImport(false)} onImported={() => { loadLeads(); loadKpis(); }} />}
     </div>
   );
 }
 
-// ── LEAD ROW ─────────────────────────────────────────────────────────────────
+// ── LEAD ROW ──────────────────────────────────────────────
 function LeadRow({ lead, selected, activeCatalystFilter, onClick, onCatalystClick }) {
   const catalysts = parseCatalysts(lead.catalyst_tags);
   const { color: scoreColor, grade } = getScoreRing(lead.score || 0);
   const score = lead.score || 0;
   const stage = normalizeStage(lead.stage);
   const isOverdue = lead.follow_up_date && new Date(lead.follow_up_date) < new Date();
-
-  // System 3: outlined pill from STAGE_COLORS
   const stageStyle = STAGE_COLORS[stage] || STAGE_COLORS['New'];
-
-  // System 2: square chip + left border from PRIORITY_COLORS
   const priStyle = PRIORITY_COLORS[lead.priority] || PRIORITY_COLORS['Medium'];
 
   return (
@@ -312,66 +325,66 @@ function LeadRow({ lead, selected, activeCatalystFilter, onClick, onCatalystClic
       onMouseEnter={e => { if (!selected) e.currentTarget.style.background = 'rgba(78,110,150,0.025)'; }}
       onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
     >
-      {/* Score — System 1: circular ring, heat scale */}
+      {/* Score */}
       <td style={{ padding: '10px 14px', verticalAlign: 'middle' }}>
         {score > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
             <ScoreRing score={score} />
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: scoreColor }}>{grade}</span>
           </div>
-        ) : <span style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>&mdash;</span>}
+        ) : <span style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>—</span>}
       </td>
 
-      {/* Lead name */}
+      {/* Lead */}
       <td style={{ padding: '10px 14px', verticalAlign: 'middle' }}>
-        <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-primary)' }}>{lead.lead_name || lead.company || '\u2014'}</div>
+        <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-primary)' }}>{lead.lead_name || lead.company || '—'}</div>
         {lead.address && <div style={{ fontSize: 11.5, color: 'var(--text-tertiary)', marginTop: 1 }}>{lead.address}</div>}
         {lead.owner_type && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 1, fontStyle: 'italic' }}>{lead.owner_type}</div>}
       </td>
 
       {/* City */}
       <td style={{ padding: '10px 14px', verticalAlign: 'middle', fontSize: 12.5, color: 'var(--text-secondary)' }}>
-        {lead.city || '\u2014'}
+        {lead.city || '—'}
         {lead.market && <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)', marginTop: 1, fontFamily: 'var(--font-mono)' }}>{lead.market}</div>}
       </td>
 
-      {/* Stage — System 3: outlined pill */}
+      {/* Stage */}
       <td style={{ padding: '10px 14px', verticalAlign: 'middle' }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', fontFamily: 'var(--font-mono)', fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap', ...stageStyle }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 9px', borderRadius: 5, fontSize: 10.5, fontWeight: 500, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap', ...stageStyle }}>
           {stage}
         </span>
       </td>
 
       {/* Bldg SF */}
       <td style={{ padding: '10px 14px', verticalAlign: 'middle', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>
-        {lead.building_sf ? Number(lead.building_sf).toLocaleString() : '\u2014'}
+        {lead.building_sf ? Number(lead.building_sf).toLocaleString() : '—'}
       </td>
 
       {/* Land AC */}
       <td style={{ padding: '10px 14px', verticalAlign: 'middle', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>
-        {lead.land_acres ? Number(lead.land_acres).toFixed(2) : '\u2014'}
+        {lead.land_acres ? Number(lead.land_acres).toFixed(2) : '—'}
       </td>
 
       {/* Clear Ht */}
       <td style={{ padding: '10px 14px', verticalAlign: 'middle', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>
-        {lead.clear_height ? `${lead.clear_height}'` : '\u2014'}
+        {lead.clear_height ? `${lead.clear_height}'` : '—'}
       </td>
 
       {/* DH Doors */}
       <td style={{ padding: '10px 14px', verticalAlign: 'middle', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>
-        {lead.dock_doors || '\u2014'}
+        {lead.dock_doors || '—'}
       </td>
 
-      {/* Priority — System 2: square chip + left border */}
+      {/* Priority */}
       <td style={{ padding: '10px 14px', verticalAlign: 'middle' }}>
         {lead.priority && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', ...priStyle }}>
+          <span style={{ display: 'inline-flex', padding: '2px 7px', borderRadius: 4, fontSize: 10, fontWeight: 600, fontFamily: 'var(--font-mono)', ...priStyle }}>
             {lead.priority}
           </span>
         )}
       </td>
 
-      {/* Catalysts — System 4: square chip + colored dot */}
+      {/* Catalysts — CLICKABLE */}
       <td style={{ padding: '10px 14px', verticalAlign: 'middle' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
           {catalysts.slice(0, 3).map((c, i) => {
@@ -380,26 +393,10 @@ function LeadRow({ lead, selected, activeCatalystFilter, onClick, onCatalystClic
             const cs = getCatalystStyle(tagName);
             const isActive = activeCatalystFilter === tagName;
             return (
-              <span key={i}
-                onClick={() => onCatalystClick(tagName)}
+              <span key={i} onClick={() => onCatalystClick(tagName)}
                 title={`Filter by "${tagName}"`}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 4,
-                  padding: '2px 7px', borderRadius: 4,
-                  fontSize: 10, fontWeight: 500, whiteSpace: 'nowrap',
-                  fontFamily: 'var(--font-mono)', cursor: 'pointer',
-                  transition: 'all 120ms ease',
-                  border: `1px solid ${cs.bdr}`,
-                  background: isActive ? cs.color : cs.bg,
-                  color: isActive ? '#fff' : cs.color,
-                }}
+                style={{ display: 'inline-flex', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 500, whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)', cursor: 'pointer', transition: 'all 120ms ease', border: `1px solid ${cs.bdr}`, background: isActive ? cs.color : cs.bg, color: isActive ? '#fff' : cs.color }}
               >
-                {/* Dot prefix — System 4 identifier */}
-                <span style={{
-                  width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
-                  background: isActive ? 'rgba(255,255,255,0.8)' : cs.dot,
-                  display: 'inline-block',
-                }} />
                 {tagName}
               </span>
             );
@@ -409,7 +406,7 @@ function LeadRow({ lead, selected, activeCatalystFilter, onClick, onCatalystClic
               +{catalysts.length - 3}
             </span>
           )}
-          {catalysts.length === 0 && <span style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>\u2014</span>}
+          {catalysts.length === 0 && <span style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>—</span>}
         </div>
       </td>
 
@@ -417,16 +414,15 @@ function LeadRow({ lead, selected, activeCatalystFilter, onClick, onCatalystClic
       <td style={{ padding: '10px 14px', verticalAlign: 'middle' }}>
         {lead.follow_up_date ? (
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: isOverdue ? '#C0392B' : 'var(--text-secondary)', fontWeight: isOverdue ? 600 : 400 }}>
-            {isOverdue && '\u26a0 '}{new Date(lead.follow_up_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            {isOverdue && '⚠ '}{new Date(lead.follow_up_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </span>
-        ) : <span style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>\u2014</span>}
+        ) : <span style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>—</span>}
       </td>
     </tr>
   );
 }
 
-// ── SCORE RING ────────────────────────────────────────────────────────────────
-// System 1: circular SVG ring, heat-scale colors
+// ── SCORE RING ────────────────────────────────────────────
 function ScoreRing({ score }) {
   const { color } = getScoreRing(score);
   const r = 13, circ = 2 * Math.PI * r, filled = (score / 100) * circ;
@@ -442,7 +438,7 @@ function ScoreRing({ score }) {
   );
 }
 
-// ── IMPORT CSV MODAL ──────────────────────────────────────────────────────────
+// ── IMPORT CSV MODAL ──────────────────────────────────────
 function ImportCSVModal({ onClose, onImported }) {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState([]);
@@ -451,19 +447,25 @@ function ImportCSVModal({ onClose, onImported }) {
   const [done, setDone] = useState(0);
   const [error, setError] = useState('');
 
+  // Expected columns → leads table mapping
   const FIELD_MAP = {
     'lead_name': 'lead_name', 'name': 'lead_name', 'lead name': 'lead_name',
     'company': 'company', 'company name': 'company',
     'address': 'address', 'street': 'address',
-    'city': 'city', 'market': 'market',
+    'city': 'city',
+    'market': 'market',
     'building_sf': 'building_sf', 'building sf': 'building_sf', 'sf': 'building_sf', 'sq ft': 'building_sf',
     'land_acres': 'land_acres', 'land acres': 'land_acres', 'acres': 'land_acres',
     'clear_height': 'clear_height', 'clear height': 'clear_height', 'clear ht': 'clear_height',
     'dock_doors': 'dock_doors', 'dock doors': 'dock_doors', 'docks': 'dock_doors',
     'year_built': 'year_built', 'year built': 'year_built',
-    'zoning': 'zoning', 'owner_type': 'owner_type', 'owner type': 'owner_type',
-    'stage': 'stage', 'priority': 'priority', 'notes': 'notes',
-    'phone': 'phone', 'email': 'email',
+    'zoning': 'zoning',
+    'owner_type': 'owner_type', 'owner type': 'owner_type',
+    'stage': 'stage',
+    'priority': 'priority',
+    'notes': 'notes',
+    'phone': 'phone',
+    'email': 'email',
     'decision_maker': 'decision_maker', 'decision maker': 'decision_maker', 'contact': 'decision_maker',
   };
 
@@ -480,20 +482,25 @@ function ImportCSVModal({ onClose, onImported }) {
   }
 
   function handleFile(f) {
-    setFile(f); setError('');
+    setFile(f);
+    setError('');
     const reader = new FileReader();
     reader.onload = e => {
       try {
         const { hdrs, rows } = parseCSV(e.target.result);
-        setHeaders(hdrs); setPreview(rows.slice(0, 5));
-      } catch { setError('Could not parse CSV \u2014 check format and try again.'); }
+        setHeaders(hdrs);
+        setPreview(rows.slice(0, 5));
+      } catch (err) {
+        setError('Could not parse CSV — check format and try again.');
+      }
     };
     reader.readAsText(f);
   }
 
   async function handleImport() {
     if (!file) return;
-    setImporting(true); setDone(0);
+    setImporting(true);
+    setDone(0);
     try {
       const sb = createClient();
       const reader = new FileReader();
@@ -505,63 +512,115 @@ function ImportCSVModal({ onClose, onImported }) {
           Object.entries(row).forEach(([k, v]) => {
             const mapped = FIELD_MAP[k.toLowerCase()];
             if (mapped && v) {
-              if (['building_sf', 'dock_doors', 'year_built'].includes(mapped)) record[mapped] = parseInt(v.replace(/,/g, '')) || null;
-              else if (['land_acres', 'clear_height'].includes(mapped)) record[mapped] = parseFloat(v) || null;
-              else record[mapped] = v;
+              if (['building_sf', 'dock_doors', 'grade_doors', 'year_built', 'parking_spaces'].includes(mapped)) {
+                record[mapped] = parseInt(v.replace(/,/g, '')) || null;
+              } else if (['land_acres', 'clear_height'].includes(mapped)) {
+                record[mapped] = parseFloat(v) || null;
+              } else {
+                record[mapped] = v;
+              }
             }
           });
           if (!record.lead_name && !record.company) continue;
           if (!record.lead_name) record.lead_name = record.company;
           await sb.from('leads').insert(record);
-          count++; setDone(count);
+          count++;
+          setDone(count);
         }
-        onImported?.(); onClose();
+        onImported?.();
+        onClose();
       };
       reader.readAsText(file);
     } catch (err) {
-      setError('Import failed: ' + err.message); setImporting(false);
+      setError('Import failed: ' + err.message);
+      setImporting(false);
     }
   }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div style={{ background: 'var(--card-bg)', borderRadius: 12, border: '1px solid var(--card-border)', boxShadow: '0 8px 40px rgba(0,0,0,0.18)', width: '100%', maxWidth: 640, maxHeight: '80vh', overflow: 'auto' }}>
+        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--card-border)' }}>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 600 }}>Import Leads from CSV</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>Import Leads from CSV</div>
             <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>Columns: lead_name, company, address, city, market, building_sf, clear_height, dock_doors, stage, priority, notes</div>
           </div>
-          <button onClick={onClose} style={{ fontSize: 20, color: 'var(--text-tertiary)', lineHeight: 1 }}>&times;</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--text-tertiary)', lineHeight: 1 }}>×</button>
         </div>
-        <div style={{ padding: 20 }}>
-          <div onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+
+        <div style={{ padding: '20px' }}>
+          {/* Drop zone */}
+          <div
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
             onClick={() => document.getElementById('csv-file-input').click()}
-            style={{ border: '2px dashed var(--card-border)', borderRadius: 8, padding: '32px 20px', textAlign: 'center', cursor: 'pointer', background: file ? 'rgba(78,110,150,0.04)' : 'transparent', marginBottom: 16 }}>
+            style={{ border: '2px dashed var(--card-border)', borderRadius: 8, padding: '32px 20px', textAlign: 'center', cursor: 'pointer', background: file ? 'rgba(78,110,150,0.04)' : 'transparent', transition: 'background 120ms ease', marginBottom: 16 }}
+          >
             <input id="csv-file-input" type="file" accept=".csv" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) handleFile(e.target.files[0]); }} />
             {file ? (
-              <div><div style={{ fontSize: 24, marginBottom: 6 }}>📄</div><div style={{ fontSize: 14, fontWeight: 500 }}>{file.name}</div><div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>{preview.length}+ rows \u00b7 click to change</div></div>
+              <div>
+                <div style={{ fontSize: 24, marginBottom: 6 }}>📄</div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>{file.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>{preview.length}+ rows detected · click to change</div>
+              </div>
             ) : (
-              <div><div style={{ fontSize: 28, marginBottom: 8 }}>📂</div><div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Drop CSV file here or click to browse</div></div>
+              <div>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
+                <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Drop CSV file here or click to browse</div>
+                <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>Accepts .csv files</div>
+              </div>
             )}
           </div>
+
           {error && <div style={{ padding: '8px 12px', background: 'rgba(184,55,20,0.08)', border: '1px solid rgba(184,55,20,0.2)', borderRadius: 6, color: 'var(--rust)', fontSize: 12, marginBottom: 12 }}>{error}</div>}
+
+          {/* Preview table */}
           {preview.length > 0 && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-mono)', marginBottom: 8 }}>Preview (first 5 rows)</div>
               <div style={{ overflowX: 'auto', borderRadius: 6, border: '1px solid var(--card-border)' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-                  <thead><tr>{headers.map(h => <th key={h} style={{ padding: '6px 10px', background: 'rgba(0,0,0,0.03)', borderBottom: '1px solid var(--card-border)', textAlign: 'left', fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600, color: FIELD_MAP[h] ? 'var(--blue)' : 'var(--text-tertiary)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}{FIELD_MAP[h] ? ' \u2713' : ' \u2014'}</th>)}</tr></thead>
-                  <tbody>{preview.map((row, i) => <tr key={i} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>{headers.map(h => <td key={h} style={{ padding: '5px 10px', color: 'var(--text-secondary)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row[h] || '\u2014'}</td>)}</tr>)}</tbody>
+                  <thead>
+                    <tr>
+                      {headers.map(h => (
+                        <th key={h} style={{ padding: '6px 10px', background: 'rgba(0,0,0,0.03)', borderBottom: '1px solid var(--card-border)', textAlign: 'left', fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600, color: FIELD_MAP[h] ? 'var(--blue)' : 'var(--text-tertiary)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                          {h}{FIELD_MAP[h] ? ' ✓' : ' —'}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.map((row, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+                        {headers.map(h => (
+                          <td key={h} style={{ padding: '5px 10px', color: 'var(--text-secondary)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {row[h] || <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
                 </table>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 6 }}>
+                Columns marked ✓ will be imported. Unrecognized columns will be skipped.
               </div>
             </div>
           )}
-          {importing && <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', color: 'var(--blue)', fontSize: 13 }}><div className="cl-spinner" />Importing\u2026 {done} lead{done !== 1 ? 's' : ''} added</div>}
+
+          {importing && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', color: 'var(--blue)', fontSize: 13 }}>
+              <div className="cl-spinner" />Importing… {done} lead{done !== 1 ? 's' : ''} added
+            </div>
+          )}
         </div>
+
+        {/* Footer */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '14px 20px', borderTop: '1px solid var(--card-border)', background: 'rgba(0,0,0,0.01)' }}>
           <button className="cl-btn cl-btn-secondary" onClick={onClose}>Cancel</button>
           <button className="cl-btn cl-btn-primary" onClick={handleImport} disabled={!file || importing}>
-            {importing ? `Importing ${done}\u2026` : `Import ${preview.length > 0 ? preview.length + '+' : ''} Leads`}
+            {importing ? `Importing ${done}…` : `Import ${preview.length > 0 ? preview.length + '+' : ''} Leads`}
           </button>
         </div>
       </div>

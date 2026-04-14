@@ -158,24 +158,19 @@ export default function LeadDetail({ id, inline=false, fullPage=false }) {
       if(l.ai_synthesis) setSynthesis(l.ai_synthesis);
 
       const subm = l.submarket||l.city;
-      const [
-        {data:acts},
-        {data:ctcts},
-        {data:dls},
-        {data:lc},
-        {data:sc},
-        {data:fls},
-        {data:bm},
-        {data:warn},
-      ] = await Promise.all([
-        sb.from('activities').select('*').eq('lead_id',id).order('activity_date',{ascending:false}).limit(30),
-        sb.from('contacts').select('id,first_name,last_name,title,company,phone,email,is_decision_maker').eq('lead_id',id).limit(10),
-        sb.from('deals').select('id,deal_name,stage,deal_value,close_probability,created_at').eq('lead_id',id).limit(5),
-        subm ? sb.from('lease_comps').select('id,address,city,rsf,rate,lease_type,start_date,tenant_name,gross_equivalent').eq('city',l.city||'').order('start_date',{ascending:false}).limit(8) : Promise.resolve({data:[]}),
-        subm ? sb.from('sale_comps').select('id,address,city,building_sf,sale_price,sale_date,buyer_type,is_off_market').ilike('city',`%${l.city||''}%`).order('sale_date',{ascending:false}).limit(6) : Promise.resolve({data:[]}),
-        sb.from('file_attachments').select('*').eq('lead_id',id).order('created_at',{ascending:false}).limit(10),
-        subm ? sb.from('submarket_benchmarks').select('*').eq('submarket',subm).single() : Promise.resolve({data:null}),
-        sb.from('warn_notices').select('id,company,notice_date,employees').eq('matched_property_id',l.property_id||'00000000-0000-0000-0000-000000000000').limit(1).single(),
+      // Safe individual fetches — each wrapped so one failure doesn't kill the page
+      const safe = async (fn) => { try { const r = await fn(); return r.data||null; } catch(e) { return null; } };
+      const safeArr = async (fn) => { try { const r = await fn(); return r.data||[]; } catch(e) { return []; } };
+
+      const [acts, ctcts, dls, lc, sc, fls, bm, warn] = await Promise.all([
+        safeArr(()=>sb.from('activities').select('*').eq('lead_id',id).order('activity_date',{ascending:false}).limit(30)),
+        safeArr(()=>sb.from('contacts').select('id,first_name,last_name,title,company,phone,email').eq('lead_id',id).limit(10)),
+        safeArr(()=>sb.from('deals').select('id,deal_name,stage,deal_value,close_probability,created_at').eq('lead_id',id).limit(5)),
+        l.city ? safeArr(()=>sb.from('lease_comps').select('id,address,city,rsf,rate,lease_type,start_date,tenant_name,gross_equivalent').ilike('city',`%${l.city}%`).order('start_date',{ascending:false}).limit(8)) : [],
+        l.city ? safeArr(()=>sb.from('sale_comps').select('id,address,city,building_sf,sale_price,sale_date,buyer_type,is_off_market').ilike('city',`%${l.city}%`).order('sale_date',{ascending:false}).limit(6)) : [],
+        safeArr(()=>sb.from('file_attachments').select('id,file_name,file_url,file_type,created_at').eq('lead_id',id).order('created_at',{ascending:false}).limit(10)),
+        subm ? safe(()=>sb.from('submarket_benchmarks').select('*').eq('submarket',subm).single()) : null,
+        l.property_id ? safe(()=>sb.from('warn_notices').select('id,company,notice_date,employees').eq('matched_property_id',l.property_id).limit(1).single()) : null,
       ]);
 
       setActivities(acts||[]);
@@ -188,7 +183,9 @@ export default function LeadDetail({ id, inline=false, fullPage=false }) {
       setWarnMatch(warn||null);
     } catch(e) {
       console.error('LeadDetail load error:',e);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function updateStage(newStage) {
@@ -243,9 +240,9 @@ ${warnMatch?`WARN Filing: ${warnMatch.company} — ${warnMatch.employees} employ
 
 Write a concise 3-4 sentence deal intelligence brief. Cover: (1) what makes this owner a target right now and what the key urgency signal is, (2) what deal type makes most sense (SLB, disposition, covered land) and why, (3) the single most important next action. Professional broker voice. No headers. No fluff.`;
 
-      const res = await fetch('/api/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'user',content:prompt}]})});
+      const res = await fetch('/api/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt, mode:'synthesis'})});
       const json = await res.json();
-      const text = json?.content?.[0]?.text||json?.text||'';
+      const text = json?.result||json?.content?.[0]?.text||json?.text||'';
       setSynthesis(text);
       const sb = createClient();
       await sb.from('leads').update({ai_synthesis:text}).eq('id',id);

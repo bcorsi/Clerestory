@@ -32,19 +32,22 @@ function fmtShort(d) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-US', { month:'short', day:'numeric' });
 }
+function fmtSF(n) {
+  if (!n) return '';
+  return Number(n).toLocaleString();
+}
 
-// ── CORRECT 6-FACTOR BUILDING SCORE (per scores_v6 spec) ──
+// CORRECT 6-FACTOR BUILDING SCORE per scores_v6
 function calcBuildingScore(l) {
   const ch   = parseFloat(l.clear_height) || 0;
   const dd   = parseInt(l.dock_doors) || 0;
   const bsf  = parseInt(l.building_sf) || 0;
-  const tc   = parseFloat(l.truck_court) || 0;
+  const tc   = parseFloat(l.truck_court_depth || l.truck_court) || 0;
   const amps = parseFloat(l.power_amps) || 0;
   const yr   = parseInt(l.year_built) || 0;
   const now  = new Date().getFullYear();
   const age  = yr > 0 ? now - yr : null;
-  const offPct = l.office_pct != null ? parseFloat(l.office_pct)
-    : (l.office_sf && bsf ? (parseFloat(l.office_sf) / bsf) * 100 : null);
+  const offPct = l.office_pct != null ? parseFloat(l.office_pct) : null;
   const dhRatio = bsf > 0 && dd > 0 ? (dd / bsf) * 10000 : 0;
 
   const clearPts  = ch >= 40 ? 25 : ch >= 36 ? 20 : ch >= 32 ? 15 : ch >= 28 ? 10 : ch >= 24 ? 5 : ch > 0 ? 2 : 0;
@@ -59,24 +62,48 @@ function calcBuildingScore(l) {
   return {
     total, grade,
     breakdown: [
-      { label:'Clear Height', pts:clearPts,  max:25, filled: ch > 0 },
-      { label:'DH Ratio',     pts:dhPts,     max:20, filled: dhRatio > 0 },
-      { label:'Truck Court',  pts:truckPts,  max:20, filled: tc > 0 },
-      { label:'Office %',     pts:officePts, max:15, filled: offPct !== null },
-      { label:'Power',        pts:powerPts,  max:10, filled: amps > 0 },
-      { label:'Vintage',      pts:agePts,    max:10, filled: age !== null },
+      { label:'Clear Height', pts:clearPts,  max:25 },
+      { label:'DH Ratio',     pts:dhPts,     max:20 },
+      { label:'Truck Court',  pts:truckPts,  max:20 },
+      { label:'Office %',     pts:officePts, max:15 },
+      { label:'Power',        pts:powerPts,  max:10 },
+      { label:'Vintage',      pts:agePts,    max:10 },
     ]
   };
 }
 
-// ── WARN countdown ──
 function warnDaysLeft(filedDate) {
   if (!filedDate) return null;
-  const filed = new Date(filedDate);
-  const deadline = new Date(filed);
+  const deadline = new Date(filedDate);
   deadline.setDate(deadline.getDate() + 60);
-  const diff = Math.ceil((deadline - new Date()) / (1000 * 60 * 60 * 24));
-  return diff;
+  return Math.ceil((deadline - new Date()) / (1000 * 60 * 60 * 24));
+}
+
+function makeForm(l) {
+  return {
+    lead_name: l?.lead_name||'', company: l?.company||'', address: l?.address||'',
+    city: l?.city||'', market: l?.market||'', source: l?.source||'',
+    building_sf: l?.building_sf ? fmtSF(l.building_sf) : '',
+    land_acres: l?.land_acres||'', clear_height: l?.clear_height||'',
+    eave_height: l?.eave_height||'', dock_doors: l?.dock_doors||'',
+    grade_doors: l?.grade_doors||'', truck_court_depth: l?.truck_court_depth||l?.truck_court||'',
+    trailer_spots: l?.trailer_spots||'', yard_depth: l?.yard_depth||'',
+    year_built: l?.year_built||'', power_amps: l?.power_amps||'',
+    power_volts: l?.power_volts||'', office_pct: l?.office_pct||'',
+    office_sf: l?.office_sf ? fmtSF(l.office_sf) : '',
+    column_spacing: l?.column_spacing||'', bay_depth: l?.bay_depth||'',
+    parking_spaces: l?.parking_spaces||'', lot_sf: l?.lot_sf ? fmtSF(l.lot_sf) : '',
+    skylight_pct: l?.skylight_pct||'', zoning: l?.zoning||'',
+    prop_type: l?.prop_type||'', sprinklers: l?.sprinklers||'',
+    evap_cooler: l?.evap_cooler||false, rail_served: l?.rail_served||false,
+    stage: l?.stage||'New', priority: l?.priority||'Medium',
+    owner_type: l?.owner_type||'', decision_maker: l?.decision_maker||'',
+    phone: l?.phone||'', email: l?.email||'',
+    lat: l?.lat||'', lng: l?.lng||'',
+    score: l?.score||'', notes: l?.notes||'',
+    lease_expiration: l?.lease_expiration||'', in_place_rent: l?.in_place_rent||'',
+    lease_type: l?.lease_type||'',
+  };
 }
 
 const WARN_STAGES = ['WARN notice filed','Closure confirmed permanent','Identify decision maker','Contact property owner','Qualify relocation needs','Convert to active deal'];
@@ -115,27 +142,11 @@ export default function LeadDetail({ lead, onClose, onRefresh, fullPage = false,
   const [showOutreachForm, setShowOutreachForm] = useState(false);
   const [outreachForm,     setOutreachForm]   = useState({ method:'Call', outcome:'', contact_name:'', notes:'', outreach_date: new Date().toISOString().split('T')[0] });
   const [savingOutreach,   setSavingOutreach] = useState(false);
-  // Animated score bars
   const [barsAnimated,     setBarsAnimated]   = useState(false);
+  const [form,             setForm]           = useState(() => makeForm(lead));
 
-  const [form, setForm] = useState({
-    lead_name:lead?.lead_name||'', company:lead?.company||'', address:lead?.address||'',
-    city:lead?.city||'', market:lead?.market||'', building_sf:lead?.building_sf||'',
-    land_acres:lead?.land_acres||'', clear_height:lead?.clear_height||'',
-    dock_doors:lead?.dock_doors||'', grade_doors:lead?.grade_doors||'',
-    year_built:lead?.year_built||'', zoning:lead?.zoning||'', power_amps:lead?.power_amps||'',
-    parking_spaces:lead?.parking_spaces||'', stage:lead?.stage||'New',
-    priority:lead?.priority||'Medium', owner_type:lead?.owner_type||'',
-    source:lead?.source||'', score:lead?.score||'', notes:lead?.notes||'',
-    decision_maker:lead?.decision_maker||'', phone:lead?.phone||'', email:lead?.email||'',
-    lat:lead?.lat||'', lng:lead?.lng||'',
-    // Building specs in edit form
-    truck_court:lead?.truck_court||'', office_pct:lead?.office_pct||'',
-    office_sf:lead?.office_sf||'', sprinklers:lead?.sprinklers||'',
-    prop_type:lead?.prop_type||'', eave_height:lead?.eave_height||'',
-    column_spacing:lead?.column_spacing||'', bay_depth:lead?.bay_depth||'',
-    trailer_spots:lead?.trailer_spots||'', rail_served:lead?.rail_served||false,
-  });
+  // Sync form when lead prop changes (after onRefresh)
+  useEffect(() => { setForm(makeForm(lead)); }, [lead?.id, lead?.updated_at]);
 
   const l = lead || {};
   const catalysts = parseCatalysts(l.catalyst_tags);
@@ -146,6 +157,7 @@ export default function LeadDetail({ lead, onClose, onRefresh, fullPage = false,
   const stages = isWarn ? WARN_STAGES : STD_STAGES;
   const bldg = calcBuildingScore(l);
   const warnDays = isWarn ? warnDaysLeft(l.warn_date || l.created_at) : null;
+  const scoreRingColor = bldg.total >= 70 ? 'var(--green)' : bldg.total >= 55 ? 'var(--blue)' : bldg.total >= 40 ? 'var(--amber)' : 'var(--rust)';
 
   const stageIdx = isWarn ? (() => {
     const s = (l.stage||'').toLowerCase();
@@ -159,15 +171,11 @@ export default function LeadDetail({ lead, onClose, onRefresh, fullPage = false,
 
   useEffect(() => { if (l.id) { loadActivities(); loadContacts(); loadApns(); loadOutreachLog(); } }, [l.id]);
 
-  // Animate score bars when specs card opens
   useEffect(() => {
-    if (specsOpen) {
-      setBarsAnimated(false);
-      setTimeout(() => setBarsAnimated(true), 80);
-    }
+    if (specsOpen) { setBarsAnimated(false); setTimeout(() => setBarsAnimated(true), 80); }
   }, [specsOpen]);
 
-  // Typewriter effect for synthesis
+  // Typewriter effect
   useEffect(() => {
     if (!synth) { setSynthDisplayed(''); return; }
     if (synth === synthDisplayed) return;
@@ -211,51 +219,40 @@ export default function LeadDetail({ lead, onClose, onRefresh, fullPage = false,
   async function loadOutreachLog() {
     try { const sb = createClient(); const { data } = await sb.from('buyer_outreach').select('*').eq('lead_id', l.id).order('outreach_date', { ascending:false }).limit(50); setOutreachLog(data||[]); } catch {}
   }
+  async function addApn(apnVal) {
+    if (!apnVal.trim()) return;
+    try { const sb = createClient(); await sb.from('property_apns').insert({ lead_id:l.id, apn:apnVal.trim() }); loadApns(); } catch(e) { alert('Error: '+e.message); }
+  }
 
   async function runSynthesis() {
-    setSynthLoading(true);
-    setSynth('');
-    setSynthDisplayed('');
+    setSynthLoading(true); setSynth(''); setSynthDisplayed('');
     try {
       const acts = activities.slice(0,5).map(a => `${a.activity_type||a.subject}: ${a.notes||''}`).join(' | ');
       const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [{
-            role: 'user',
-            content: `Senior CRE broker analyzing industrial real estate lead in SGV/IE Southern California.
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ messages:[{ role:'user', content:
+`Senior CRE broker analyzing industrial real estate lead in SGV/IE Southern California.
 
 LEAD: ${l.lead_name||l.company} | ${l.address||'—'}, ${l.city||''}
 Market: ${l.market||'—'} | SF: ${l.building_sf ? Number(l.building_sf).toLocaleString()+' SF' : '—'} | Clear: ${l.clear_height ? l.clear_height+"'" : '—'} | Docks: ${l.dock_doors||'—'} | Built: ${l.year_built||'—'}
-Building Score: ${bldg.total}/100 (${bldg.grade})
-Owner: ${l.owner_type||'—'} | Stage: ${l.stage||'New'} | Lead Score: ${score}/100 (${grade})
+Building Score: ${bldg.total}/100 (${bldg.grade}) | Owner: ${l.owner_type||'—'} | Stage: ${l.stage||'New'} | Lead Score: ${score}/100 (${grade})
 Catalysts: ${catalysts.map(c=>c?.tag||c).join(', ')||'None'}
-Notes: ${l.notes||'None'} | DM: ${l.decision_maker||'Not identified'}
-Activity: ${acts||'None'}
+Notes: ${l.notes||'None'} | DM: ${l.decision_maker||'Not identified'} | Activity: ${acts||'None'}
 
-Write synthesis with these exact sections:
+Write synthesis:
 Current Situation (2-3 bullets starting with –)
 Key Contacts (1-2 bullets starting with –)
-Recommended Next Steps (3 numbered: 1. Today: ... 2. 48 hrs: ... 3. Week 1: ...)
-Critical insight sentence at end
-
-Be specific, reference actual data, 200 words max.`
-          }]
-        }),
+Recommended Next Steps (1. Today: ... 2. 48 hrs: ... 3. Week 1: ...)
+Critical insight sentence at end. 200 words max.` }] }),
       });
       const data = await res.json();
       const text = data.content?.[0]?.text || 'Synthesis unavailable.';
-      setSynth(text);
-      setSynthTs(new Date().toISOString());
+      setSynth(text); setSynthTs(new Date().toISOString());
       const sb = createClient();
       await sb.from('leads').update({ ai_synthesis:text, ai_synthesis_at:new Date().toISOString() }).eq('id', l.id);
       onRefresh?.();
-    } catch(e) {
-      setSynth('Unable to generate synthesis — check AI API connection.');
-    } finally {
-      setSynthLoading(false);
-    }
+    } catch { setSynth('Unable to generate synthesis — check AI API connection.'); }
+    finally { setSynthLoading(false); }
   }
 
   async function logActivity(type) {
@@ -263,14 +260,7 @@ Be specific, reference actual data, 200 words max.`
     setSaving(true);
     try {
       const sb = createClient();
-      await sb.from('activities').insert({
-        lead_id: l.id,
-        activity_type: type,
-        subject: type==='call'?'Phone Call':type==='email'?'Email':type==='task'?'Task':'Note',
-        notes: logText,
-        activity_date: new Date().toISOString().split('T')[0],
-        completed: false,
-      });
+      await sb.from('activities').insert({ lead_id:l.id, activity_type:type, subject:type==='call'?'Phone Call':type==='email'?'Email':type==='task'?'Task':'Note', notes:logText, activity_date:new Date().toISOString().split('T')[0], completed:false });
       setLogPanel(null); setLogText(''); setLogContact('');
       loadActivities(); onRefresh?.();
     } catch(e) { alert('Error: '+e.message); }
@@ -284,7 +274,7 @@ Be specific, reference actual data, 200 words max.`
       const sb = createClient();
       await sb.from('buyer_outreach').insert({ lead_id:l.id, direction:'outbound', method:outreachForm.method, outcome:outreachForm.outcome, contact_name:outreachForm.contact_name||null, notes:outreachForm.notes||null, outreach_date:outreachForm.outreach_date });
       setShowOutreachForm(false);
-      setOutreachForm({ method:'Call', outcome:'', contact_name:'', notes:'', outreach_date: new Date().toISOString().split('T')[0] });
+      setOutreachForm({ method:'Call', outcome:'', contact_name:'', notes:'', outreach_date:new Date().toISOString().split('T')[0] });
       loadOutreachLog(); onRefresh?.();
     } catch(e) { alert('Error: '+e.message); }
     finally { setSavingOutreach(false); }
@@ -294,46 +284,60 @@ Be specific, reference actual data, 200 words max.`
     setSaving(true);
     try {
       const sb = createClient();
+      const bsfRaw = form.building_sf ? parseInt(String(form.building_sf).replace(/,/g,'')) : null;
+      const bldgCalc = calcBuildingScore({ ...l, ...form, building_sf: bsfRaw });
       const { error } = await sb.from('leads').update({
-        lead_name:form.lead_name, company:form.company, address:form.address, city:form.city, market:form.market,
-        building_sf:form.building_sf?parseInt(String(form.building_sf).replace(/,/g,'')):null,
-        land_acres:form.land_acres?parseFloat(form.land_acres):null,
-        clear_height:form.clear_height?parseFloat(form.clear_height):null,
-        dock_doors:form.dock_doors?parseInt(form.dock_doors):null,
-        grade_doors:form.grade_doors?parseInt(form.grade_doors):null,
-        year_built:form.year_built?parseInt(form.year_built):null,
-        zoning:form.zoning||null, power_amps:form.power_amps||null,
-        parking_spaces:form.parking_spaces?parseInt(form.parking_spaces):null,
-        stage:form.stage, priority:form.priority, owner_type:form.owner_type||null,
-        source:form.source||null, score:form.score?Number(form.score):null,
-        notes:form.notes||null, decision_maker:form.decision_maker||null,
-        phone:form.phone||null, email:form.email||null,
-        lat:form.lat?parseFloat(form.lat):null, lng:form.lng?parseFloat(form.lng):null,
-        // Building specs
-        truck_court:form.truck_court?parseFloat(form.truck_court):null,
-        office_pct:form.office_pct?parseFloat(form.office_pct):null,
-        office_sf:form.office_sf?parseInt(form.office_sf):null,
-        sprinklers:form.sprinklers||null,
-        prop_type:form.prop_type||null,
-        eave_height:form.eave_height?parseFloat(form.eave_height):null,
-        column_spacing:form.column_spacing||null,
-        bay_depth:form.bay_depth?parseFloat(form.bay_depth):null,
-        trailer_spots:form.trailer_spots?parseInt(form.trailer_spots):null,
-        rail_served:form.rail_served||false,
-        updated_at:new Date().toISOString(),
+        lead_name: form.lead_name, company: form.company, address: form.address,
+        city: form.city, market: form.market, source: form.source||null,
+        building_sf: bsfRaw,
+        land_acres: form.land_acres ? parseFloat(form.land_acres) : null,
+        lot_sf: form.lot_sf ? parseInt(String(form.lot_sf).replace(/,/g,'')) : null,
+        clear_height: form.clear_height ? parseFloat(form.clear_height) : null,
+        eave_height: form.eave_height ? parseFloat(form.eave_height) : null,
+        dock_doors: form.dock_doors ? parseInt(form.dock_doors) : null,
+        grade_doors: form.grade_doors ? parseInt(form.grade_doors) : null,
+        truck_court_depth: form.truck_court_depth ? parseFloat(form.truck_court_depth) : null,
+        trailer_spots: form.trailer_spots ? parseInt(form.trailer_spots) : null,
+        yard_depth: form.yard_depth ? parseFloat(form.yard_depth) : null,
+        year_built: form.year_built ? parseInt(form.year_built) : null,
+        power_amps: form.power_amps ? parseFloat(form.power_amps) : null,
+        power_volts: form.power_volts||null,
+        office_pct: form.office_pct ? parseFloat(form.office_pct) : null,
+        office_sf: form.office_sf ? parseInt(String(form.office_sf).replace(/,/g,'')) : null,
+        column_spacing: form.column_spacing||null,
+        bay_depth: form.bay_depth ? parseFloat(form.bay_depth) : null,
+        parking_spaces: form.parking_spaces ? parseInt(form.parking_spaces) : null,
+        skylight_pct: form.skylight_pct ? parseFloat(form.skylight_pct) : null,
+        zoning: form.zoning||null,
+        prop_type: form.prop_type||null,
+        sprinklers: form.sprinklers||null,
+        evap_cooler: !!form.evap_cooler,
+        rail_served: !!form.rail_served,
+        stage: form.stage, priority: form.priority,
+        owner_type: form.owner_type||null,
+        decision_maker: form.decision_maker||null,
+        phone: form.phone||null, email: form.email||null,
+        lat: form.lat ? parseFloat(form.lat) : null,
+        lng: form.lng ? parseFloat(form.lng) : null,
+        score: form.score ? Number(form.score) : null,
+        notes: form.notes||null,
+        lease_expiration: form.lease_expiration||null,
+        in_place_rent: form.in_place_rent ? parseFloat(form.in_place_rent) : null,
+        lease_type: form.lease_type||null,
+        // Write back calculated building score
+        building_score: bldgCalc.total,
+        building_grade: bldgCalc.grade,
+        updated_at: new Date().toISOString(),
       }).eq('id', l.id);
       if (error) throw error;
-      setEditing(false); onRefresh?.();
+      setEditing(false);
+      onRefresh?.();
     } catch(e) { alert('Error: '+e.message); }
     finally { setSaving(false); }
   }
 
   async function updateStage(newStage) {
-    try {
-      const sb = createClient();
-      await sb.from('leads').update({ stage:newStage, updated_at:new Date().toISOString() }).eq('id', l.id);
-      onRefresh?.();
-    } catch(e) { alert('Error: '+e.message); }
+    try { const sb = createClient(); await sb.from('leads').update({ stage:newStage, updated_at:new Date().toISOString() }).eq('id', l.id); onRefresh?.(); } catch(e) { alert('Error: '+e.message); }
   }
 
   async function setCadenceAndTask(val) {
@@ -387,9 +391,8 @@ Be specific, reference actual data, 200 words max.`
         prop_type:l.prop_type||'Warehouse', notes:l.notes, lat:l.lat, lng:l.lng,
       }).select('id').single();
       if (error) throw error;
-      onRefresh?.();
-      router.push(`/properties/${prop.id}`);
-    } catch(e) { alert('Error creating property: '+e.message); }
+      onRefresh?.(); router.push(`/properties/${prop.id}`);
+    } catch(e) { alert('Error: '+e.message); }
   }
 
   const iS = { width:'100%', padding:'8px 12px', borderRadius:7, border:'1px solid var(--card-border)', background:'rgba(0,0,0,0.025)', fontFamily:'var(--font-ui)', fontSize:13, color:'var(--text-primary)', outline:'none' };
@@ -402,9 +405,13 @@ Be specific, reference actual data, 200 words max.`
       <span style={{ fontSize:13, color:'var(--text-primary)', textAlign:'right', maxWidth:160, ...vStyle }}>{v||'—'}</span>
     </div>
   );
+  const sectionHead = (title) => (
+    <div style={{ fontSize:11, fontWeight:600, letterSpacing:'0.09em', textTransform:'uppercase', color:'var(--text-tertiary)', marginBottom:10, marginTop:4, borderBottom:'1px solid var(--card-border)', paddingBottom:8 }}>{title}</div>
+  );
   const methodColor = { Call:'var(--blue)', Email:'var(--purple)', Text:'var(--green)', 'In-Person':'var(--rust)', Letter:'var(--amber)', LinkedIn:'var(--blue)' };
 
-  const scoreRingColor = bldg.total >= 70 ? 'var(--green)' : bldg.total >= 55 ? 'var(--blue)' : bldg.total >= 40 ? 'var(--amber)' : 'var(--rust)';
+  // APN input state
+  const [newApn, setNewApn] = useState('');
 
   return (
     <div style={{ fontFamily:'var(--font-ui)', background:'var(--bg)' }}>
@@ -417,7 +424,7 @@ Be specific, reference actual data, 200 words max.`
           <span style={{ color:'var(--text-primary)', fontWeight:500 }}>{l.lead_name||l.company}</span>
         </div>
         <div style={{ marginLeft:'auto', display:'flex', gap:7, flexShrink:0 }}>
-          <button style={btn} onClick={()=>setEditing(e=>!e)}>Edit</button>
+          <button style={btn} onClick={()=>setEditing(e=>!e)}>{editing ? 'Cancel Edit' : 'Edit'}</button>
           <button style={btn} onClick={()=>setLogPanel(p=>p==='note'?null:'note')}>+ Activity</button>
           <button style={btn} onClick={()=>setLogPanel(p=>p==='task'?null:'task')}>+ Task</button>
           <a href={`https://maps.google.com/?q=${encodeURIComponent((l.address||'')+' '+(l.city||''))}`} target="_blank" rel="noopener noreferrer" style={{ ...btn, textDecoration:'none' }}>Google Maps</a>
@@ -431,7 +438,6 @@ Be specific, reference actual data, 200 words max.`
       <div style={{ height:280, position:'relative', overflow:'hidden' }}>
         <div ref={mapRef} style={{ width:'100%', height:280 }} />
         <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top,rgba(10,8,5,0.82) 0%,rgba(10,8,5,0.15) 55%,transparent 100%)', pointerEvents:'none', zIndex:400 }} />
-        {/* LD-5: WARN countdown banner */}
         {isWarn && warnDays !== null && warnDays >= 0 && (
           <div style={{ position:'absolute', top:0, left:0, right:0, zIndex:600, background:'rgba(184,55,20,0.92)', backdropFilter:'blur(8px)', padding:'8px 28px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
             <div style={{ display:'flex', alignItems:'center', gap:10 }}>
@@ -457,7 +463,7 @@ Be specific, reference actual data, 200 words max.`
         </div>
       </div>
 
-      {/* ACTION BAR — Log actions only, no duplicates */}
+      {/* ACTION BAR — log actions only */}
       <div style={{ background:'var(--bg)', borderBottom:'1px solid var(--card-border)', padding:'10px 28px', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
         {score > 0 && (
           <>
@@ -490,63 +496,76 @@ Be specific, reference actual data, 200 words max.`
         </div>
       )}
 
-      {/* EDIT FORM — identity + ALL building specs */}
+      {/* EDIT FORM */}
       {editing && (
         <div style={{ background:'#F8F6F2', borderBottom:'1px solid var(--card-border)', padding:'20px 28px' }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-            <span style={{ fontSize:14, fontWeight:600 }}>Edit Lead</span>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+            <span style={{ fontSize:15, fontWeight:600 }}>Edit Lead</span>
             <div style={{ display:'flex', gap:8 }}>
               <button style={btn} onClick={()=>setEditing(false)}>Cancel</button>
-              <button style={{ ...btn, background:'var(--blue)', borderColor:'var(--blue)', color:'#fff' }} onClick={saveEdit} disabled={saving}>{saving?'Saving...':'Save'}</button>
+              <button style={{ ...btn, background:'var(--blue)', borderColor:'var(--blue)', color:'#fff', fontWeight:600 }} onClick={saveEdit} disabled={saving}>{saving?'Saving...':'Save All Changes'}</button>
             </div>
           </div>
 
-          {/* Identity */}
-          <div style={{ fontSize:11, fontWeight:600, letterSpacing:'0.09em', textTransform:'uppercase', color:'var(--text-tertiary)', marginBottom:10, borderBottom:'1px solid var(--card-border)', paddingBottom:8 }}>Identity</div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
-            {[['lead_name','Lead Name'],['company','Company'],['address','Address'],['city','City'],['market','Market'],['decision_maker','Decision Maker'],['phone','Phone'],['email','Email'],['lat','Latitude'],['lng','Longitude']].map(([k,label])=>(
+          {sectionHead('Identity')}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:24 }}>
+            {[['lead_name','Lead Name'],['company','Company'],['address','Address'],['city','City'],['market','Market'],['source','Source'],['decision_maker','Decision Maker'],['phone','Phone'],['email','Email'],['lat','Latitude'],['lng','Longitude']].map(([k,label])=>(
               <div key={k}><label style={lS}>{label}</label><input style={iS} value={form[k]||''} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} /></div>
             ))}
             <div><label style={lS}>Stage</label><select style={iS} value={form.stage} onChange={e=>setForm(f=>({...f,stage:e.target.value}))}>{STD_STAGES.map(s=><option key={s}>{s}</option>)}</select></div>
             <div><label style={lS}>Owner Type</label><select style={iS} value={form.owner_type} onChange={e=>setForm(f=>({...f,owner_type:e.target.value}))}><option value="">Select...</option>{['Owner-User','Private LLC','Family Trust','Corp','Individual','REIT','Institutional'].map(o=><option key={o}>{o}</option>)}</select></div>
             <div><label style={lS}>Priority</label><select style={iS} value={form.priority} onChange={e=>setForm(f=>({...f,priority:e.target.value}))}>{['Critical','High','Medium','Low'].map(p=><option key={p}>{p}</option>)}</select></div>
-            <div><label style={lS}>Score</label><input type="number" style={iS} value={form.score||''} onChange={e=>setForm(f=>({...f,score:e.target.value}))} min={1} max={100} /></div>
-            <div style={{ gridColumn:'1/-1' }}><label style={lS}>Notes</label><textarea style={{ ...iS, minHeight:72, resize:'vertical' }} value={form.notes||''} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} /></div>
+            <div><label style={lS}>Score (1-100)</label><input type="number" style={iS} value={form.score||''} onChange={e=>setForm(f=>({...f,score:e.target.value}))} min={1} max={100} /></div>
+            <div style={{ gridColumn:'1/-1' }}><label style={lS}>Notes</label><textarea style={{ ...iS, minHeight:90, resize:'vertical' }} value={form.notes||''} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} /></div>
           </div>
 
-          {/* Building Specs */}
-          <div style={{ fontSize:11, fontWeight:600, letterSpacing:'0.09em', textTransform:'uppercase', color:'var(--text-tertiary)', marginBottom:10, borderBottom:'1px solid var(--card-border)', paddingBottom:8 }}>Building Specs</div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
-            {[
-              ['building_sf','Building SF'],['land_acres','Land (AC)'],['clear_height',"Clear Ht (ft)"],['eave_height','Eave Ht (ft)'],
-              ['dock_doors','Dock Doors'],['grade_doors','Grade Doors'],['truck_court','Truck Court (ft)'],['trailer_spots','Trailer Spots'],
-              ['year_built','Year Built'],['power_amps','Power (A)'],['office_pct','Office % (0-100)'],['office_sf','Office SF'],
-              ['column_spacing','Column Spacing'],['bay_depth','Bay Depth (ft)'],['parking_spaces','Parking Spaces'],
-            ].map(([k,label])=>(
+          {sectionHead('Structure')}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:24 }}>
+            {[['building_sf','Building SF'],['land_acres','Land (AC)'],['lot_sf','Lot SF'],['clear_height','Clear Ht (ft)'],['eave_height','Eave Ht (ft)'],['year_built','Year Built'],['column_spacing','Column Spacing'],['bay_depth','Bay Depth (ft)'],['skylight_pct','Skylight %']].map(([k,label])=>(
               <div key={k}><label style={lS}>{label}</label><input style={iS} value={form[k]||''} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} placeholder="—" /></div>
             ))}
-            <div>
-              <label style={lS}>Prop Type</label>
+            <div><label style={lS}>Prop Type</label>
               <select style={iS} value={form.prop_type||''} onChange={e=>setForm(f=>({...f,prop_type:e.target.value}))}>
                 <option value="">Select...</option>
                 {['Warehouse / Distribution','Manufacturing','Flex / R&D','Food Processing','Cold Storage','Truck Terminal','IOS','Other'].map(o=><option key={o}>{o}</option>)}
               </select>
             </div>
-            <div>
-              <label style={lS}>Sprinklers</label>
+          </div>
+
+          {sectionHead('Loading & Yard')}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:24 }}>
+            {[['dock_doors','Dock Doors'],['grade_doors','Grade Doors'],['truck_court_depth','Truck Court (ft)'],['yard_depth','Yard Depth (ft)'],['trailer_spots','Trailer Spots'],['parking_spaces','Parking Spaces']].map(([k,label])=>(
+              <div key={k}><label style={lS}>{label}</label><input style={iS} value={form[k]||''} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} placeholder="—" /></div>
+            ))}
+          </div>
+
+          {sectionHead('Systems & Office')}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:24 }}>
+            {[['power_amps','Power (A)'],['power_volts','Voltage'],['office_pct','Office % (0-100)'],['office_sf','Office SF']].map(([k,label])=>(
+              <div key={k}><label style={lS}>{label}</label><input style={iS} value={form[k]||''} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} placeholder="—" /></div>
+            ))}
+            <div><label style={lS}>Zoning</label><input style={iS} value={form.zoning||''} onChange={e=>setForm(f=>({...f,zoning:e.target.value}))} placeholder="M1, M2, IL..." /></div>
+            <div><label style={lS}>Sprinklers</label>
               <select style={iS} value={form.sprinklers||''} onChange={e=>setForm(f=>({...f,sprinklers:e.target.value}))}>
                 <option value="">Unknown</option>
                 {['ESFR','Wet Pipe','Dry Pipe','None'].map(o=><option key={o}>{o}</option>)}
               </select>
             </div>
-            <div>
-              <label style={lS}>Zoning</label>
-              <input style={iS} value={form.zoning||''} onChange={e=>setForm(f=>({...f,zoning:e.target.value}))} placeholder="M1, M2, IL..." />
+            <div style={{ display:'flex', flexDirection:'column', gap:8, paddingTop:18 }}>
+              <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', fontSize:13 }}>
+                <input type="checkbox" checked={!!form.rail_served} onChange={e=>setForm(f=>({...f,rail_served:e.target.checked}))} /> Rail Served
+              </label>
+              <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', fontSize:13 }}>
+                <input type="checkbox" checked={!!form.evap_cooler} onChange={e=>setForm(f=>({...f,evap_cooler:e.target.checked}))} /> Evap Cooler
+              </label>
             </div>
-            <div style={{ display:'flex', alignItems:'center', gap:10, paddingTop:20 }}>
-              <input type="checkbox" id="rail_served" checked={!!form.rail_served} onChange={e=>setForm(f=>({...f,rail_served:e.target.checked}))} />
-              <label htmlFor="rail_served" style={{ fontSize:13, color:'var(--text-primary)', cursor:'pointer' }}>Rail Served</label>
-            </div>
+          </div>
+
+          {sectionHead('Lease Info')}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
+            {[['lease_expiration','Lease Expiration'],['in_place_rent','In-Place Rent ($/SF)'],['lease_type','Lease Type']].map(([k,label])=>(
+              <div key={k}><label style={lS}>{label}</label><input style={iS} value={form[k]||''} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} placeholder="—" /></div>
+            ))}
           </div>
         </div>
       )}
@@ -554,7 +573,7 @@ Be specific, reference actual data, 200 words max.`
       {/* INNER CONTENT */}
       <div style={{ padding:'18px 28px 0' }}>
 
-        {/* AI SYNTHESIS — LD-7 typewriter effect */}
+        {/* AI SYNTHESIS with typewriter */}
         <div style={{ ...card, border:'1px solid rgba(88,56,160,0.18)', borderLeft:'3px solid var(--purple)', marginBottom:16 }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'11px 16px 11px 20px', borderBottom:'1px solid rgba(88,56,160,0.12)', cursor:'pointer' }} onClick={()=>setSynthOpen(o=>!o)}>
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
@@ -567,14 +586,10 @@ Be specific, reference actual data, 200 words max.`
           {synthOpen && (
             <div style={{ padding:'16px 22px 18px' }}>
               {synthLoading
-                ? <div style={{ display:'flex', alignItems:'center', gap:10, color:'var(--purple)', fontSize:13.5 }}>
-                    <div className="cl-spinner" style={{ width:16, height:16, borderColor:'rgba(88,56,160,0.15)', borderTopColor:'var(--purple)' }} />
-                    Generating intelligence synthesis...
-                  </div>
+                ? <div style={{ display:'flex', alignItems:'center', gap:10, color:'var(--purple)', fontSize:13.5 }}><div className="cl-spinner" style={{ width:16, height:16, borderColor:'rgba(88,56,160,0.15)', borderTopColor:'var(--purple)' }} />Generating intelligence synthesis...</div>
                 : synthDisplayed
                   ? <div style={{ fontSize:13.5, lineHeight:1.75, color:'var(--text-primary)', whiteSpace:'pre-wrap' }}>
-                      {synthDisplayed}
-                      {synthDisplayed.length < synth.length && <span style={{ display:'inline-block', width:2, height:16, background:'var(--purple)', marginLeft:2, animation:'cl-cursor-blink 0.8s step-end infinite', verticalAlign:'text-bottom' }} />}
+                      {synthDisplayed}{synthDisplayed.length < synth.length && <span style={{ display:'inline-block', width:2, height:16, background:'var(--purple)', marginLeft:2, animation:'cl-cursor-blink 0.8s step-end infinite', verticalAlign:'text-bottom' }} />}
                     </div>
                   : <div style={{ fontSize:13.5, color:'var(--text-tertiary)', fontStyle:'italic' }}>No synthesis yet — click Generate to create an AI intelligence report for this lead.</div>
               }
@@ -591,21 +606,21 @@ Be specific, reference actual data, 200 words max.`
         <div style={{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', background:'var(--card-bg)', borderRadius:10, boxShadow:'0 1px 4px rgba(0,0,0,0.08)', border:'1px solid rgba(0,0,0,0.06)', overflow:'hidden', marginBottom:16 }}>
           {[
             { lbl:'Property SF', val:l.building_sf ? Number(l.building_sf).toLocaleString() : null, sub:l.owner_type||'Industrial' },
-            { lbl:'WARN Workers', val:isWarn ? (l.workers||'?') : null, sub:isWarn ? 'Filed '+fmtShort(l.created_at) : '—', rust:isWarn },
-            { lbl:'Market Rent', val:l.market_rent ? '$'+l.market_rent+'/SF' : null, sub:'NNN est.', blue:true },
-            { lbl:'Est. Value', val:l.est_value ? '$'+(l.est_value/1e6).toFixed(1)+'M' : l.building_sf ? '$'+(Math.round(Number(l.building_sf)*260/1e5)/10).toFixed(1)+'M est.' : null, sub:l.building_sf ? '~$260/SF market' : null },
+            { lbl:'WARN Workers', val:isWarn?(l.workers||'?'):null, sub:isWarn?'Filed '+fmtShort(l.created_at):'—', rust:isWarn },
+            { lbl:'Market Rent', val:l.market_rent?'$'+l.market_rent+'/SF':null, sub:'NNN est.', blue:true },
+            { lbl:'Est. Value', val:l.est_value?'$'+(l.est_value/1e6).toFixed(1)+'M':l.building_sf?'$'+(Math.round(Number(l.building_sf)*260/1e5)/10).toFixed(1)+'M est.':null, sub:l.building_sf?'~$260/SF market':null },
             { lbl:'Owner', val:l.company||l.lead_name||null, sub:l.owner_type||null, sm:true },
-            { lbl:'Lead Score', val:score > 0 ? score : null, sub:`Grade ${grade}`, rust:true },
+            { lbl:'Lead Score', val:score>0?score:null, sub:`Grade ${grade}`, rust:true },
           ].map((c,i) => (
-            <div key={c.lbl} style={{ padding:'13px 14px', borderRight:i<5 ? '1px solid rgba(0,0,0,0.06)' : 'none' }}>
+            <div key={c.lbl} style={{ padding:'13px 14px', borderRight:i<5?'1px solid rgba(0,0,0,0.06)':'none' }}>
               <div style={{ fontSize:10, fontWeight:600, letterSpacing:'0.09em', textTransform:'uppercase', color:'var(--text-tertiary)', marginBottom:5, fontFamily:'var(--font-mono)' }}>{c.lbl}</div>
-              <div style={{ fontFamily:c.sm ? "'Instrument Sans',sans-serif" : "'Playfair Display',serif", fontWeight:c.sm?400:700, fontSize:c.sm?14:22, color:c.rust?'var(--rust)':c.blue?'var(--blue)':'var(--text-primary)', lineHeight:1 }}>{c.val||'—'}</div>
+              <div style={{ fontFamily:c.sm?"'Instrument Sans',sans-serif":"'Playfair Display',serif", fontWeight:c.sm?400:700, fontSize:c.sm?14:22, color:c.rust?'var(--rust)':c.blue?'var(--blue)':'var(--text-primary)', lineHeight:1 }}>{c.val||'—'}</div>
               {c.sub && <div style={{ fontSize:11, color:c.rust?'var(--rust)':c.blue?'var(--blue)':'var(--text-tertiary)', marginTop:2, fontWeight:c.rust?500:400 }}>{c.sub}</div>}
             </div>
           ))}
         </div>
 
-        {/* BUILDING SCORE CARD — PD-2 animated bars + correct formula */}
+        {/* BUILDING SCORE CARD */}
         <div style={{ ...card, marginBottom:16 }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'13px 18px', cursor:'pointer' }} onClick={()=>setSpecsOpen(o=>!o)}>
             <div style={{ display:'flex', alignItems:'center', gap:14 }}>
@@ -620,24 +635,24 @@ Be specific, reference actual data, 200 words max.`
                 <div style={{ fontSize:12, color:'var(--text-tertiary)', marginTop:2 }}>
                   {bldg.total > 0
                     ? [l.clear_height&&`${l.clear_height}' clear`, l.dock_doors&&`${l.dock_doors} DH`, l.power_amps&&`${l.power_amps}A`, l.sprinklers&&l.sprinklers].filter(Boolean).join(' · ')
-                    : 'Add building specs — click Edit above'}
+                    : 'No specs yet — click Edit in the topbar to add building details'}
                 </div>
               </div>
             </div>
             <span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:13, fontStyle:'italic', color:'var(--blue)' }}>{specsOpen ? 'Hide specs ▴' : 'Show all specs ▾'}</span>
           </div>
 
-          {/* Quick spec strip */}
+          {/* Quick strip */}
           <div style={{ display:'flex', borderTop:'1px solid rgba(0,0,0,0.05)' }}>
             {[
               ['Clear Ht', l.clear_height ? `${l.clear_height}'` : '—'],
-              ['Dock Doors', l.dock_doors ? `${l.dock_doors} DH${l.grade_doors ? ` · ${l.grade_doors} GL` : ''}` : '—'],
-              ['Year Built', l.year_built || '—'],
-              ['Land (AC)', l.land_acres || '—'],
+              ['Dock Doors', l.dock_doors ? `${l.dock_doors} DH${l.grade_doors?` · ${l.grade_doors} GL`:''}` : '—'],
+              ['Year Built', l.year_built||'—'],
+              ['Land (AC)', l.land_acres||'—'],
               ['Power', l.power_amps ? `${l.power_amps}A` : '—'],
-              ['Truck Court', l.truck_court ? `${l.truck_court}'` : '—'],
+              ['Truck Court', (l.truck_court_depth||l.truck_court) ? `${l.truck_court_depth||l.truck_court}'` : '—'],
               ['Office %', l.office_pct != null ? `${l.office_pct}%` : '—'],
-              ['Prop Type', l.prop_type || 'Industrial'],
+              ['Prop Type', l.prop_type||'Industrial'],
             ].map((s,i) => (
               <div key={s[0]} style={{ flex:1, padding:'9px 10px', borderRight:i<7?'1px solid rgba(0,0,0,0.05)':'none', textAlign:'center' }}>
                 <div style={{ fontSize:9.5, color:'var(--text-tertiary)', letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:3 }}>{s[0]}</div>
@@ -646,24 +661,24 @@ Be specific, reference actual data, 200 words max.`
             ))}
           </div>
 
-          {/* PD-2: Animated score breakdown bars */}
+          {/* PD-2 Animated score breakdown */}
           {specsOpen && (
-            <div style={{ borderTop:'1px solid var(--card-border)', padding:'18px 20px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+            <div style={{ borderTop:'1px solid var(--card-border)', padding:'18px 20px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
               <div>
                 <div style={{ fontSize:11, fontWeight:600, letterSpacing:'0.09em', textTransform:'uppercase', color:'var(--text-tertiary)', marginBottom:12 }}>Score Breakdown</div>
-                {bldg.breakdown.map((b, i) => (
+                {bldg.breakdown.map((b,i) => (
                   <div key={b.label} style={{ marginBottom:10 }}>
                     <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:4 }}>
                       <span style={{ color:'var(--text-secondary)' }}>{b.label}</span>
-                      <span style={{ fontFamily:'var(--font-mono)', fontSize:11, color: b.pts > 0 ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>{b.pts}/{b.max}</span>
+                      <span style={{ fontFamily:'var(--font-mono)', fontSize:11, color:b.pts>0?'var(--text-primary)':'var(--text-tertiary)' }}>{b.pts}/{b.max}</span>
                     </div>
                     <div style={{ height:6, borderRadius:3, background:'rgba(0,0,0,0.07)', overflow:'hidden' }}>
-                      <div style={{ height:'100%', width: barsAnimated ? `${(b.pts/b.max)*100}%` : '0%', borderRadius:3, background: b.pts/b.max >= 0.8 ? 'var(--green)' : b.pts/b.max >= 0.5 ? 'var(--blue)' : b.pts > 0 ? 'var(--amber)' : 'transparent', transition:'width 0.6s ease', transitionDelay:`${i*0.08}s` }} />
+                      <div style={{ height:'100%', width:barsAnimated?`${(b.pts/b.max)*100}%`:'0%', borderRadius:3, background:b.pts/b.max>=0.8?'var(--green)':b.pts/b.max>=0.5?'var(--blue)':b.pts>0?'var(--amber)':'transparent', transition:'width 0.6s ease', transitionDelay:`${i*0.08}s` }} />
                     </div>
                   </div>
                 ))}
                 <div style={{ borderTop:'1px solid var(--card-border)', paddingTop:10, marginTop:6, display:'flex', justifyContent:'space-between' }}>
-                  <span style={{ fontSize:12, fontWeight:600, color:'var(--text-primary)' }}>Total</span>
+                  <span style={{ fontSize:12, fontWeight:600 }}>Total</span>
                   <span style={{ fontFamily:'var(--font-mono)', fontSize:12, fontWeight:700, color:scoreRingColor }}>{bldg.total}/100 · {bldg.grade}</span>
                 </div>
               </div>
@@ -671,36 +686,46 @@ Be specific, reference actual data, 200 words max.`
                 <div style={{ fontSize:11, fontWeight:600, letterSpacing:'0.09em', textTransform:'uppercase', color:'var(--text-tertiary)', marginBottom:12 }}>Full Specs</div>
                 {[
                   ['APN(s)', apns.map(a=>a.apn).join(', ')],
+                  ['Building SF', l.building_sf ? Number(l.building_sf).toLocaleString()+' SF' : null],
                   ['Lot SF', l.lot_sf ? Number(l.lot_sf).toLocaleString()+' SF' : null],
-                  ['Land AC', l.land_acres],
-                  ['Building SF', l.building_sf ? Number(l.building_sf).toLocaleString() : null],
+                  ['Land AC', l.land_acres ? l.land_acres+' AC' : null],
                   ['Clear Height', l.clear_height ? `${l.clear_height}'` : null],
                   ['Eave Height', l.eave_height ? `${l.eave_height}'` : null],
                   ['Dock Doors', l.dock_doors],
                   ['Grade Doors', l.grade_doors],
-                  ['Truck Court', l.truck_court ? `${l.truck_court}'` : null],
+                  ['Truck Court', (l.truck_court_depth||l.truck_court) ? `${l.truck_court_depth||l.truck_court}'` : null],
+                  ['Yard Depth', l.yard_depth ? `${l.yard_depth}'` : null],
                   ['Trailer Spots', l.trailer_spots],
+                  ['Parking', l.parking_spaces],
                   ['Year Built', l.year_built],
-                  ['Power', l.power_amps ? `${l.power_amps}A` : null],
+                  ['Power', l.power_amps ? `${l.power_amps}A${l.power_volts?' · '+l.power_volts+'V':''}` : null],
                   ['Sprinklers', l.sprinklers],
                   ['Office %', l.office_pct != null ? `${l.office_pct}%` : null],
+                  ['Skylight %', l.skylight_pct != null ? `${l.skylight_pct}%` : null],
+                  ['Column Spacing', l.column_spacing],
+                  ['Bay Depth', l.bay_depth ? `${l.bay_depth}'` : null],
                   ['Zoning', l.zoning],
                   ['Rail Served', l.rail_served ? 'Yes' : null],
+                  ['Evap Cooler', l.evap_cooler ? 'Yes' : null],
                 ].filter(([,v]) => v).map(([k,v]) => (
-                  <div key={k} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid rgba(0,0,0,0.04)' }}>
+                  <div key={k} style={{ display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:'1px solid rgba(0,0,0,0.04)' }}>
                     <span style={{ fontSize:12, color:'var(--text-tertiary)' }}>{k}</span>
                     <span style={{ fontFamily:'var(--font-mono)', fontSize:12, color:'var(--text-primary)' }}>{v}</span>
                   </div>
                 ))}
-                {bldg.total === 0 && (
-                  <div style={{ fontSize:13, color:'var(--text-tertiary)', fontStyle:'italic', marginTop:8 }}>
-                    No specs yet — click Edit in the topbar to add building details.
-                  </div>
-                )}
+                {bldg.total === 0 && <div style={{ fontSize:13, color:'var(--text-tertiary)', fontStyle:'italic' }}>No specs entered yet.</div>}
               </div>
             </div>
           )}
         </div>
+
+        {/* Notes display — always visible */}
+        {l.notes && (
+          <div style={{ ...card, marginBottom:16, padding:'14px 18px' }}>
+            <div style={{ fontSize:11, fontWeight:600, letterSpacing:'0.09em', textTransform:'uppercase', color:'var(--text-tertiary)', marginBottom:8 }}>Notes</div>
+            <div style={{ fontSize:13.5, lineHeight:1.7, color:'var(--text-primary)', whiteSpace:'pre-wrap' }}>{l.notes}</div>
+          </div>
+        )}
 
         {/* TABS */}
         <div style={{ display:'flex', borderBottom:'1px solid var(--card-border)', marginBottom:16 }}>
@@ -709,6 +734,7 @@ Be specific, reference actual data, 200 words max.`
               {t}
               {t==='Timeline' && activities.length>0 && <span style={{ fontFamily:'var(--font-mono)', fontSize:10, background:'rgba(0,0,0,0.06)', borderRadius:20, padding:'1px 6px', marginLeft:4 }}>{activities.length}</span>}
               {t==='Outreach Log' && outreachLog.length>0 && <span style={{ fontFamily:'var(--font-mono)', fontSize:10, background:'rgba(0,0,0,0.06)', borderRadius:20, padding:'1px 6px', marginLeft:4 }}>{outreachLog.length}</span>}
+              {t==='APNs' && apns.length>0 && <span style={{ fontFamily:'var(--font-mono)', fontSize:10, background:'rgba(0,0,0,0.06)', borderRadius:20, padding:'1px 6px', marginLeft:4 }}>{apns.length}</span>}
             </div>
           ))}
         </div>
@@ -716,7 +742,6 @@ Be specific, reference actual data, 200 words max.`
         {/* 2-COL BODY */}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 290px', gap:16 }}>
           <div>
-
             {/* TIMELINE */}
             {activeTab==='Timeline' && (
               <div style={card}>
@@ -726,7 +751,7 @@ Be specific, reference actual data, 200 words max.`
                   </div>
                   <div style={{ display:'flex', gap:6 }}>
                     {['call','email','note','task'].map(type => (
-                      <button key={type} onClick={()=>setLogPanel(p=>p===type?null:type)} style={{ padding:'5px 11px', borderRadius:6, fontSize:12, fontWeight:500, cursor:'pointer', border:'1px solid var(--card-border)', background:logPanel===type?'rgba(78,110,150,0.08)':'var(--card-bg)', borderColor:logPanel===type?'var(--blue-bdr)':'var(--card-border)', color:logPanel===type?'var(--blue)':'var(--text-tertiary)', fontFamily:'var(--font-ui)' }}>
+                      <button key={type} onClick={()=>setLogPanel(p=>p===type?null:type)} style={{ padding:'5px 11px', borderRadius:6, fontSize:12, fontWeight:500, cursor:'pointer', border:'1px solid var(--card-border)', background:logPanel===type?'rgba(78,110,150,0.08)':'var(--card-bg)', color:logPanel===type?'var(--blue)':'var(--text-tertiary)', fontFamily:'var(--font-ui)' }}>
                         {type==='call'?'Log Call':type==='email'?'Log Email':type==='note'?'Note':'+ Follow-Up'}
                       </button>
                     ))}
@@ -741,12 +766,10 @@ Be specific, reference actual data, 200 words max.`
                       </div>
                       <div style={{ flex:1 }}>
                         <div style={{ fontSize:13.5, color:'var(--text-primary)', lineHeight:1.4 }}>
-                          <strong>{a.subject || (a.activity_type?.charAt(0).toUpperCase()+a.activity_type?.slice(1))}</strong>
+                          <strong>{a.subject||(a.activity_type?.charAt(0).toUpperCase()+a.activity_type?.slice(1))}</strong>
                           {a.notes && <span style={{ fontWeight:400 }}> — {a.notes}</span>}
                         </div>
-                        <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:12, fontStyle:'italic', color:'var(--text-tertiary)', marginTop:2 }}>
-                          Briana Corso · {fmtDateTime(a.activity_date || a.created_at)}
-                        </div>
+                        <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:12, fontStyle:'italic', color:'var(--text-tertiary)', marginTop:2 }}>Briana Corso · {fmtDateTime(a.activity_date||a.created_at)}</div>
                       </div>
                     </div>
                   ))
@@ -759,9 +782,7 @@ Be specific, reference actual data, 200 words max.`
               <div style={card}>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'11px 16px', borderBottom:'1px solid var(--card-border)' }}>
                   <div style={{ fontSize:11, fontWeight:500, letterSpacing:'0.09em', textTransform:'uppercase', color:'var(--text-tertiary)' }}>Owner Outreach Log</div>
-                  <button onClick={()=>setShowOutreachForm(p=>!p)} style={{ ...btn, fontSize:12, padding:'5px 11px', background:showOutreachForm?'rgba(78,110,150,0.08)':'var(--card-bg)', borderColor:showOutreachForm?'var(--blue-bdr)':'var(--card-border)', color:showOutreachForm?'var(--blue)':'var(--text-secondary)' }}>
-                    {showOutreachForm ? 'Cancel' : '+ Log Outreach'}
-                  </button>
+                  <button onClick={()=>setShowOutreachForm(p=>!p)} style={{ ...btn, fontSize:12, padding:'5px 11px' }}>{showOutreachForm?'Cancel':'+ Log Outreach'}</button>
                 </div>
                 {showOutreachForm && (
                   <div style={{ padding:'16px', borderBottom:'1px solid var(--card-border)', background:'rgba(78,110,150,0.03)' }}>
@@ -782,17 +803,11 @@ Be specific, reference actual data, 200 words max.`
                   ? <div style={{ padding:'36px', textAlign:'center', fontFamily:"'Cormorant Garamond',serif", fontStyle:'italic', color:'var(--text-tertiary)', fontSize:15 }}>No outreach logged yet</div>
                   : outreachLog.map((entry,i) => (
                     <div key={entry.id||i} style={{ display:'flex', gap:12, padding:'12px 16px', borderBottom:i<outreachLog.length-1?'1px solid rgba(0,0,0,0.04)':'none' }}>
-                      <div style={{ width:32, height:32, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, background:`${methodColor[entry.method]||'var(--blue)'}18`, border:`1px solid ${methodColor[entry.method]||'var(--blue)'}40`, fontSize:12, color:methodColor[entry.method]||'var(--blue)', fontWeight:600 }}>
-                        {(entry.method||'?')[0]}
-                      </div>
+                      <div style={{ width:32, height:32, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, background:`${methodColor[entry.method]||'var(--blue)'}18`, border:`1px solid ${methodColor[entry.method]||'var(--blue)'}40`, fontSize:12, color:methodColor[entry.method]||'var(--blue)', fontWeight:600 }}>{(entry.method||'?')[0]}</div>
                       <div style={{ flex:1 }}>
                         <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3 }}>
                           <span style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)' }}>{entry.method}</span>
-                          {entry.outcome && (
-                            <span style={{ fontSize:11, padding:'1px 7px', borderRadius:4, background:entry.outcome.includes('Interested')&&!entry.outcome.includes('Not')?'var(--green-bg)':entry.outcome.includes('Not Interested')?'var(--rust-bg)':'rgba(0,0,0,0.06)', color:entry.outcome.includes('Interested')&&!entry.outcome.includes('Not')?'var(--green)':entry.outcome.includes('Not Interested')?'var(--rust)':'var(--text-tertiary)', border:'1px solid rgba(0,0,0,0.08)' }}>
-                              {entry.outcome}
-                            </span>
-                          )}
+                          {entry.outcome && <span style={{ fontSize:11, padding:'1px 7px', borderRadius:4, background:entry.outcome.includes('Interested')&&!entry.outcome.includes('Not')?'var(--green-bg)':entry.outcome.includes('Not Interested')?'var(--rust-bg)':'rgba(0,0,0,0.06)', color:entry.outcome.includes('Interested')&&!entry.outcome.includes('Not')?'var(--green)':entry.outcome.includes('Not Interested')?'var(--rust)':'var(--text-tertiary)', border:'1px solid rgba(0,0,0,0.08)' }}>{entry.outcome}</span>}
                           {entry.contact_name && <span style={{ fontSize:12, color:'var(--text-tertiary)' }}>· {entry.contact_name}</span>}
                         </div>
                         {entry.notes && <div style={{ fontSize:13, color:'var(--text-secondary)', lineHeight:1.45 }}>{entry.notes}</div>}
@@ -804,11 +819,16 @@ Be specific, reference actual data, 200 words max.`
               </div>
             )}
 
+            {/* APNs — with add */}
             {activeTab==='APNs' && (
               <div style={card}>
-                <div style={{ padding:'11px 16px', borderBottom:'1px solid var(--card-border)', fontSize:11, fontWeight:500, letterSpacing:'0.09em', textTransform:'uppercase', color:'var(--text-tertiary)' }}>APNs</div>
+                <div style={{ padding:'11px 16px', borderBottom:'1px solid var(--card-border)', fontSize:11, fontWeight:500, letterSpacing:'0.09em', textTransform:'uppercase', color:'var(--text-tertiary)' }}>Parcel Numbers (APNs)</div>
+                <div style={{ padding:'12px 16px', borderBottom:'1px solid var(--card-border)', display:'flex', gap:8 }}>
+                  <input value={newApn} onChange={e=>setNewApn(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter'){addApn(newApn);setNewApn('');}}} placeholder="e.g. 8116-004-016" style={{ ...iS, flex:1, fontFamily:'var(--font-mono)', fontSize:13 }} />
+                  <button style={{ ...btn, background:'var(--blue)', borderColor:'var(--blue)', color:'#fff' }} onClick={()=>{addApn(newApn);setNewApn('');}}>+ Add APN</button>
+                </div>
                 {apns.length===0
-                  ? <div style={{ padding:'32px', textAlign:'center', fontFamily:"'Cormorant Garamond',serif", fontStyle:'italic', color:'var(--text-tertiary)', fontSize:15 }}>No APNs linked</div>
+                  ? <div style={{ padding:'32px', textAlign:'center', fontFamily:"'Cormorant Garamond',serif", fontStyle:'italic', color:'var(--text-tertiary)', fontSize:15 }}>No APNs linked yet — add one above</div>
                   : apns.map((apn,i) => (
                     <div key={apn.id||i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'11px 16px', borderBottom:i<apns.length-1?'1px solid rgba(0,0,0,0.04)':'none' }}>
                       <span style={{ fontFamily:'var(--font-mono)', fontSize:14 }}>{apn.apn}</span>
@@ -834,7 +854,7 @@ Be specific, reference actual data, 200 words max.`
                     ? <div style={{ padding:'32px', textAlign:'center', fontFamily:"'Cormorant Garamond',serif", fontStyle:'italic', color:'var(--text-tertiary)', fontSize:15 }}>No contacts linked yet</div>
                     : contacts.map((c,i) => (
                       <div key={c.id||i} style={{ padding:'12px 16px', borderBottom:i<contacts.length-1?'1px solid rgba(0,0,0,0.04)':'none', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                        <div><div style={{ fontSize:15, fontWeight:500 }}>{c.name||c.full_name}</div><div style={{ fontSize:13, color:'var(--text-tertiary)', marginTop:2 }}>{c.title}{c.company ? ` · ${c.company}` : ''}</div></div>
+                        <div><div style={{ fontSize:15, fontWeight:500 }}>{c.name||c.full_name}</div><div style={{ fontSize:13, color:'var(--text-tertiary)', marginTop:2 }}>{c.title}{c.company?` · ${c.company}`:''}</div></div>
                         {c.phone && <a href={`tel:${c.phone}`} style={{ fontSize:14, color:'var(--blue)', textDecoration:'none' }}>{c.phone}</a>}
                       </div>
                     ))
@@ -852,7 +872,6 @@ Be specific, reference actual data, 200 words max.`
           {/* RIGHT COL */}
           <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
 
-            {/* LD-5: Displacement Signal with countdown */}
             <div style={{ background:'var(--rust-bg)', border:'1px solid var(--rust-bdr)', borderRadius:10, overflow:'hidden', position:'relative' }}>
               <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3, background:'var(--rust)' }} />
               <div style={{ padding:'10px 14px 10px 18px', borderBottom:'1px solid var(--rust-bdr)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
@@ -860,9 +879,7 @@ Be specific, reference actual data, 200 words max.`
                   <span style={{ display:'inline-block', width:6, height:6, borderRadius:'50%', background:'var(--rust)', animation:'cl-pulse 1.5s ease-in-out infinite' }} />
                   <span style={{ fontSize:11, fontWeight:600, letterSpacing:'0.09em', textTransform:'uppercase', color:'var(--rust)' }}>AI Displacement Signal</span>
                 </div>
-                {isWarn && warnDays !== null && (
-                  <span style={{ fontFamily:'var(--font-mono)', fontSize:11, fontWeight:700, color:'var(--rust)' }}>{warnDays}d left</span>
-                )}
+                {isWarn && warnDays !== null && <span style={{ fontFamily:'var(--font-mono)', fontSize:11, fontWeight:700, color:'var(--rust)' }}>{warnDays}d left</span>}
               </div>
               <div style={{ padding:'13px 14px 13px 18px', fontSize:13, lineHeight:1.70, color:'var(--text-primary)' }}>
                 {isWarn ? 'Permanent closure signals immediate displacement. Industrial vacancy tight.' : `${catalysts.length} active catalyst signal${catalysts.length!==1?'s':''} detected.`}
@@ -870,7 +887,6 @@ Be specific, reference actual data, 200 words max.`
               </div>
             </div>
 
-            {/* Active Catalysts */}
             <div style={card}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 16px', borderBottom:'1px solid var(--card-border)' }}>
                 <span style={{ fontSize:11, fontWeight:500, letterSpacing:'0.09em', textTransform:'uppercase', color:'var(--text-tertiary)' }}>Active Catalysts</span>
@@ -891,11 +907,7 @@ Be specific, reference actual data, 200 words max.`
                   const cs = getCatalystStyle(tagName);
                   return (
                     <div key={i} style={{ display:'flex', alignItems:'center', gap:9, padding:'8px 16px', borderBottom:i<catalysts.length-1?'1px solid rgba(0,0,0,0.04)':'none' }}>
-                      <span
-                        onClick={()=>{ if(onTagFilter){ onTagFilter(tagName); } else { router.push(`/leads?tag=${encodeURIComponent(tagName)}`); } }}
-                        title={`Filter by "${tagName}"`}
-                        style={{ display:'inline-flex', padding:'2px 7px', borderRadius:4, fontSize:11, fontWeight:500, border:`1px solid ${cs.bdr}`, background:cs.bg, color:cs.color, flexShrink:0, cursor:'pointer', userSelect:'none' }}
-                      >{tagName}</span>
+                      <span onClick={()=>{ if(onTagFilter){onTagFilter(tagName);}else{router.push(`/leads?tag=${encodeURIComponent(tagName)}`);}}} title={`Filter by "${tagName}"`} style={{ display:'inline-flex', padding:'2px 7px', borderRadius:4, fontSize:11, fontWeight:500, border:`1px solid ${cs.bdr}`, background:cs.bg, color:cs.color, flexShrink:0, cursor:'pointer', userSelect:'none' }}>{tagName}</span>
                       <span style={{ fontSize:12.5, color:'var(--text-tertiary)', flex:1 }}>{c.priority||''}</span>
                       <button onClick={e=>{e.stopPropagation();removeTag(tagName);}} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-tertiary)', fontSize:14, lineHeight:1, padding:0, opacity:0.6 }}>×</button>
                     </div>
@@ -904,21 +916,15 @@ Be specific, reference actual data, 200 words max.`
               }
             </div>
 
-            {/* Opportunity Stages */}
             <div style={card}>
               <div style={{ padding:'10px 16px', borderBottom:'1px solid var(--card-border)', fontSize:11, fontWeight:500, letterSpacing:'0.09em', textTransform:'uppercase', color:'var(--text-tertiary)' }}>Opportunity Stages</div>
               <div style={{ padding:'8px 0 10px' }}>
                 {stages.map((stage,i) => {
-                  const isDone = i < stageIdx;
-                  const isActive = i === stageIdx;
+                  const isDone = i<stageIdx; const isActive = i===stageIdx;
                   return (
-                    <div key={stage} onClick={()=>updateStage(stage)}
-                      style={{ display:'flex', alignItems:'center', gap:12, padding:'9px 16px', borderRadius:7, margin:'2px 8px', cursor:'pointer', transition:'background 0.1s' }}
-                      onMouseEnter={e=>e.currentTarget.style.background='rgba(0,0,0,0.03)'}
-                      onMouseLeave={e=>e.currentTarget.style.background='transparent'}
-                    >
+                    <div key={stage} onClick={()=>updateStage(stage)} style={{ display:'flex', alignItems:'center', gap:12, padding:'9px 16px', borderRadius:7, margin:'2px 8px', cursor:'pointer', transition:'background 0.1s' }} onMouseEnter={e=>e.currentTarget.style.background='rgba(0,0,0,0.03)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                       <div style={{ width:24, height:24, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, flexShrink:0, background:isDone?'var(--green-bg)':isActive?'var(--amber-bg)':'rgba(0,0,0,0.04)', border:`1px solid ${isDone?'var(--green-bdr)':isActive?'var(--amber-bdr)':'rgba(0,0,0,0.1)'}`, color:isDone?'var(--green)':isActive?'var(--amber)':'var(--text-tertiary)' }}>
-                        {isDone ? '✓' : isActive ? '◉' : '○'}
+                        {isDone?'✓':isActive?'◉':'○'}
                       </div>
                       <span style={{ fontSize:13.5, color:isActive?'var(--amber)':isDone?'var(--text-tertiary)':'var(--text-secondary)', fontWeight:isActive?600:400 }}>{stage}</span>
                       {isActive && <span style={{ marginLeft:'auto', fontSize:10, fontFamily:'var(--font-mono)', color:'var(--amber)', opacity:0.7 }}>CURRENT</span>}
@@ -928,7 +934,6 @@ Be specific, reference actual data, 200 words max.`
               </div>
             </div>
 
-            {/* Owner */}
             <div style={card}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 16px', borderBottom:'1px solid var(--card-border)' }}>
                 <span style={{ fontSize:11, fontWeight:500, letterSpacing:'0.09em', textTransform:'uppercase', color:'var(--text-tertiary)' }}>Owner</span>
@@ -941,18 +946,18 @@ Be specific, reference actual data, 200 words max.`
               {l.email && spRow('Email', l.email, { color:'var(--blue)' })}
             </div>
 
-            {/* Lead Details */}
             <div style={card}>
               <div style={{ padding:'10px 16px', borderBottom:'1px solid var(--card-border)', fontSize:11, fontWeight:500, letterSpacing:'0.09em', textTransform:'uppercase', color:'var(--text-tertiary)' }}>Lead Details</div>
               {spRow('Stage', l.stage||'New', { color:'var(--blue)', fontWeight:500 })}
               {spRow('Source', l.source)}
               {spRow('Market', l.market)}
               {spRow('Priority', l.priority)}
+              {l.lease_expiration && spRow('Lease Exp', fmtDate(l.lease_expiration), { color:'var(--rust)' })}
+              {l.in_place_rent && spRow('In-Place Rent', '$'+l.in_place_rent+'/SF', { fontFamily:'var(--font-mono)', fontSize:12 })}
               {l.zoning && spRow('Zoning', l.zoning, { fontFamily:'var(--font-mono)', fontSize:12 })}
               {apns[0] && spRow('APN', apns[0].apn, { fontFamily:'var(--font-mono)', fontSize:12 })}
             </div>
 
-            {/* Readiness Score */}
             {l.readiness_score > 0 && (
               <div style={card}>
                 <div style={{ padding:'10px 16px', borderBottom:'1px solid var(--card-border)', fontSize:11, fontWeight:500, letterSpacing:'0.09em', textTransform:'uppercase', color:'var(--text-tertiary)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
@@ -978,7 +983,6 @@ Be specific, reference actual data, 200 words max.`
               </div>
             )}
 
-            {/* Cadence */}
             <div style={{ ...card, padding:'14px 16px' }}>
               <div style={{ fontSize:11, fontWeight:600, letterSpacing:'0.09em', textTransform:'uppercase', color:'var(--text-tertiary)', marginBottom:10 }}>Follow-up Cadence</div>
               <select value={cadence} onChange={e=>setCadenceAndTask(e.target.value)} style={{ ...iS, fontSize:13.5 }}>
@@ -988,28 +992,24 @@ Be specific, reference actual data, 200 words max.`
               {nextFollowUp && (
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10 }}>
                   <span style={{ fontSize:13, color:'var(--text-tertiary)' }}>Next follow-up</span>
-                  <span style={{ fontFamily:'var(--font-mono)', fontSize:13, fontWeight:600, color:isOverdue?'var(--rust)':'var(--text-primary)' }}>
-                    {isOverdue && '⚠ '}{fmtDate(nextFollowUp)}
-                  </span>
+                  <span style={{ fontFamily:'var(--font-mono)', fontSize:13, fontWeight:600, color:isOverdue?'var(--rust)':'var(--text-primary)' }}>{isOverdue&&'⚠ '}{fmtDate(nextFollowUp)}</span>
                 </div>
               )}
             </div>
-
           </div>
         </div>
 
-        {/* BOTTOM */}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginTop:14, paddingBottom:60 }}>
           <div style={card}>
             <div style={{ padding:'10px 16px', background:'rgba(0,0,0,0.02)', borderBottom:'1px solid var(--card-border)', fontSize:11, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', color:'var(--text-tertiary)' }}>Current Tenant</div>
             {spRow('Tenant', l.lead_name||l.company)}
-            {spRow('Departure', l.effective_date ? fmtDate(l.effective_date)+' (est.)' : '—', { color:'var(--rust)' })}
-            {spRow('WARN Filed', isWarn ? fmtDate(l.created_at) : '—')}
-            {spRow('Workers', l.workers ? `${l.workers} permanent` : '—', { color:'var(--rust)' })}
+            {spRow('Departure', l.effective_date?fmtDate(l.effective_date)+' (est.)':'—', { color:'var(--rust)' })}
+            {spRow('WARN Filed', isWarn?fmtDate(l.created_at):'—')}
+            {spRow('Workers', l.workers?`${l.workers} permanent`:'—', { color:'var(--rust)' })}
           </div>
           <div style={card}>
             <div style={{ padding:'10px 16px', background:'rgba(0,0,0,0.02)', borderBottom:'1px solid var(--card-border)', fontSize:11, fontWeight:700, letterSpacing:'0.07em', textTransform:'uppercase', color:'var(--text-tertiary)' }}>Opportunity Context</div>
-            {spRow('Est. Re-lease Rate', l.market_rent ? '$'+l.market_rent+'/SF' : '—', { color:'var(--blue)', fontFamily:'var(--font-mono)', fontSize:12 })}
+            {spRow('Est. Re-lease Rate', l.market_rent?'$'+l.market_rent+'/SF':'—', { color:'var(--blue)', fontFamily:'var(--font-mono)', fontSize:12 })}
             {spRow('Comp Range', l.comp_range||'—', { fontFamily:'var(--font-mono)', fontSize:12 })}
             {spRow('Broker Appointed', l.broker_appointed||'Not yet — window open', { color:!l.broker_appointed?'var(--rust)':'var(--text-primary)' })}
             <div style={{ padding:'14px 16px' }}>
@@ -1019,9 +1019,7 @@ Be specific, reference actual data, 200 words max.`
         </div>
       </div>
 
-      <style>{`
-        @keyframes cl-cursor-blink { 0%,100%{opacity:1} 50%{opacity:0} }
-      `}</style>
+      <style>{`@keyframes cl-cursor-blink { 0%,100%{opacity:1} 50%{opacity:0} }`}</style>
     </div>
   );
 }
